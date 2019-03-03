@@ -115,6 +115,7 @@ namespace librealsense
             return res != nullptr;
         }))
         {
+            printf("Nema devicea\n");
             throw std::runtime_error("No device connected");
         }
         return res;

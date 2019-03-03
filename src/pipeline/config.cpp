@@ -137,12 +137,14 @@ namespace librealsense
             }
 
             //Look for satisfy device in case the user did not specify one.
-            auto devs = pipe->get_context()->query_devices(RS2_PRODUCT_LINE_ANY_INTEL);
+            auto devs = pipe->get_context()->query_devices(RS2_PRODUCT_LINE_ANY/*_INTEL*/); //Trazi sve uredaje spojene na racunalo
             for (auto dev_info : devs)
             {
                 try
                 {
+                    printf("Stvaram device\n");
                     auto dev = dev_info->create_device(true);
+                    printf("Resolvam device\n");
                     _resolved_profile = resolve(dev);
                     return _resolved_profile;
                 }
@@ -153,13 +155,17 @@ namespace librealsense
             }
 
             //If no device found wait for one
+            printf("Cekamo novi device\n");
             auto dev = pipe->wait_for_device(timeout);
+            printf("Pricekali smo novi device\n");
             if (dev != nullptr)
             {
                 _resolved_profile = resolve(dev);
+                printf("Dobili smo novi device\n");
                 return _resolved_profile;
             }
 
+            printf("Trowamo\n");
             throw std::runtime_error("Failed to resolve request. No device found that satisfies all requirements");
 
             assert(0); //Unreachable code

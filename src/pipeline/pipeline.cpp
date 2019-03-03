@@ -16,7 +16,9 @@ namespace librealsense
             _dispatcher(10),
             _hub(ctx, RS2_PRODUCT_LINE_ANY_INTEL),
             _synced_streams({ RS2_STREAM_COLOR, RS2_STREAM_DEPTH, RS2_STREAM_INFRARED, RS2_STREAM_FISHEYE })
-        {}
+        {
+            printf("Stvoril sam pipeline\n");
+        }
 
         pipeline::~pipeline()
         {
@@ -57,7 +59,7 @@ namespace librealsense
         {
             std::shared_ptr<profile> profile = nullptr;
             //first try to get the previously resolved profile (if exists)
-            auto cached_profile = conf->get_cached_resolved_profile();
+            auto cached_profile = conf->get_cached_resolved_profile(); //ako postoji vec profil uzima taj profil
             if (cached_profile)
             {
                 profile = cached_profile;
@@ -69,17 +71,18 @@ namespace librealsense
                 {
                     try
                     {
-                        profile = conf->resolve(shared_from_this(), std::chrono::seconds(5));
+                        profile = conf->resolve(shared_from_this(), std::chrono::seconds(5)); //trazi kamere ustekane u laptop i vraca profile
+                        printf("Nasao sam profil\n");
                         break;
                     }
                     catch (...)
                     {
-                        if (i == NUM_TIMES_TO_RETRY)
+                        if (i == NUM_TIMES_TO_RETRY) {
                             throw;
+                        }
                     }
                 }
             }
-
             assert(profile);
             assert(profile->_multistream.get_profiles().size() > 0);
 
@@ -233,6 +236,7 @@ namespace librealsense
             frame_holder f;
             if (_aggregator->dequeue(&f, timeout_ms))
             {
+                printf("Vracam frame!\n");
                 return f;
             }
 

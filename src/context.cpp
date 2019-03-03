@@ -314,6 +314,31 @@ namespace librealsense
 #ifdef WITH_TRACKING
         if (_tm2_context) _tm2_context->create_manager();
 #endif
+        printf("Broj usb uredaja: %d\n",devices.usb_devices.size());
+        printf("Broj uvc uredaja: %d\n",_backend->query_uvc_devices().size());
+        printf("Broj hid uredaja: %d\n",_backend->query_hid_devices().size());
+
+        for (int broj_usb_uredaja = 0; broj_usb_uredaja < devices.usb_devices.size(); broj_usb_uredaja++) {
+            printf("Broj usb uredaja: %d\n", broj_usb_uredaja);
+            printf("     ID: %s\n", _backend->query_usb_devices()[broj_usb_uredaja].id.c_str());
+            printf("     unique_id: %s\n", _backend->query_usb_devices()[broj_usb_uredaja].unique_id.c_str());
+            printf("     serial: %s\n", _backend->query_usb_devices()[broj_usb_uredaja].serial.c_str());
+            printf("     vid: %04x\n", _backend->query_usb_devices()[broj_usb_uredaja].vid);
+            printf("     pid: %04x\n", _backend->query_usb_devices()[broj_usb_uredaja].pid);
+            printf("     mi: %d\n", _backend->query_usb_devices()[broj_usb_uredaja].mi);
+        }
+
+        for (int broj_uvc_uredaja = 0; broj_uvc_uredaja < devices.uvc_devices.size(); broj_uvc_uredaja++) {
+            printf("Broj usb uredaja: %d\n", broj_uvc_uredaja);
+            printf("     ID: %s\n", _backend->query_uvc_devices()[broj_uvc_uredaja].id.c_str());
+            printf("     unique_id: %s\n", _backend->query_uvc_devices()[broj_uvc_uredaja].unique_id.c_str());
+            printf("     serial: %s\n", _backend->query_uvc_devices()[broj_uvc_uredaja].serial.c_str());
+            printf("     vid: %d\n", _backend->query_uvc_devices()[broj_uvc_uredaja].vid);
+            printf("     pid: %d\n", _backend->query_uvc_devices()[broj_uvc_uredaja].pid);
+            printf("     mi: %d\n", _backend->query_uvc_devices()[broj_uvc_uredaja].mi);
+        }
+        printf("MASK: %04x\n", mask);
+
         return create_devices(devices, _playback_devices, mask);
     }
 
@@ -356,7 +381,9 @@ namespace librealsense
         if (mask & RS2_PRODUCT_LINE_NON_INTEL)
         {
             auto uvc_devices = platform_camera_info::pick_uvc_devices(ctx, devices.uvc_devices);
+            printf("List size prije prvi: %d\n", list.size());
             std::copy(begin(uvc_devices), end(uvc_devices), std::back_inserter(list));
+            printf("List size prvi: %d\n", list.size());
         }
 
         for (auto&& item : playback_devices)
@@ -365,6 +392,7 @@ namespace librealsense
                 list.push_back(dev);
         }
 
+        printf("List size: %d\n", list.size());
         return list;
     }
 

@@ -48,7 +48,6 @@
 
 const size_t MAX_DEV_PARENT_DIR = 10;
 
-
 #ifdef ANDROID
 
 // https://android.googlesource.com/platform/bionic/+/master/libc/include/bits/lockf.h
@@ -452,12 +451,25 @@ namespace librealsense
                 libusb_device * usb_device = list[i];
                 libusb_config_descriptor *config;
                 status = libusb_get_active_config_descriptor(usb_device, &config);
+
+                /*//////////////////////////////////////*/
+                //DODANO
+                /*//////////////////////////////////////*/
+                libusb_device_descriptor desc;
+                usb_device_info info{};
+                int r = libusb_get_device_descriptor(usb_device, &desc);
+                if (r >= 0) {
+                    info.vid = desc.idVendor;
+                    info.pid = desc.idProduct;
+                }
+                /*/////////////////////////////////////*/
+
                 if(status == 0)
                 {
                     auto parent_device = libusb_get_parent(usb_device);
                     if (parent_device)
                     {
-                        usb_device_info info{};
+                        //usb_device_info info{};
                         auto usb_params = get_usb_descriptors(usb_device);
                         info.unique_id = std::get<0>(usb_params);
                         info.conn_spec = static_cast<usb_spec>(std::get<1>(usb_params));
@@ -466,7 +478,6 @@ namespace librealsense
                     }
                     libusb_free_config_descriptor(config);
                 }
-
             }
             libusb_free_device_list(list, 1);
         }
