@@ -81,10 +81,11 @@ void rs2_context_unload_tracking_module(rs2_context* ctx, rs2_error** error);
 rs2_device_list* rs2_query_devices(const rs2_context* context, rs2_error** error);
 
 #define RS2_PRODUCT_LINE_ANY        0xff
-#define RS2_PRODUCT_LINE_ANY_INTEL  0xfe
+#define RS2_PRODUCT_LINE_ANY_INTEL  0xf6 //0xfe
 #define RS2_PRODUCT_LINE_NON_INTEL  0x01
 #define RS2_PRODUCT_LINE_D400       0x02
 #define RS2_PRODUCT_LINE_SR300      0x04
+#define RS2_PRODUCT_LINE_CS         0x09
 
 /**
 * create a static snapshot of all connected devices at the time of the call

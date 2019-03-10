@@ -323,6 +323,7 @@ namespace librealsense
 
             multistream resolve(device_interface* dev)
             {
+                printf("Pa VALJAAAA SAM TUUUU\n");
                  auto mapping = map_streams(dev);
 
                 // If required, make sure we've succeeded at opening

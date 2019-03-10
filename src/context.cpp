@@ -19,6 +19,7 @@
 #include "stream.h"
 #include "environment.h"
 #include "context.h"
+#include "cs/cs.h"
 
 #ifdef WITH_TRACKING
 #include "tm2/tm-info.h"
@@ -250,6 +251,7 @@ namespace librealsense
                         bool register_device_notifications)
             : device(ctx, group, register_device_notifications)
         {
+            printf("Stvaram platform cameru\n");
             std::vector<std::shared_ptr<platform::uvc_device>> devs;
             for (auto&& info : uvc_infos)
                 devs.push_back(ctx->get_backend().create_uvc_device(info));
@@ -257,6 +259,7 @@ namespace librealsense
                                                                      std::make_shared<platform::multi_pins_uvc_device>(devs),
                                                                      std::unique_ptr<ds5_timestamp_reader>(new ds5_timestamp_reader(environment::get_instance().get_time_service())));
             add_sensor(color_ep);
+            printf("Dodal sam color sensor\n");
 
             register_info(RS2_CAMERA_INFO_NAME, "Platform Camera");
             std::string pid_str(to_string() << std::setfill('0') << std::setw(4) << std::hex << uvc_infos.front().pid);
@@ -280,6 +283,8 @@ namespace librealsense
             color_ep->try_register_pu(RS2_OPTION_WHITE_BALANCE);
             color_ep->try_register_pu(RS2_OPTION_ENABLE_AUTO_EXPOSURE);
             color_ep->try_register_pu(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
+            printf("Registriral je svasta\n");
+
         }
 
         virtual rs2_intrinsics get_intrinsics(unsigned int subdevice, const stream_profile& profile) const
@@ -290,6 +295,7 @@ namespace librealsense
         std::vector<tagged_profile> get_profiles_tags() const override
         {
             std::vector<tagged_profile> markers;
+            printf("Neki markeri pitaj boga koji\n");
             markers.push_back({ RS2_STREAM_COLOR, -1, 640, 480, RS2_FORMAT_RGB8, 30, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
             return markers;
         };
@@ -381,9 +387,13 @@ namespace librealsense
         if (mask & RS2_PRODUCT_LINE_NON_INTEL)
         {
             auto uvc_devices = platform_camera_info::pick_uvc_devices(ctx, devices.uvc_devices);
-            printf("List size prije prvi: %d\n", list.size());
             std::copy(begin(uvc_devices), end(uvc_devices), std::back_inserter(list));
-            printf("List size prvi: %d\n", list.size());
+        }
+
+        if (mask & RS2_PRODUCT_LINE_CS)
+        {
+            auto cs_devices = cs_info::pick_cs_devices(ctx, devices.usb_devices);
+            std::copy(begin(cs_devices), end(cs_devices), std::back_inserter(list));
         }
 
         for (auto&& item : playback_devices)
@@ -587,6 +597,21 @@ namespace librealsense
         }
         return result;
     }
+    //dodano
+    std::vector<std::vector<platform::usb_device_info>> group_devices_by_unique_id(const std::vector<platform::usb_device_info>& devices)
+    {
+        std::map<std::string, std::vector<platform::usb_device_info>> map;
+        for (auto&& info : devices)
+        {
+            map[info.unique_id].push_back(info);
+        }
+        std::vector<std::vector<platform::usb_device_info>> result;
+        for (auto&& kvp : map)
+        {
+            result.push_back(kvp.second);
+        }
+        return result;
+    }
 
     // TODO: Sergey
     // Make template
@@ -622,6 +647,36 @@ namespace librealsense
                 return true;
         }
         return false;
+    }
+
+    bool mi_present(const std::vector<platform::usb_device_info>& devices, uint32_t mi)
+    {
+        for (auto&& info : devices)
+        {
+            if (info.mi == mi)
+                return true;
+        }
+        return false;
+    }
+
+    bool vid_present(const std::vector<platform::usb_device_info>& devices, uint16_t vid)
+    {
+        for (auto&& info : devices)
+        {
+            if (info.vid == vid)
+                return true;
+        }
+        return false;
+    }
+
+    platform::usb_device_info get_vid(const std::vector<platform::usb_device_info>& devices, uint16_t vid)
+    {
+        for (auto&& info : devices)
+        {
+            if (info.vid == vid)
+                return info;
+        }
+        throw invalid_value_exception("Interface not found!");
     }
 
     platform::uvc_device_info get_mi(const std::vector<platform::uvc_device_info>& devices, uint32_t mi)

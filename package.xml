@@ -29,6 +29,7 @@
 
   <depend>libusb-1.0-dev</depend>
   <depend>linux-headers-generic</depend>
+  <depend>CameraSuite</depend>
   <depend>libssl-dev</depend>
   <depend>dkms</depend>
   <depend>udev</depend>

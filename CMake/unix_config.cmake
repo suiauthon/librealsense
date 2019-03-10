@@ -48,5 +48,5 @@ macro(os_target_config)
     endif(LIBUSB1_FOUND)
 
     target_include_directories(${LRS_TARGET} PRIVATE ${LIBUSB1_INCLUDE_DIRS})
-    target_link_libraries(${LRS_TARGET} PRIVATE ${LIBUSB1_LIBRARIES})
+    target_link_libraries(${LRS_TARGET} PRIVATE ${LIBUSB1_LIBRARIES} ${CAMERASUITE_LIBRARY})
 endmacro()

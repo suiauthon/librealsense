@@ -285,8 +285,11 @@ namespace librealsense
         if (_uvc_profiles.empty()){}
             _uvc_profiles = _device->get_profiles();
 
+        printf("Tu uzima neke profile s uredaja broj: %d\n", _uvc_profiles.size());
+
         for (auto&& p : _uvc_profiles)
         {
+            printf("Neki parametri profila: fps: %d, width: %d, height: %d\n", p.fps, p.width, p.height);
             supported_formats.insert(p.format);
             native_pixel_format pf{};
             if (try_get_pf(p, pf))
@@ -392,6 +395,7 @@ namespace librealsense
 
     void uvc_sensor::open(const stream_profiles& requests)
     {
+        printf("E MAJKEMI DA SAM TUUUU!!!!\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("open(...) failed. UVC device is streaming!");
@@ -594,6 +598,7 @@ namespace librealsense
 
     void uvc_sensor::start(frame_callback_ptr callback)
     {
+        printf("STARTAAAM\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("start_streaming(...) failed. UVC device is already streaming!");

@@ -9,6 +9,7 @@ include(${_rel_path}/mock/CMakeLists.txt)
 include(${_rel_path}/proc/CMakeLists.txt)
 include(${_rel_path}/res/CMakeLists.txt)
 include(${_rel_path}/pipeline/CMakeLists.txt)
+include(${_rel_path}/cs/CMakeLists.txt)
 
 if(FORCE_LIBUVC)
     include(${_rel_path}/libuvc/CMakeLists.txt)

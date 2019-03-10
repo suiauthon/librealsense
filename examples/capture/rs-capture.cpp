@@ -20,13 +20,18 @@ int main(int argc, char * argv[]) try
     // Declare RealSense pipeline, encapsulating the actual device and sensors
     rs2::pipeline pipe;
 
+    printf("Nakon konstruktora\n");
+
     // Start streaming with default recommended configuration
     // The default video configuration contains Depth and Color streams
     // If a device is capable to stream IMU data, both Gyro and Accelerometer are enabled by default
     pipe.start();
 
+    printf("Nakon starta\n");
+
     while (app) // Application still alive?
     {
+        printf("\n");
         rs2::frameset data2;
         rs2::frameset data = pipe.wait_for_frames();//.    // Wait for next set of frames from the camera
                              //apply_filter(printer).     // Print each enabled stream frame rate
@@ -36,7 +41,9 @@ int main(int argc, char * argv[]) try
         printf("Time stamp: %f\n", data.get_timestamp());
         // The show method, when applied on frameset, break it to frames and upload each frame into a gl textures
         // Each texture is displayed on different viewport according to it's stream unique id
+        printf("Pokazi ga\n");
         app.show(data);
+        printf("Nakon pokazivanja\n");
     }
 
     return EXIT_SUCCESS;
