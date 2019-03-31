@@ -314,6 +314,29 @@ namespace librealsense
                 (a.device_path == b.device_path);
         }
 
+        struct cs_device_info
+        {
+            std::string id;
+
+            std::string serial;
+
+            operator std::string()
+            {
+                std::stringstream s;
+
+                s << "serial- " << serial;
+
+                return s.str();
+            }
+        };
+
+        inline bool operator==(const cs_device_info& a,
+                               const cs_device_info& b)
+        {
+            return  (a.id == b.id) &&
+                    (a.serial == b.serial);
+        }
+
         struct playback_device_info
         {
             std::string file_path;
@@ -597,8 +620,18 @@ namespace librealsense
             backend_device_group(const std::vector<uvc_device_info>& uvc_devices, const std::vector<usb_device_info>& usb_devices, const std::vector<hid_device_info>& hid_devices)
                 :uvc_devices(uvc_devices), usb_devices(usb_devices), hid_devices(hid_devices) {}
 
+            //DODANO
+            backend_device_group(const std::vector<uvc_device_info>& uvc_devices,
+                                 const std::vector<usb_device_info>& usb_devices,
+                                 const std::vector<hid_device_info>& hid_devices,
+                                 const std::vector<cs_device_info>& cs_devices)
+                    :uvc_devices(uvc_devices), usb_devices(usb_devices), hid_devices(hid_devices), cs_devices(cs_devices) {}
+
             backend_device_group(const std::vector<usb_device_info>& usb_devices)
                 :usb_devices(usb_devices) {}
+
+            backend_device_group(const std::vector<cs_device_info>& cs_devices)
+                    :cs_devices(cs_devices) {}
 
             backend_device_group(const std::vector<uvc_device_info>& uvc_devices, const std::vector<usb_device_info>& usb_devices)
                 :uvc_devices(uvc_devices), usb_devices(usb_devices) {}
@@ -608,6 +641,7 @@ namespace librealsense
             std::vector<uvc_device_info> uvc_devices;
             std::vector<usb_device_info> usb_devices;
             std::vector<hid_device_info> hid_devices;
+            std::vector<cs_device_info> cs_devices;
             std::vector<playback_device_info> playback_devices;
             std::vector<tm2_device_info> tm2_devices;
 

@@ -23,7 +23,9 @@ namespace librealsense
           _on_open(nullptr),
           _owner(dev),
           _profiles([this]() {
+              printf("Kad kvragu radim to\n");
                 auto profiles = this->init_stream_profiles();
+                printf("e sad ide ovo\n");
                 _owner->tag_profiles(profiles);
                 return profiles;
           })
@@ -266,6 +268,7 @@ namespace librealsense
         stream_profiles results;
         for (auto p : *_profiles)
         {
+            printf("Tu uzima te profile\n");
             auto curr_tag = p->get_tag();
             if (curr_tag & tag)
                 results.push_back(p);
@@ -289,11 +292,12 @@ namespace librealsense
 
         for (auto&& p : _uvc_profiles)
         {
-            printf("Neki parametri profila: fps: %d, width: %d, height: %d\n", p.fps, p.width, p.height);
+            printf("Neki parametri profila: fps: %d, width: %d, height: %d, format %d\n", p.fps, p.width, p.height, p.format);
             supported_formats.insert(p.format);
             native_pixel_format pf{};
             if (try_get_pf(p, pf))
             {
+                printf("NEMAMPOJMA KAJ JE TU\n");
                 for (auto&& unpacker : pf.unpackers)
                 {
                     for (auto&& output : unpacker.outputs)
@@ -377,6 +381,7 @@ namespace librealsense
 
     void sensor_base::register_pixel_format(native_pixel_format pf)
     {
+        printf("Registrriram pixel formate\n");
         if (_pixel_formats.end() == std::find_if(_pixel_formats.begin(), _pixel_formats.end(),
             [&pf](const native_pixel_format& cur) { return cur.fourcc == pf.fourcc; }))
             _pixel_formats.push_back(pf);
@@ -395,7 +400,7 @@ namespace librealsense
 
     void uvc_sensor::open(const stream_profiles& requests)
     {
-        printf("E MAJKEMI DA SAM TUUUU!!!!\n");
+        printf("E MAJKEMI DA SAM TUUUU!!!! OPEN\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("open(...) failed. UVC device is streaming!");
@@ -421,6 +426,7 @@ namespace librealsense
                 _device->probe_and_commit(mode.profile,
                 [this, mode, timestamp_reader, requests, last_frame_number, last_timestamp](platform::stream_profile p, platform::frame_object f, std::function<void()> continuation) mutable
                 {
+                    printf("KAAAAAAA\n");
                     auto system_time = environment::get_instance().get_time_service()->get_time();
                     if (!this->is_streaming())
                     {
@@ -436,7 +442,9 @@ namespace librealsense
                     // Ignore any frames which appear corrupted or invalid
                     // Determine the timestamp for this frame
                     auto timestamp = timestamp_reader->get_frame_timestamp(mode, f);
+                    printf("Timestamp callback: %lf\n", timestamp);
                     auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(mode, f);
+                    printf("Timestamp domain callback: %d\n", timestamp_domain);
                     auto frame_counter = timestamp_reader->get_frame_counter(mode, f);
 
                     auto requires_processing = mode.requires_processing();
@@ -632,6 +640,7 @@ namespace librealsense
 
     void uvc_sensor::acquire_power()
     {
+        printf("POWWWEEERRRRR\n");
         std::lock_guard<std::mutex> lock(_power_lock);
         if (_user_count.fetch_add(1) == 0)
         {

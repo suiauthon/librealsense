@@ -316,32 +316,33 @@ namespace librealsense
     std::vector<std::shared_ptr<device_info>> context::query_devices(int mask) const
     {
 
-        platform::backend_device_group devices(_backend->query_uvc_devices(), _backend->query_usb_devices(), _backend->query_hid_devices());
+        platform::backend_device_group devices(_backend->query_uvc_devices(), _backend->query_usb_devices(), _backend->query_hid_devices(), cs_info::query_cs_devices());
 #ifdef WITH_TRACKING
         if (_tm2_context) _tm2_context->create_manager();
 #endif
+
         printf("Broj usb uredaja: %d\n",devices.usb_devices.size());
-        printf("Broj uvc uredaja: %d\n",_backend->query_uvc_devices().size());
-        printf("Broj hid uredaja: %d\n",_backend->query_hid_devices().size());
+        printf("Broj uvc uredaja: %d\n",devices.uvc_devices.size());
+        printf("Broj hid uredaja: %d\n",devices.hid_devices.size());
 
         for (int broj_usb_uredaja = 0; broj_usb_uredaja < devices.usb_devices.size(); broj_usb_uredaja++) {
             printf("Broj usb uredaja: %d\n", broj_usb_uredaja);
-            printf("     ID: %s\n", _backend->query_usb_devices()[broj_usb_uredaja].id.c_str());
-            printf("     unique_id: %s\n", _backend->query_usb_devices()[broj_usb_uredaja].unique_id.c_str());
-            printf("     serial: %s\n", _backend->query_usb_devices()[broj_usb_uredaja].serial.c_str());
-            printf("     vid: %04x\n", _backend->query_usb_devices()[broj_usb_uredaja].vid);
-            printf("     pid: %04x\n", _backend->query_usb_devices()[broj_usb_uredaja].pid);
-            printf("     mi: %d\n", _backend->query_usb_devices()[broj_usb_uredaja].mi);
+            printf("     ID: %s\n", devices.usb_devices[broj_usb_uredaja].id.c_str());
+            printf("     unique_id: %s\n", devices.usb_devices[broj_usb_uredaja].unique_id.c_str());
+            printf("     serial: %s\n", devices.usb_devices[broj_usb_uredaja].serial.c_str());
+            printf("     vid: %04x\n", devices.usb_devices[broj_usb_uredaja].vid);
+            printf("     pid: %04x\n", devices.usb_devices[broj_usb_uredaja].pid);
+            printf("     mi: %d\n", devices.usb_devices[broj_usb_uredaja].mi);
         }
 
         for (int broj_uvc_uredaja = 0; broj_uvc_uredaja < devices.uvc_devices.size(); broj_uvc_uredaja++) {
             printf("Broj usb uredaja: %d\n", broj_uvc_uredaja);
-            printf("     ID: %s\n", _backend->query_uvc_devices()[broj_uvc_uredaja].id.c_str());
-            printf("     unique_id: %s\n", _backend->query_uvc_devices()[broj_uvc_uredaja].unique_id.c_str());
-            printf("     serial: %s\n", _backend->query_uvc_devices()[broj_uvc_uredaja].serial.c_str());
-            printf("     vid: %d\n", _backend->query_uvc_devices()[broj_uvc_uredaja].vid);
-            printf("     pid: %d\n", _backend->query_uvc_devices()[broj_uvc_uredaja].pid);
-            printf("     mi: %d\n", _backend->query_uvc_devices()[broj_uvc_uredaja].mi);
+            printf("     ID: %s\n", devices.uvc_devices[broj_uvc_uredaja].id.c_str());
+            printf("     unique_id: %s\n", devices.uvc_devices[broj_uvc_uredaja].unique_id.c_str());
+            printf("     serial: %s\n", devices.uvc_devices[broj_uvc_uredaja].serial.c_str());
+            printf("     vid: %d\n", devices.uvc_devices[broj_uvc_uredaja].vid);
+            printf("     pid: %d\n", devices.uvc_devices[broj_uvc_uredaja].pid);
+            printf("     mi: %d\n", devices.uvc_devices[broj_uvc_uredaja].mi);
         }
         printf("MASK: %04x\n", mask);
 
@@ -392,7 +393,7 @@ namespace librealsense
 
         if (mask & RS2_PRODUCT_LINE_CS)
         {
-            auto cs_devices = cs_info::pick_cs_devices(ctx, devices.usb_devices);
+            auto cs_devices = cs_info::pick_cs_devices(ctx, devices.cs_devices);
             std::copy(begin(cs_devices), end(cs_devices), std::back_inserter(list));
         }
 

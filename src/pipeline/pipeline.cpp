@@ -90,7 +90,7 @@ namespace librealsense
 
             printf("Synced streams ids size: %d\n", synced_streams_ids.size());
             for (int i=0; i<synced_streams_ids.size(); i++) {
-                printf("Synced streams id[%d]: %d\n", synced_streams_ids[i]);
+                printf("Synced streams id[%d]: %d\n", i, synced_streams_ids[i]);
             }
 
             frame_callback_ptr callbacks = get_callback(synced_streams_ids);
@@ -206,7 +206,7 @@ namespace librealsense
             auto pipeline_process_callback = [&](frame_holder fref)
             {
                 printf("Tu mi dolazi novi frame i on se stavlja u aggregator\n");
-                printf("Frame number: %d\n", fref.frame->get_frame_number());
+                printf("Frame data: %d\n",fref.frame->get_frame_data()[0]);
                 _aggregator->invoke(std::move(fref));
             };
 
@@ -223,11 +223,13 @@ namespace librealsense
                 // if the user requested to sync the frame push it to the syncer, otherwise push it to the aggregator
                 if (std::find(synced_streams_ids.begin(), synced_streams_ids.end(), fref->get_stream()->get_unique_id()) != synced_streams_ids.end())
                 {
+                    printf("ide u syncer\n");
                     _syncer->invoke(std::move(fref));
                     printf("Stavi ga u syncer\n");
                 }
                 else
                 {
+                    printf("ide u agregator\n");
                     _aggregator->invoke(std::move(fref));
                     printf("Stavi ga u agregator\n");
                 }
@@ -257,6 +259,7 @@ namespace librealsense
             if (_aggregator->dequeue(&f, timeout_ms))
             {
                 printf("Vracam frame!\n");
+                printf("Frame data %d\n", f.frame->get_frame_data()[0]);
                 return f;
             }
 

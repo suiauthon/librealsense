@@ -141,7 +141,8 @@ public:
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, frame.get_data());
             break;
         default:
-            throw std::runtime_error("The requested format is not supported by this demo!");
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, frame.get_data());
+            //throw std::runtime_error("The requested format is not supported by this demo!");
         }
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -512,11 +513,14 @@ private:
         std::vector<rs2::frame> supported_frames;
         for (auto f : frames)
         {
-            if (can_render(f))
+            if (can_render(f)) {
                 supported_frames.push_back(f);
+            }
         }
-        if (supported_frames.empty())
+        if (supported_frames.empty()) {
+            printf("OVEEEEEEE\n");
             return;
+        }
 
         std::sort(supported_frames.begin(), supported_frames.end(), [](rs2::frame first, rs2::frame second)
         { return first.get_profile().stream_type() < second.get_profile().stream_type();  });
@@ -543,7 +547,7 @@ private:
         case RS2_FORMAT_MOTION_XYZ32F:
             return true;
         default:
-            return false;
+            return true; //promijeni
         }
     }
 

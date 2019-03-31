@@ -32,13 +32,15 @@ int main(int argc, char * argv[]) try
     while (app) // Application still alive?
     {
         printf("\n");
-        rs2::frameset data2;
         rs2::frameset data = pipe.wait_for_frames();//.    // Wait for next set of frames from the camera
                              //apply_filter(printer).     // Print each enabled stream frame rate
                              //apply_filter(color_map);   // Find and colorize the depth data
         printf("Size: %d\n", data.size());
         printf("Frame number: %d\n", data.get_frame_number());
         printf("Time stamp: %f\n", data.get_timestamp());
+        uint8_t *pointer_to_int;
+        pointer_to_int = (uint8_t *) data.get_data();
+        printf("Frame data %d\n", pointer_to_int[0]);
         // The show method, when applied on frameset, break it to frames and upload each frame into a gl textures
         // Each texture is displayed on different viewport according to it's stream unique id
         printf("Pokazi ga\n");

@@ -141,7 +141,7 @@ namespace librealsense
             }
 
             //Look for satisfy device in case the user did not specify one.
-            auto devs = pipe->get_context()->query_devices(RS2_PRODUCT_LINE_ANY/*_INTEL*/); //Trazi sve uredaje spojene na racunalo
+            auto devs = pipe->get_context()->query_devices(RS2_PRODUCT_LINE_CS/*RS2_PRODUCT_LINE_ANY/*_INTEL*/); //Trazi sve uredaje spojene na racunalo
             printf("Broj uredaja pronadenih na racunalu: %d\n", devs.size());
             for (auto dev_info : devs)
             {

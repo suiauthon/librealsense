@@ -456,11 +456,29 @@ namespace librealsense
                 //DODANO
                 /*//////////////////////////////////////*/
                 libusb_device_descriptor desc;
+                libusb_device_handle *devHandle = NULL;
                 usb_device_info info{};
                 int r = libusb_get_device_descriptor(usb_device, &desc);
                 if (r >= 0) {
                     info.vid = desc.idVendor;
                     info.pid = desc.idProduct;
+
+                    auto retVal = libusb_open(usb_device, &devHandle);
+                    if (retVal == LIBUSB_SUCCESS)
+                    {
+                        unsigned char strDesc[256];
+
+                        retVal = libusb_get_string_descriptor_ascii(devHandle, desc.iSerialNumber, strDesc, 256);
+
+                        if (retVal != 0)
+                        {
+                            std::stringstream ss;
+                            ss << strDesc;
+                            ss >> info.serial;
+                        }
+                        libusb_close(devHandle);
+                    }
+
                 }
                 /*/////////////////////////////////////*/
 
@@ -913,10 +931,12 @@ namespace librealsense
                 timersub(&expiration_time, &current_time, &remaining);
                 if (timercmp(&current_time, &expiration_time, <)) {
                     val = select(_max_fd + 1, &fds, NULL, NULL, &remaining);
+                    printf("Tu bi trebal pollati %d %d\n", remaining.tv_sec, remaining.tv_usec);
                 }
                 else {
                     val = 0;
                 }
+                printf("Samo jednom se zivi %d\n", _max_fd);
             } while (val < 0 && errno == EINTR);
 
             if(val < 0)
@@ -983,6 +1003,7 @@ namespace librealsense
                                     if (buf.bytesused > 0)
                                     {
                                         auto timestamp = (double)buf.timestamp.tv_sec*1000.f + (double)buf.timestamp.tv_usec/1000.f;
+                                        printf("Timestamp monotonic %f\n", timestamp);
                                         timestamp = monotonic_to_realtime(timestamp);
 
                                         // read metadata from the frame appendix
@@ -993,10 +1014,13 @@ namespace librealsense
                                         frame_object fo{ buffer->get_length_frame_only(), buf_mgr.metadata_size(),
                                             buffer->get_frame_start(), buf_mgr.metadata_start(), timestamp };
 
+                                        printf("Timestapm poll: %f\n", timestamp);
+
                                          buffer->attach_buffer(buf);
                                          buf_mgr.handle_buffer(e_video_buf,-1); // transfer new buffer request to the frame callback
 
                                          //Invoke user callback and enqueue next frame
+                                        printf("Sad se bude probudil callback %d\n", buffer->get_length_frame_only());
                                          _callback(_profile, fo,
                                                    [buf_mgr]() mutable {
                                              buf_mgr.request_next_frame();
@@ -1039,6 +1063,7 @@ namespace librealsense
 
         void v4l_uvc_device::set_power_state(power_state state)
         {
+            printf("SAM JA TU\n");
             if (state == D0 && _state == D3)
             {
                 map_device_descriptor();
@@ -1679,6 +1704,7 @@ namespace librealsense
 
         std::shared_ptr<uvc_device> v4l_backend::create_uvc_device(uvc_device_info info) const
         {
+            printf("Tu stvaram uvc device\n");
             auto v4l_uvc_dev = (!info.has_metadata_node) ? std::make_shared<v4l_uvc_device>(info) :
                                                            std::make_shared<v4l_uvc_meta_device>(info);
 
@@ -1703,6 +1729,7 @@ namespace librealsense
         }
         std::vector<usb_device_info> v4l_backend::query_usb_devices() const
         {
+            printf("Tu queryam usb device\n");
             libusb_context * usb_context = nullptr;
             int status = libusb_init(&usb_context);
             if(status < 0)
