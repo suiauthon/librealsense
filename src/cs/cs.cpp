@@ -77,6 +77,7 @@ namespace librealsense
 
         color_ep->register_pixel_format(pf_yuy2);
         color_ep->register_pixel_format(pf_yuyv);
+        color_ep->register_pixel_format(pf_y8);
 
         //TODO
         //napraviti ove registracije opcija
@@ -470,7 +471,7 @@ namespace librealsense
                     profile.height = (uint32_t)int64Value;
                 }
                 if (_connected_device->GetStringNodeValue("PixelFormat", node_value)) {
-                    profile.format = 1498765654;//get_rs2_format(node_value);
+                    profile.format = 1196574041;//1498765654;//1196574041;//get_rs2_format(node_value);
                 }
 
                 profile.fps = 40;

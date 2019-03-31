@@ -141,8 +141,7 @@ public:
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, frame.get_data());
             break;
         default:
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, frame.get_data());
-            //throw std::runtime_error("The requested format is not supported by this demo!");
+            throw std::runtime_error("The requested format is not supported by this demo!");
         }
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -539,6 +538,7 @@ private:
     bool can_render(const rs2::frame& f) const
     {
         auto format = f.get_profile().format();
+
         switch (format)
         {
         case RS2_FORMAT_RGB8:
@@ -547,7 +547,7 @@ private:
         case RS2_FORMAT_MOTION_XYZ32F:
             return true;
         default:
-            return true; //promijeni
+            return false;
         }
     }
 

@@ -25,8 +25,17 @@ namespace librealsense
           _profiles([this]() {
               printf("Kad kvragu radim to\n");
                 auto profiles = this->init_stream_profiles();
+                printf("Profile size: %d\n",profiles.size());
                 printf("e sad ide ovo\n");
+                for (int i=0; i<profiles.size(); i++) {
+                    printf("Tag: %d\n",profiles[i]->get_tag());
+                    printf("Tag stream %d\n", profiles[i]->get_stream_type());
+                }
                 _owner->tag_profiles(profiles);
+                for (int i=0; i<profiles.size(); i++) {
+                    printf("Tag: %d\n",profiles[i]->get_tag());
+                }
+                printf("Profile size: %d\n",profiles.size());
                 return profiles;
           })
     {
@@ -111,6 +120,7 @@ namespace librealsense
         auto it = std::find_if(begin(_pixel_formats), end(_pixel_formats),
             [&p](const native_pixel_format& pf)
         {
+            printf("pf fourcc: %d, p fomrat %d\n", pf.fourcc, p.format);
             return pf.fourcc == p.format;
         });
         if (it != end(_pixel_formats))
@@ -270,9 +280,12 @@ namespace librealsense
         {
             printf("Tu uzima te profile\n");
             auto curr_tag = p->get_tag();
+            printf("curr Tag: %d, tag: %d\n", curr_tag, tag);
             if (curr_tag & tag)
                 results.push_back(p);
         }
+
+        printf("Stream profile size: %d\n",results.size());
 
         return results;
     }

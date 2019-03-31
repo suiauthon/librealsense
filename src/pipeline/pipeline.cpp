@@ -83,6 +83,8 @@ namespace librealsense
                     }
                 }
             }
+
+            printf("Profile size: %d\n", profile->_multistream.get_profiles().size());
             assert(profile);
             assert(profile->_multistream.get_profiles().size() > 0);
 
