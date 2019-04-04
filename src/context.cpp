@@ -345,6 +345,10 @@ namespace librealsense
             printf("     mi: %d\n", devices.uvc_devices[broj_uvc_uredaja].mi);
         }
         printf("MASK: %04x\n", mask);
+        
+        uint32_t marko = 'GREY';
+        
+        printf("Tu je marko %d\n", marko);
 
         return create_devices(devices, _playback_devices, mask);
     }

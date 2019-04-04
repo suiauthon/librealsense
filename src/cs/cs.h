@@ -132,7 +132,7 @@ namespace librealsense
         std::vector<tagged_profile> get_profiles_tags() const override
         {
             std::vector<tagged_profile> markers;
-            markers.push_back({ RS2_STREAM_ANY, -1, 2592, 2048, RS2_FORMAT_ANY, 40, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
+            markers.push_back({ RS2_STREAM_ANY, -1, 1296, 966, RS2_FORMAT_ANY, 40, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
             return markers;
         };
 
@@ -161,6 +161,7 @@ namespace librealsense
 
         stream_profiles init_stream_profiles() override
         {
+            printf("Initam stream profile CS kamere\n");
             auto lock = environment::get_instance().get_extrinsics_graph().lock();
 
             std::unordered_set<std::shared_ptr<video_stream_profile>> results;

@@ -43,6 +43,8 @@ namespace librealsense
         smcs_api->FindAllDevices(3.0);
         auto devices = smcs_api->GetAllDevices();
 
+        printf("Querijam devices!!!\n");
+
         for (int i = 0; i < devices.size(); i++)
         {
             auto info = platform::cs_device_info();
@@ -78,6 +80,8 @@ namespace librealsense
         color_ep->register_pixel_format(pf_yuy2);
         color_ep->register_pixel_format(pf_yuyv);
         color_ep->register_pixel_format(pf_y8);
+
+        printf("Tu neki pixeli %d\n", pf_y8.unpackers[0].outputs[0].format);
 
         //TODO
         //napraviti ove registracije opcija
@@ -462,13 +466,17 @@ namespace librealsense
             INT64 int64Value;
             std::string node_value;
 
+            printf("Getam profile CS kamere\n");
+
             if (this->connect())
             {
                 if (_connected_device->GetIntegerNodeValue("Width", int64Value)) {
                     profile.width = (uint32_t)int64Value;
+                    printf("WIDTH %d\n", profile.width);
                 }
                 if (_connected_device->GetIntegerNodeValue("Height", int64Value)) {
                     profile.height = (uint32_t)int64Value;
+                    printf("height %d\n", profile.height);
                 }
                 if (_connected_device->GetStringNodeValue("PixelFormat", node_value)) {
                     profile.format = 1196574041;//1498765654;//1196574041;//get_rs2_format(node_value);
@@ -575,12 +583,16 @@ namespace librealsense
                     }
                 }
 
+                if (_connected_device == NULL) printf("Koji kuraaaaaaac\n");
+
                 if (_connected_device != NULL && _connected_device->Connect())
                 {
                     printf("connect device\n");
                     _is_connected = true;
                 }
             }
+
+            printf("Je konektana: %d\n", _is_connected.load());
 
             return _is_connected;
         }
