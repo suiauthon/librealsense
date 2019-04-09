@@ -25,6 +25,8 @@
 #include "tm2/tm-info.h"
 #endif
 
+int librealsense::context::_objects_count = 0;
+
 template<unsigned... Is> struct seq{};
 template<unsigned N, unsigned... Is>
 struct gen_seq : gen_seq<N-1, N-1, Is...>{};
@@ -100,6 +102,8 @@ namespace librealsense
     {
         LOG_DEBUG("Librealsense " << std::string(std::begin(rs2_api_version),std::end(rs2_api_version)));
 
+        if (_objects_count == 0) smcs::InitCameraAPI();
+
         switch(type)
         {
         case backend_type::standard:
@@ -131,6 +135,8 @@ namespace librealsense
        environment::get_instance().set_time_service(_backend->create_time_service());
 
        _device_watcher = _backend->create_device_watcher();
+
+       _objects_count++;
     }
 
 
@@ -251,7 +257,6 @@ namespace librealsense
                         bool register_device_notifications)
             : device(ctx, group, register_device_notifications)
         {
-            printf("Stvaram platform cameru\n");
             std::vector<std::shared_ptr<platform::uvc_device>> devs;
             for (auto&& info : uvc_infos)
                 devs.push_back(ctx->get_backend().create_uvc_device(info));
@@ -259,7 +264,6 @@ namespace librealsense
                                                                      std::make_shared<platform::multi_pins_uvc_device>(devs),
                                                                      std::unique_ptr<ds5_timestamp_reader>(new ds5_timestamp_reader(environment::get_instance().get_time_service())));
             add_sensor(color_ep);
-            printf("Dodal sam color sensor\n");
 
             register_info(RS2_CAMERA_INFO_NAME, "Platform Camera");
             std::string pid_str(to_string() << std::setfill('0') << std::setw(4) << std::hex << uvc_infos.front().pid);
@@ -283,7 +287,6 @@ namespace librealsense
             color_ep->try_register_pu(RS2_OPTION_WHITE_BALANCE);
             color_ep->try_register_pu(RS2_OPTION_ENABLE_AUTO_EXPOSURE);
             color_ep->try_register_pu(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
-            printf("Registriral je svasta\n");
 
         }
 
@@ -295,7 +298,7 @@ namespace librealsense
         std::vector<tagged_profile> get_profiles_tags() const override
         {
             std::vector<tagged_profile> markers;
-            printf("Neki markeri pitaj boga koji\n");
+
             markers.push_back({ RS2_STREAM_COLOR, -1, 640, 480, RS2_FORMAT_RGB8, 30, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
             return markers;
         };
@@ -311,44 +314,18 @@ namespace librealsense
     context::~context()
     {
         _device_watcher->stop(); //ensure that the device watcher will stop before the _devices_changed_callback will be deleted
+
+        if (_objects_count > 0) _objects_count--;
+        if (_objects_count == 0) smcs::ExitCameraAPI();
     }
 
     std::vector<std::shared_ptr<device_info>> context::query_devices(int mask) const
     {
 
-        platform::backend_device_group devices(_backend->query_uvc_devices(), _backend->query_usb_devices(), _backend->query_hid_devices(), cs_info::query_cs_devices());
+        platform::backend_device_group devices(_backend->query_uvc_devices(), _backend->query_usb_devices(), _backend->query_hid_devices(), _backend->query_cs_devices());
 #ifdef WITH_TRACKING
         if (_tm2_context) _tm2_context->create_manager();
 #endif
-
-        printf("Broj usb uredaja: %d\n",devices.usb_devices.size());
-        printf("Broj uvc uredaja: %d\n",devices.uvc_devices.size());
-        printf("Broj hid uredaja: %d\n",devices.hid_devices.size());
-
-        for (int broj_usb_uredaja = 0; broj_usb_uredaja < devices.usb_devices.size(); broj_usb_uredaja++) {
-            printf("Broj usb uredaja: %d\n", broj_usb_uredaja);
-            printf("     ID: %s\n", devices.usb_devices[broj_usb_uredaja].id.c_str());
-            printf("     unique_id: %s\n", devices.usb_devices[broj_usb_uredaja].unique_id.c_str());
-            printf("     serial: %s\n", devices.usb_devices[broj_usb_uredaja].serial.c_str());
-            printf("     vid: %04x\n", devices.usb_devices[broj_usb_uredaja].vid);
-            printf("     pid: %04x\n", devices.usb_devices[broj_usb_uredaja].pid);
-            printf("     mi: %d\n", devices.usb_devices[broj_usb_uredaja].mi);
-        }
-
-        for (int broj_uvc_uredaja = 0; broj_uvc_uredaja < devices.uvc_devices.size(); broj_uvc_uredaja++) {
-            printf("Broj usb uredaja: %d\n", broj_uvc_uredaja);
-            printf("     ID: %s\n", devices.uvc_devices[broj_uvc_uredaja].id.c_str());
-            printf("     unique_id: %s\n", devices.uvc_devices[broj_uvc_uredaja].unique_id.c_str());
-            printf("     serial: %s\n", devices.uvc_devices[broj_uvc_uredaja].serial.c_str());
-            printf("     vid: %d\n", devices.uvc_devices[broj_uvc_uredaja].vid);
-            printf("     pid: %d\n", devices.uvc_devices[broj_uvc_uredaja].pid);
-            printf("     mi: %d\n", devices.uvc_devices[broj_uvc_uredaja].mi);
-        }
-        printf("MASK: %04x\n", mask);
-        
-        uint32_t marko = 'GREY';
-        
-        printf("Tu je marko %d\n", marko);
 
         return create_devices(devices, _playback_devices, mask);
     }
@@ -407,7 +384,6 @@ namespace librealsense
                 list.push_back(dev);
         }
 
-        printf("List size: %d\n", list.size());
         return list;
     }
 

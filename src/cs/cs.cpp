@@ -34,26 +34,21 @@ namespace librealsense
     std::vector<platform::cs_device_info> cs_info::query_cs_devices()
     {
         std::vector<platform::cs_device_info> results;
-
-        smcs::InitCameraAPI();
+        std::string string_node;
 
         auto smcs_api = smcs::GetCameraAPI();
-
-        smcs_api->SetHeartbeatTime(3);
-        smcs_api->FindAllDevices(3.0);
+        smcs_api->FindAllDevices(1);
         auto devices = smcs_api->GetAllDevices();
-
-        printf("Querijam devices!!!\n");
 
         for (int i = 0; i < devices.size(); i++)
         {
             auto info = platform::cs_device_info();
             info.serial = devices[i]->GetSerialNumber();
-            printf("Serial: %s/n", info.serial);
+            info.id = devices[i]->GetModelName();
+            info.info = devices[i]->GetManufacturerSpecificInfo();
+
             results.push_back(info);
         }
-
-        smcs::ExitCameraAPI();
 
         return results;
     }
@@ -70,7 +65,10 @@ namespace librealsense
 
         add_sensor(color_ep);
 
-        register_info(RS2_CAMERA_INFO_NAME, "CS Camera");
+        register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
+        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
+        register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
+
         //std::string pid_str(to_string() << std::setfill('0') << std::setw(4) << std::hex << hwm_device.pid);
         //std::transform(pid_str.begin(), pid_str.end(), pid_str.begin(), ::toupper);
 
@@ -79,9 +77,7 @@ namespace librealsense
 
         color_ep->register_pixel_format(pf_yuy2);
         color_ep->register_pixel_format(pf_yuyv);
-        color_ep->register_pixel_format(pf_y8);
-
-        printf("Tu neki pixeli %d\n", pf_y8.unpackers[0].outputs[0].format);
+        color_ep->register_pixel_format(pf_raw8);
 
         //TODO
         //napraviti ove registracije opcija
@@ -212,7 +208,6 @@ namespace librealsense
                                           (platform::stream_profile p, platform::frame_object f,
                                            std::function<void()> continuation) mutable
                                           {
-                                              printf("KAAAAAAA\n");
                                               auto system_time = environment::get_instance().get_time_service()->get_time();
                                               if (!this->is_streaming())
                                               {
@@ -222,7 +217,6 @@ namespace librealsense
                                                                       << ", Arrived," << std::fixed << f.backend_time << " " << system_time);
                                                   return;
                                               }
-                                              //Ne znam kaj s tim
                                               //frame_continuation release_and_enqueue(continuation, f.pixels);
 
                                               // Ignore any frames which appear corrupted or invalid
@@ -261,7 +255,7 @@ namespace librealsense
                                                       }
                                                   }
 
-                                                  auto bpp = 8;//get_image_bpp(output.format);
+                                                  auto bpp = get_image_bpp(output.format);
                                                   frame_additional_data additional_data(timestamp,
                                                                                         frame_counter,
                                                                                         system_time,
@@ -299,20 +293,16 @@ namespace librealsense
                                               // Unpack the frame
                                               if (requires_processing && (dest.size() > 0))
                                               {
-                                                  //unpacker.unpack(dest.data(), reinterpret_cast<const byte *>(f.pixels), mode.profile.width, mode.profile.height);
-                                                  byte *pointer_to_int;
-                                                  pointer_to_int = (byte *) (f.pixels);
-
-                                                  std::copy ( pointer_to_int, pointer_to_int+(mode.profile.width*mode.profile.height), dest[0] );
+                                                  unpacker.unpack(dest.data(), reinterpret_cast<const byte *>(f.pixels), mode.profile.width, mode.profile.height);
                                               }
 
                                               // If any frame callbacks were specified, dispatch them now
                                               for (auto&& pref : refs)
                                               {
-                                                  if (!requires_processing)
+                                                  /*if (!requires_processing)
                                                   {
-                                                      //pref->attach_continuation(std::move(release_and_enqueue));
-                                                  }
+                                                      pref->attach_continuation(std::move(release_and_enqueue));
+                                                  }*/
 
                                                   if (_on_before_frame_callback)
                                                   {
@@ -386,7 +376,6 @@ namespace librealsense
 
     void cs_sensor::close()
     {
-        printf("CLOSE\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("close() failed. UVC device is streaming!");
@@ -405,7 +394,6 @@ namespace librealsense
 
     void cs_sensor::start(frame_callback_ptr callback)
     {
-        printf("STARTAAAM\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("start_streaming(...) failed. UVC device is already streaming!");
@@ -420,7 +408,6 @@ namespace librealsense
 
     void cs_sensor::stop()
     {
-        printf("STOP\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (!_is_streaming)
             throw wrong_api_call_sequence_exception("stop_streaming() failed. UVC device is not streaming!");
@@ -435,7 +422,6 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_power_lock);
         if (_user_count.fetch_add(1) == 0)
         {
-            printf("Dajem snagu\n");
             _device->set_power_state(platform::D0);
         }
     }
@@ -445,7 +431,6 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_power_lock);
         if (_user_count.fetch_add(-1) == 1)
         {
-            printf("Relisam snagu\n");
             _device->set_power_state(platform::D3);
         }
     }
@@ -466,23 +451,21 @@ namespace librealsense
             INT64 int64Value;
             std::string node_value;
 
-            printf("Getam profile CS kamere\n");
-
             if (this->connect())
             {
                 if (_connected_device->GetIntegerNodeValue("Width", int64Value)) {
                     profile.width = (uint32_t)int64Value;
-                    printf("WIDTH %d\n", profile.width);
                 }
                 if (_connected_device->GetIntegerNodeValue("Height", int64Value)) {
                     profile.height = (uint32_t)int64Value;
-                    printf("height %d\n", profile.height);
                 }
                 if (_connected_device->GetStringNodeValue("PixelFormat", node_value)) {
-                    profile.format = 1196574041;//1498765654;//1196574041;//get_rs2_format(node_value);
+                    profile.format = 'GREY';
                 }
-
-                profile.fps = 40;
+                if (_connected_device->GetIntegerNodeValue("FPS", int64Value)) {
+                    profile.fps = (uint32_t)int64Value;
+                }
+                else profile.fps = 50;
 
                 all_stream_profiles.push_back(profile);
 
@@ -495,21 +478,13 @@ namespace librealsense
 
         void cs_device::close(stream_profile profile)
         {
-            printf("device close\n");
             if(_is_capturing)
             {
-                printf("Zatvaram stop data capture\n");
                 stop_data_capture();
             }
 
             if (_callback)
             {
-                // Release allocated buffers
-                //allocate_io_buffers(0);
-
-                // Release IO
-                //negotiate_kernel_buffers(0);
-
                 _callback = nullptr;
             }
 
@@ -521,13 +496,7 @@ namespace librealsense
             {
                 _error_handler = error_handler;
 
-                // Start capturing
-                printf("Startdam data capture\n");
                 start_data_capture();
-                //prepare_capture_buffers();
-
-                // Synchronise stream requests for meta and video data.
-                //streamon();
 
                 _is_capturing = true;
                 _thread = std::unique_ptr<std::thread>(new std::thread([this](){ capture_loop(); }));
@@ -545,65 +514,48 @@ namespace librealsense
 
             if (state == D0 && _power_state == D3)
             {
-                smcs::InitCameraAPI();
                 _smcs_api = smcs::GetCameraAPI();
-                _smcs_api->SetHeartbeatTime(3);
                 _power_state = D0;
             }
             if (state == D3 && _power_state == D0)
             {
-                smcs::ExitCameraAPI();
                 _power_state = D3;
             }
         }
 
         bool cs_device::connect(void)
         {
-            printf("Connect\n");
             std::lock_guard<std::mutex> lock(_power_lock);
 
             std::string serial;
 
-            printf("is connected: %d, powre state: %d\n", _is_connected.load(), _power_state);
-
             if (_power_state == D0 && !_is_connected)
             {
-                printf("Jesam li ja uopce ovde\n");
-                _smcs_api->FindAllDevices(3.0);
                 auto devices = _smcs_api->GetAllDevices();
 
                 for (int i = 0; i < devices.size(); i++)
                 {
-                    printf("Device %d\n",i);
                     serial = devices[i]->GetSerialNumber();
                     if (!serial.compare(_device_info.serial))
                     {
                         _connected_device = devices[i];
-                        printf("Serial number devicea:  %s\n", _device_info.serial);
                     }
                 }
 
-                if (_connected_device == NULL) printf("Koji kuraaaaaaac\n");
-
                 if (_connected_device != NULL && _connected_device->Connect())
                 {
-                    printf("connect device\n");
                     _is_connected = true;
                 }
             }
-
-            printf("Je konektana: %d\n", _is_connected.load());
 
             return _is_connected;
         }
 
         void cs_device::disconnect(void)
         {
-            printf("Disconnect\n");
             std::lock_guard<std::mutex> lock(_power_lock);
             if (_power_state == D0 && _is_connected)
             {
-                printf("disconnect device\n");
                 if (_connected_device != NULL)
                 {
                     _connected_device->Disconnect();
@@ -628,9 +580,6 @@ namespace librealsense
             _is_capturing = false;
             _is_started = false;
 
-            // Stop nn-demand frames polling
-                    //TODO
-            //signal_stop();
             if (_is_connected)
             {
                 _connected_device->CommandNodeExecute("AcquisitionStop");
@@ -640,9 +589,6 @@ namespace librealsense
 
             _thread->join();
             _thread.reset();
-
-            // Notify kernel
-            //streamoff();
         }
 
         void cs_device::start_data_capture()
@@ -684,7 +630,6 @@ namespace librealsense
 
             UINT32 src_pixel_type;
             UINT32 src_width, src_height;
-            //printf("POLL\n");
 
             if (_connected_device.IsValid() && _connected_device->IsConnected()) {
                 if (!_connected_device->IsBufferEmpty()) {
@@ -694,175 +639,21 @@ namespace librealsense
                     auto timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
 
                     auto im = smcs::IImageBitmapInterface(image_info_).GetRawData();
-                    printf("Raw data size: %d\n",smcs::IImageBitmapInterface(image_info_).GetRawDataSize());
 
                     smcs::IImageBitmapInterface(image_info_).GetPixelType(src_pixel_type);
                     smcs::IImageBitmapInterface(image_info_).GetSize(src_width, src_height);
                     smcs::IImageBitmapInterface(image_info_).GetPixelType(src_pixel_type);
 
-                    //std::copy ( myints, myints+7, myvector.begin() );
-                    //w = src_width;
-                    //h = src_height;
-                    //pixel_type = src_pixel_type;
                     auto c = GvspGetBitsPerPixel((GVSP_PIXEL_TYPES)src_pixel_type) / 8;
 
-                    printf("Imam tu ja slikicu id: %d, c: %d, timestamp: %f, im %d\n", image_id, GvspGetBitsPerPixel((GVSP_PIXEL_TYPES)src_pixel_type) / 8, timestamp, im[0]);
-                    frame_object fo {src_width*src_height*(c), 0, im, NULL, timestamp};
+                    frame_object fo {src_width*src_height*c, 0, im, NULL, timestamp};
 
                     _callback(_profile, fo, NULL);
 
                     _connected_device->PopImage(image_info_);
                     _connected_device->ClearImageBuffer();
-
-                    /*frame_object fo {};
-
-                    size_t          frame_size;
-                    uint8_t         metadata_size;
-                    const void *    pixels;
-                    const void *    metadata;
-                    rs2_time_t      backend_time;
-
-                    frame_object fo{ buffer->get_length_frame_only(), buf_mgr.metadata_size(),
-                                     buffer->get_frame_start(), buf_mgr.metadata_start(), timestamp };
-
-                    _callback(_profile, fo,
-                              [buf_mgr]() mutable {
-                                  buf_mgr.request_next_frame();
-                              });*/
                 }
             }
-            /*
-
-            struct timespec mono_time;
-            int ret = clock_gettime(CLOCK_MONOTONIC, &mono_time);
-            if (ret) throw linux_backend_exception("could not query time!");
-
-            struct timeval expiration_time = { mono_time.tv_sec + 5, mono_time.tv_nsec / 1000 };
-            int val = 0;
-            do {
-                struct timeval remaining;
-                ret = clock_gettime(CLOCK_MONOTONIC, &mono_time);
-                if (ret) throw linux_backend_exception("could not query time!");
-
-                struct timeval current_time = { mono_time.tv_sec, mono_time.tv_nsec / 1000 };
-                timersub(&expiration_time, &current_time, &remaining);
-                if (timercmp(&current_time, &expiration_time, <)) {
-                    val = select(_max_fd + 1, &fds, NULL, NULL, &remaining);
-                }
-                else {
-                    val = 0;
-                }
-            } while (val < 0 && errno == EINTR);
-
-            if(val < 0)
-            {
-                stop_data_capture();
-            }
-            else
-            {
-                if(val > 0)
-                {
-                    /*if(FD_ISSET(_stop_pipe_fd[0], &fds) || FD_ISSET(_stop_pipe_fd[1], &fds))
-                    {
-                        if(!_is_capturing)
-                        {
-                            LOG_INFO("Stream finished");
-                            return;
-                        }
-                        else
-                        {
-                            LOG_ERROR("Stop pipe was signalled during streaming");
-                            return;
-                        }
-                    }
-                    else // Check and acquire data buffers from kernel
-                    {
-                        buffers_mgr buf_mgr(_use_memory_map);
-                        // Read metadata from a node
-                        acquire_metadata(buf_mgr,fds);
-
-                        if(FD_ISSET(_fd, &fds))
-                        {
-                            FD_CLR(_fd,&fds);
-                            v4l2_buffer buf = {};
-                            buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-                            buf.memory = _use_memory_map ? V4L2_MEMORY_MMAP : V4L2_MEMORY_USERPTR;
-                            if(xioctl(_fd, VIDIOC_DQBUF, &buf) < 0)
-                            {
-                                LOG_DEBUG("Dequeued empty buf for fd " << _fd);
-                                if(errno == EAGAIN)
-                                    return;
-
-                                throw linux_backend_exception(to_string() << "xioctl(VIDIOC_DQBUF) failed for fd: " << _fd);
-                            }
-                            //LOG_DEBUG("Dequeued buf " << buf.index << " for fd " << _fd);
-
-                            auto buffer = _buffers[buf.index];
-                            buf_mgr.handle_buffer(e_video_buf,_fd, buf,buffer);
-
-                            if (_is_started)
-                            {
-                                if((buf.bytesused < buffer->get_full_length() - MAX_META_DATA_SIZE) &&
-                                   buf.bytesused > 0)
-                                {
-                                    auto percentage = (100 * buf.bytesused) / buffer->get_full_length();
-                                    std::stringstream s;
-                                    s << "Incomplete video frame detected!\nSize " << buf.bytesused
-                                      << " out of " << buffer->get_full_length() << " bytes (" << percentage << "%)";
-                                    librealsense::notification n = { RS2_NOTIFICATION_CATEGORY_FRAME_CORRUPTED, 0, RS2_LOG_SEVERITY_WARN, s.str()};
-
-                                    _error_handler(n);
-                                }
-                                else
-                                {
-                                    if (buf.bytesused > 0)
-                                    {
-                                        auto timestamp = (double)buf.timestamp.tv_sec*1000.f + (double)buf.timestamp.tv_usec/1000.f;
-                                        timestamp = monotonic_to_realtime(timestamp);
-
-                                        // read metadata from the frame appendix
-                                        acquire_metadata(buf_mgr,fds);
-
-                                        if (val > 1)
-                                            LOG_INFO("Frame buf ready, md size: " << std::dec << (int)buf_mgr.metadata_size() << " seq. id: " << buf.sequence);
-                                        frame_object fo{ buffer->get_length_frame_only(), buf_mgr.metadata_size(),
-                                                         buffer->get_frame_start(), buf_mgr.metadata_start(), timestamp };
-
-                                        buffer->attach_buffer(buf);
-                                        buf_mgr.handle_buffer(e_video_buf,-1); // transfer new buffer request to the frame callback
-
-                                        //Invoke user callback and enqueue next frame
-                                        printf("Sad se bude probudil callback\n");
-                                        _callback(_profile, fo,
-                                                  [buf_mgr]() mutable {
-                                                      buf_mgr.request_next_frame();
-                                                  });
-                                    }
-                                    else
-                                    {
-                                        LOG_INFO("Empty video frame arrived");
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                LOG_INFO("Video frame arrived in idle mode."); // TODO - verification
-                            }
-                        }
-                        else
-                        {
-                            LOG_WARNING("FD_ISSET returned false - video node is not signalled (md only)");
-                        }
-                    }
-                }
-                else // (val==0)
-                {
-                    LOG_WARNING("Frames didn't arrived within 5 seconds");
-                    librealsense::notification n = {RS2_NOTIFICATION_CATEGORY_FRAMES_TIMEOUT, 0, RS2_LOG_SEVERITY_WARN,  "Frames didn't arrived within 5 seconds"};
-
-                    _error_handler(n);
-                }
-            }*/
         }
 
         void cs_device::probe_and_commit(stream_profile profile, frame_callback callback)

@@ -97,7 +97,6 @@ namespace librealsense
             //if the user requested all streams
             if (_enable_all_streams)
             {
-                printf("Svi strimovi\n");
                 for (size_t i = 0; i < dev->get_sensors_count(); ++i)
                 {
                     auto&& sub = dev->get_sensor(i);
@@ -110,11 +109,8 @@ namespace librealsense
             //If the user did not request anything, give it the default, on playback all recorded streams are marked as default.
             if (_stream_requests.empty())
             {
-                printf("Nisu definirani streamovi\n");
                 auto default_profiles = get_default_configuration(dev);
-                printf("Default configuration, broj profile %d\n", default_profiles.size());
                 config.enable_streams(default_profiles);
-                printf("Enabled streams\n");
                 return std::make_shared<profile>(dev, config, _device_request.record_output);
             }
 
@@ -141,15 +137,13 @@ namespace librealsense
             }
 
             //Look for satisfy device in case the user did not specify one.
-            auto devs = pipe->get_context()->query_devices(RS2_PRODUCT_LINE_ANY/*RS2_PRODUCT_LINE_ANY/*_INTEL*/); //Trazi sve uredaje spojene na racunalo
-            printf("Broj uredaja pronadenih na racunalu: %d\n", devs.size());
+            auto devs = pipe->get_context()->query_devices(RS2_PRODUCT_LINE_ANY_INTEL);
+
             for (auto dev_info : devs)
             {
                 try
                 {
-                    printf("Stvaram device\n");
                     auto dev = dev_info->create_device(true);
-                    printf("Resolvam device\n");
                     _resolved_profile = resolve(dev);
                     return _resolved_profile;
                 }
@@ -160,17 +154,13 @@ namespace librealsense
             }
 
             //If no device found wait for one
-            printf("Cekamo novi device\n");
             auto dev = pipe->wait_for_device(timeout);
-            printf("Pricekali smo novi device\n");
             if (dev != nullptr)
             {
                 _resolved_profile = resolve(dev);
-                printf("Dobili smo novi device\n");
                 return _resolved_profile;
             }
 
-            printf("Trowamo\n");
             throw std::runtime_error("Failed to resolve request. No device found that satisfies all requirements");
 
             assert(0); //Unreachable code

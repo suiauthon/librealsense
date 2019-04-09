@@ -132,7 +132,7 @@ namespace librealsense
         std::vector<tagged_profile> get_profiles_tags() const override
         {
             std::vector<tagged_profile> markers;
-            markers.push_back({ RS2_STREAM_ANY, -1, 1296, 966, RS2_FORMAT_ANY, 40, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
+            markers.push_back({ RS2_STREAM_ANY, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
             return markers;
         };
 
@@ -140,6 +140,11 @@ namespace librealsense
                   const platform::cs_device_info &hwm_device,
                   const platform::backend_device_group& group,
                   bool register_device_notifications);
+
+        void hardware_reset() override
+        {
+
+        }
     };
 
     class cs_sensor : public sensor_base
@@ -161,7 +166,6 @@ namespace librealsense
 
         stream_profiles init_stream_profiles() override
         {
-            printf("Initam stream profile CS kamere\n");
             auto lock = environment::get_instance().get_extrinsics_graph().lock();
 
             std::unordered_set<std::shared_ptr<video_stream_profile>> results;
@@ -177,7 +181,6 @@ namespace librealsense
             for (auto&& p : _uvc_profiles)
             {
                 supported_formats.insert(p.format);
-                printf("P format %d %d\n", p.format, RS2_FORMAT_ANY);
                 native_pixel_format pf{};
                 if (try_get_pf(p, pf))
                 {
@@ -190,10 +193,8 @@ namespace librealsense
                             profile->set_dims(res.width, res.height);
                             profile->set_stream_type(output.stream_desc.type);
                             profile->set_stream_index(output.stream_desc.index);
-                            printf("Outpur format %d\n", output.format);
                             profile->set_format(output.format);
                             profile->set_framerate(p.fps);
-                            printf("Profile tag: %d\n", profile->get_tag());
                             results.insert(profile);
                         }
                     }
@@ -252,7 +253,6 @@ namespace librealsense
                 assign_stream(_default_stream, p);
                 environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_default_stream, *p);
             }
-            printf("I to smo resili\n");
             return res;
         }
 

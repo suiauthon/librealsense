@@ -16,8 +16,8 @@
 #include <array>
 #include <mutex>
 #include <set>
-
 #include <imgui_internal.h>
+#include <unistd.h>
 
 // We use NOC file helper function for cross-platform file dialogs
 #include <noc_file_dialog.h>
@@ -173,6 +173,7 @@ void refresh_devices(std::mutex& m,
                         0, RS2_LOG_SEVERITY_INFO, RS2_NOTIFICATION_CATEGORY_UNKNOWN_ERROR });
 
                 current_connected_devices.push_back(dev);
+
                 for (auto&& s : dev.query_sensors())
                 {
                     s.set_notifications_callback([&, dev_descriptor](const notification& n)
@@ -203,6 +204,7 @@ void refresh_devices(std::mutex& m,
                 }
             }
             initial_refresh = false;
+
         }
         catch (const error& e)
         {
@@ -287,6 +289,7 @@ int main(int argv, const char** argc) try
 		{
 			viewer_model.popup_if_ui_not_aligned(window.get_font());
 		}
+
         refresh_devices(m, ctx, devices_connection_changes, connected_devs, 
             device_names, device_models, viewer_model, error_message);
 
@@ -318,7 +321,7 @@ int main(int argv, const char** argc) try
         std::string add_source_button_text = to_string() << " " << textual_icons::plus_circle << "  Add Source\t\t\t\t\t\t\t\t\t\t\t";
         if (ImGui::Button(add_source_button_text.c_str(), { viewer_model.panel_width - 1, viewer_model.panel_y }))
             ImGui::OpenPopup("select");
-
+;
         auto new_devices_count = device_names.size() + 1;
         for (auto&& dev_model : *device_models)
         {
@@ -328,7 +331,6 @@ int main(int argv, const char** argc) try
             if (connected_devs_itr != end(connected_devs) || dev_model.dev.is<playback>())
                 new_devices_count--;
         }
-
 
         ImGui::PushFont(window.get_font());
         ImGui::SetNextWindowSize({ viewer_model.panel_width, 20.f * new_devices_count + 8 });
@@ -499,7 +501,6 @@ int main(int argv, const char** argc) try
         // Fetch and process frames from queue
         viewer_model.handle_ready_frames(viewer_rect, window, static_cast<int>(device_models->size()), error_message);
     }
-
     // Stopping post processing filter rendering thread
     viewer_model.ppf.stop();
 

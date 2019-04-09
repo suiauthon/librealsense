@@ -317,14 +317,18 @@ namespace librealsense
         struct cs_device_info
         {
             std::string id;
-
+            std::string vid;
+            std::string info;
             std::string serial;
 
             operator std::string()
             {
                 std::stringstream s;
 
-                s << "serial- " << serial;
+                s << "info- " << info <<
+                  "\nid- " << id <<
+                  "\nvid- " <<  vid <<
+                  "\nserial- " << serial;
 
                 return s.str();
             }
@@ -334,7 +338,9 @@ namespace librealsense
                                const cs_device_info& b)
         {
             return  (a.id == b.id) &&
-                    (a.serial == b.serial);
+                    (a.vid == b.vid) &&
+                    (a.serial == b.serial) &&
+                    (a.info == b.info);
         }
 
         struct playback_device_info
@@ -425,6 +431,8 @@ namespace librealsense
 #pragma pack(pop)
 
         typedef std::function<void(const sensor_data&)> hid_callback;
+
+        class cs_device;
 
         class hid_device
         {
@@ -650,6 +658,7 @@ namespace librealsense
                 return !list_changed(uvc_devices, other.uvc_devices) &&
                     !list_changed(hid_devices, other.hid_devices) &&
                     !list_changed(playback_devices, other.playback_devices) &&
+                    !list_changed(cs_devices, other.cs_devices) &&
                     !list_changed(tm2_devices, other.tm2_devices);
             }
 
@@ -674,6 +683,13 @@ namespace librealsense
                 for (auto hid : hid_devices)
                 {
                     s += hid;
+                    s += "\n\n";
+                }
+
+                s += cs_devices.size()>0 ? "cs devices: \n" : "";
+                for (auto cs : cs_devices)
+                {
+                    s += cs;
                     s += "\n\n";
                 }
 
@@ -703,6 +719,9 @@ namespace librealsense
 
             virtual std::shared_ptr<hid_device> create_hid_device(hid_device_info info) const = 0;
             virtual std::vector<hid_device_info> query_hid_devices() const = 0;
+
+            virtual std::shared_ptr<cs_device> create_cs_device(cs_device_info info) const = 0;
+            virtual std::vector<cs_device_info> query_cs_devices() const = 0;
 
             virtual std::shared_ptr<time_service> create_time_service() const = 0;
 

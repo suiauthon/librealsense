@@ -140,6 +140,9 @@ public:
         case RS2_FORMAT_Y8:
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, frame.get_data());
             break;
+        case RS2_FORMAT_RAW8:
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, frame.get_data());
+            break;
         default:
             throw std::runtime_error("The requested format is not supported by this demo!");
         }
@@ -516,10 +519,7 @@ private:
                 supported_frames.push_back(f);
             }
         }
-        if (supported_frames.empty()) {
-            printf("OVEEEEEEE\n");
-            return;
-        }
+        if (supported_frames.empty()) return;
 
         std::sort(supported_frames.begin(), supported_frames.end(), [](rs2::frame first, rs2::frame second)
         { return first.get_profile().stream_type() < second.get_profile().stream_type();  });
@@ -545,6 +545,7 @@ private:
         case RS2_FORMAT_RGBA8:
         case RS2_FORMAT_Y8:
         case RS2_FORMAT_MOTION_XYZ32F:
+        case RS2_FORMAT_RAW8:
             return true;
         default:
             return false;
