@@ -20,6 +20,7 @@
 #include <cstring>
 #include <string>
 #include <sstream>
+#include <fstream>
 
 
 const uint16_t MAX_RETRIES                = 100;
@@ -363,7 +364,7 @@ namespace librealsense
         {
             void* device_ptr;
 
-            operator std::string()
+            operator std::string() const
             {
                 std::ostringstream oss;
                 oss << device_ptr;

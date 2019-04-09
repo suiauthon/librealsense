@@ -48,6 +48,7 @@ typedef enum rs2_distortion
     RS2_DISTORTION_INVERSE_BROWN_CONRADY , /**< Equivalent to Brown-Conrady distortion, except undistorts image instead of distorting it */
     RS2_DISTORTION_FTHETA                , /**< F-Theta fish-eye distortion model */
     RS2_DISTORTION_BROWN_CONRADY         , /**< Unmodified Brown-Conrady distortion model */
+    RS2_DISTORTION_KANNALA_BRANDT4       , /**< Four parameter Kannala Brandt distortion model */
     RS2_DISTORTION_COUNT                   /**< Number of enumeration values. Not a valid input: intended to be used in for-loops. */
 } rs2_distortion;
 const char* rs2_distortion_to_string(rs2_distortion distortion);
@@ -77,6 +78,43 @@ typedef struct rs2_motion_device_intrinsic
     float noise_variances[3];  /**< Variance of noise for X, Y, and Z axis */
     float bias_variances[3];   /**< Variance of bias for X, Y, and Z axis */
 } rs2_motion_device_intrinsic;
+
+/** \brief 3D coordinates with origin at topmost left corner of the lense,
+     with positive Z pointing away from the camera, positive X pointing camera right and positive Y pointing camera down */
+typedef struct rs2_vertex
+{
+    float xyz[3];
+} rs2_vertex;
+
+/** \brief Pixel location within 2D image. (0,0) is the topmost, left corner. Positive X is right, positive Y is down */
+typedef struct rs2_pixel
+{
+    int ij[2];
+} rs2_pixel;
+
+/** \brief 3D vector in Euclidean coordinate space */
+typedef struct rs2_vector
+{
+    float x, y, z;
+}rs2_vector;
+
+/** \brief Quaternion used to represent rotation  */
+typedef struct rs2_quaternion
+{
+    float x, y, z, w;
+}rs2_quaternion;
+
+typedef struct rs2_pose
+{
+    rs2_vector      translation;          /**< X, Y, Z values of translation, in meters (relative to initial position)                                    */
+    rs2_vector      velocity;             /**< X, Y, Z values of velocity, in meter/sec                                                                   */
+    rs2_vector      acceleration;         /**< X, Y, Z values of acceleration, in meter/sec^2                                                             */
+    rs2_quaternion  rotation;             /**< Qi, Qj, Qk, Qr components of rotation as represented in quaternion rotation (relative to initial position) */
+    rs2_vector      angular_velocity;     /**< X, Y, Z values of angular velocity, in radians/sec                                                         */
+    rs2_vector      angular_acceleration; /**< X, Y, Z values of angular acceleration, in radians/sec^2                                                   */
+    unsigned int    tracker_confidence;   /**< pose data confidence 0x0 - Failed, 0x1 - Low, 0x2 - Medium, 0x3 - High                                     */
+    unsigned int    mapper_confidence;    /**< pose data confidence 0x0 - Failed, 0x1 - Low, 0x2 - Medium, 0x3 - High                                     */
+} rs2_pose;
 
 /** \brief Severity of the librealsense logger */
 typedef enum rs2_log_severity {
@@ -118,6 +156,17 @@ typedef enum rs2_extension
     RS2_EXTENSION_TM2,
     RS2_EXTENSION_SOFTWARE_DEVICE,
     RS2_EXTENSION_SOFTWARE_SENSOR,
+    RS2_EXTENSION_DECIMATION_FILTER,
+    RS2_EXTENSION_THRESHOLD_FILTER,
+    RS2_EXTENSION_DISPARITY_FILTER,
+    RS2_EXTENSION_SPATIAL_FILTER,
+    RS2_EXTENSION_TEMPORAL_FILTER,
+    RS2_EXTENSION_HOLE_FILLING_FILTER,
+    RS2_EXTENSION_ZERO_ORDER_FILTER,
+    RS2_EXTENSION_RECOMMENDED_FILTERS,
+    RS2_EXTENSION_POSE,
+    RS2_EXTENSION_POSE_SENSOR,
+    RS2_EXTENSION_WHEEL_ODOMETER,
     RS2_EXTENSION_COUNT
 } rs2_extension;
 const char* rs2_extension_type_to_string(rs2_extension type);
@@ -130,14 +179,20 @@ typedef enum rs2_matchers
 
    RS2_MATCHER_DI_C,    //compare depth and ir based on frame number,
                         //compare the pair of corresponding depth and ir with color based on closest timestamp,
-                        //commonlly used by SR300
+                        //commonly used by SR300
 
    RS2_MATCHER_DLR_C,   //compare depth, left and right ir based on frame number,
                         //compare the set of corresponding depth, left and right with color based on closest timestamp,
-                        //commonlly used by RS415, RS435
+                        //commonly used by RS415, RS435
 
    RS2_MATCHER_DLR,     //compare depth, left and right ir based on frame number,
-                        //commonlly used by RS400, RS405, RS410, RS420, RS430
+                        //commonly used by RS400, RS405, RS410, RS420, RS430
+
+   RS2_MATCHER_DIC,     //compare depth, ir and confidence based on frame number used by RS500
+
+   RS2_MATCHER_DIC_C,    //compare depth, ir and confidence based on frame number,
+                         //compare the set of corresponding depth, ir and confidence with color based on closest timestamp,
+                         //commonly used by RS515
 
    RS2_MATCHER_DEFAULT, //the default matcher compare all the streams based on closest timestamp
 
@@ -155,6 +210,7 @@ typedef struct rs2_pipeline_profile rs2_pipeline_profile;
 typedef struct rs2_config rs2_config;
 typedef struct rs2_device_list rs2_device_list;
 typedef struct rs2_stream_profile_list rs2_stream_profile_list;
+typedef struct rs2_processing_block_list rs2_processing_block_list;
 typedef struct rs2_stream_profile rs2_stream_profile;
 typedef struct rs2_frame_callback rs2_frame_callback;
 typedef struct rs2_log_callback rs2_log_callback;
@@ -169,6 +225,7 @@ typedef struct rs2_device_hub rs2_device_hub;
 typedef struct rs2_sensor_list rs2_sensor_list;
 typedef struct rs2_sensor rs2_sensor;
 typedef struct rs2_options rs2_options;
+typedef struct rs2_options_list rs2_options_list;
 typedef struct rs2_devices_changed_callback rs2_devices_changed_callback;
 typedef struct rs2_notification rs2_notification;
 typedef struct rs2_notifications_callback rs2_notifications_callback;

@@ -90,7 +90,7 @@ int main(int argc, char * argv[]) try
     filters.emplace_back("Spatial", spat_filter);
     filters.emplace_back("Temporal", temp_filter);
 
-    // Declaring two concurrent queues that will be used to push and pop frames from different threads
+    // Declaring two concurrent queues that will be used to enqueue and dequeue frames from different threads
     rs2::frame_queue original_data;
     rs2::frame_queue filtered_data;
 
@@ -183,13 +183,13 @@ int main(int argc, char * argv[]) try
         // Draw the pointclouds of the original and the filtered frames (if the are available already)
         if (colored_depth && original_points)
         {
-            glViewport(0, h / 2, w / 2, h / 2);
-            draw_pointcloud(w / 2, h / 2, original_view_orientation, original_points);
+            glViewport(0, int(h) / 2, int(w) / 2, int(h) / 2);
+            draw_pointcloud(int(w) / 2, int(h) / 2, original_view_orientation, original_points);
         }
         if (colored_filtered && filtered_points)
         {
-            glViewport(w / 2, h / 2, w / 2, h / 2);
-            draw_pointcloud(w / 2, h / 2, filtered_view_orientation, filtered_points);
+            glViewport(int(w) / 2, int(h) / 2, int(w) / 2, int(h) / 2);
+            draw_pointcloud(int(w) / 2, int(h) / 2, filtered_view_orientation, filtered_points);
         }
         // Update time of current frame's arrival
         auto curr = std::chrono::high_resolution_clock::now();
@@ -374,7 +374,7 @@ filter_options::filter_options(const std::string name, rs2::filter& flt) :
             supported_options[opt].value = range.def;
             supported_options[opt].is_int = filter_slider_ui::is_all_integers(range);
             supported_options[opt].description = flt.get_option_description(opt);
-            std::string opt_name = rs2_option_to_string(opt);
+            std::string opt_name = flt.get_option_name(opt);
             supported_options[opt].name = name + "_" + opt_name;
             std::string prefix = "Filter ";
             supported_options[opt].label = opt_name;

@@ -83,6 +83,59 @@ namespace rs2
         return res;
     }
 
+    template <typename T>
+    std::string safe_call(T t)
+    {
+        try
+        {
+            t();
+            return "";
+        }
+        catch (const error& e)
+        {
+            return error_to_string(e);
+        }
+        catch (const std::exception& e)
+        {
+            return e.what();
+        }
+        catch (...)
+        {
+            return "Unknown error occurred";
+        }
+    }
+
+    std::vector<uint8_t> bytes_from_bin_file(const std::string& filename)
+    {
+        std::ifstream file(filename.c_str(), std::ios::binary);
+        if (!file.good())
+            throw std::runtime_error(to_string() << "Invalid binary file specified " << filename << " verify the source path and location permissions");
+
+        // Determine the file length
+        file.seekg(0, std::ios_base::end);
+        std::size_t size = file.tellg();
+        if (!size)
+            throw std::runtime_error(to_string() << "Invalid binary file " << filename  <<  " provided  - zero-size ");
+        file.seekg(0, std::ios_base::beg);
+
+        // Create a vector to store the data
+        std::vector<uint8_t> v(size);
+
+        // Load the data
+        file.read((char*)&v[0], size);
+
+        return v;
+    }
+
+    // Flush binary stream to file, override previous if exists
+    void bin_file_from_bytes(const std::string& filename, const std::vector<uint8_t> bytes)
+    {
+        std::ofstream file(filename, std::ios::binary | std::ios::trunc);
+        if (!file.good())
+            throw std::runtime_error(to_string() << "Invalid binary file specified " << filename << " verify the target path and location permissions");
+        file.write((char*)bytes.data(), bytes.size());
+    }
+
     void imgui_easy_theming(ImFont*& font_14, ImFont*& font_18)
     {
         ImGuiStyle& style = ImGui::GetStyle();
@@ -150,21 +203,18 @@ namespace rs2
         style.Colors[ImGuiCol_TitleBgActive] = header_color;
     }
 
-    void save_processing_block(const char* name, 
+    void save_processing_block_to_config_file(const char* name, 
         std::shared_ptr<rs2::processing_block> pb, bool enable)
     {
-        for (int i = 0; i < RS2_OPTION_COUNT; i++)
+        for (auto opt : pb->get_supported_options())
         {
-            auto opt = (rs2_option)i;
-            if (pb->supports(opt))
-            {
-                auto val = pb->get_option(opt);
-                std::string key = name;
-                key += ".";
-                key += rs2_option_to_string(opt);
-                config_file::instance().set(key.c_str(), val);
-            }
+            auto val = pb->get_option(opt);
+            std::string key = name;
+            key += ".";
+            key += pb->get_option_name(opt);
+            config_file::instance().set(key.c_str(), val); 
         }
+
         std::string key = name;
         key += ".enabled";
         config_file::instance().set(key.c_str(), enable);
@@ -173,29 +223,26 @@ namespace rs2
     bool restore_processing_block(const char* name, 
         std::shared_ptr<rs2::processing_block> pb, bool enable = true)
     {
-        for (int i = 0; i < RS2_OPTION_COUNT; i++)
+        for (auto opt : pb->get_supported_options())
         {
-            auto opt = (rs2_option)i;
-            if (pb->supports(opt))
+            std::string key = name;
+            key += ".";
+            key += pb->get_option_name(opt);
+            if (config_file::instance().contains(key.c_str()))
             {
-                std::string key = name;
-                key += ".";
-                key += rs2_option_to_string(opt);
-                if (config_file::instance().contains(key.c_str()))
+                float val = config_file::instance().get(key.c_str());
+                try
                 {
-                    float val = config_file::instance().get(key.c_str());
-                    try
-                    {
-                        auto range = pb->get_option_range(opt);
-                        if (val >= range.min && val <= range.max)
-                            pb->set_option(opt, val);
-                    }
-                    catch (...)
-                    {
-                    }
+                    auto range = pb->get_option_range(opt);
+                    if (val >= range.min && val <= range.max)
+                        pb->set_option(opt, val);
+                }
+                catch (...)
+                {
                 }
             }
         }
+
         std::string key = name;
         key += ".enabled";
         if (config_file::instance().contains(key.c_str()))
@@ -383,6 +430,44 @@ namespace rs2
         throw std::runtime_error(std::string("Failed to match MAC in string: ") + data);
     }
 
+    option_model create_option_model(rs2_option opt,
+        const std::string& opt_base_label,
+        subdevice_model* model,
+        std::shared_ptr<options> options,
+        bool* options_invalidated,
+        std::string& error_message)
+    {
+        option_model option;
+
+        std::stringstream ss;
+
+        ss << opt_base_label << "/" << options->get_option_name(opt);
+        option.id = ss.str();
+        option.opt = opt;
+        option.endpoint = options;
+        option.label = options->get_option_name(opt) + std::string("##") + ss.str();
+        option.invalidate_flag = options_invalidated;
+        option.dev = model;
+
+        option.supported = options->supports(opt);
+        if (option.supported)
+        {
+            try
+            {
+                option.range = options->get_option_range(opt);
+                option.read_only = options->is_option_read_only(opt);
+                option.value = options->get_option(opt);
+            }
+            catch (const error& e)
+            {
+                option.range = { 0, 1, 0, 0 };
+                option.value = 0;
+                error_message = error_to_string(e);
+            }
+        }
+        return option;
+    }
+
     bool option_model::draw(std::string& error_message, notifications_model& model, bool new_line, bool use_option_name)
     {
         auto res = false;
@@ -427,7 +512,7 @@ namespace rs2
             {
                 if (!is_enum())
                 {
-                    std::string txt = to_string() << rs2_option_to_string(opt) << ":";
+                    std::string txt = to_string() << endpoint->get_option_name(opt) << ":";
                     ImGui::Text("%s", txt.c_str());
 
                     ImGui::SameLine();
@@ -494,7 +579,7 @@ namespace rs2
                     {
                         if (read_only)
                         {
-                            ImVec2 vec{ 0, 14 };
+                            ImVec2 vec{ 0, 20 };
                             std::string text = (value == (int)value) ? std::to_string((int)value) : std::to_string(value);
                             if (range.min != range.max)
                             {
@@ -590,7 +675,7 @@ namespace rs2
                 }
                 else
                 {
-                    std::string txt = to_string() << (use_option_name ? rs2_option_to_string(opt) : desc) << ":";
+                    std::string txt = to_string() << (use_option_name ? endpoint->get_option_name(opt) : desc) << ":";
 
                     auto pos_x = ImGui::GetCursorPosX();
 
@@ -717,7 +802,7 @@ namespace rs2
         {
             if (read_only) {
                 auto timestamp = std::chrono::duration<double, std::milli>(std::chrono::system_clock::now().time_since_epoch()).count();
-                model.add_notification({ to_string() << "Could not refresh read-only option " << rs2_option_to_string(opt) << ": " << e.what(),
+                model.add_notification({ to_string() << "Could not refresh read-only option " << endpoint->get_option_name(opt) << ": " << e.what(),
                     timestamp,
                     RS2_LOG_SEVERITY_WARN,
                     RS2_NOTIFICATION_CATEGORY_UNKNOWN_ERROR });
@@ -761,64 +846,75 @@ namespace rs2
     {
         for (auto i = 0; i < RS2_OPTION_COUNT; i++)
         {
-            option_model metadata;
             auto opt = static_cast<rs2_option>(i);
 
-            std::stringstream ss;
-            ss << opt_base_label << "/" << rs2_option_to_string(opt);
-            metadata.id = ss.str();
-            metadata.opt = opt;
-            metadata.endpoint = options;
-            metadata.label = rs2_option_to_string(opt) + std::string("##") + ss.str();
-            metadata.invalidate_flag = options_invalidated;
-            metadata.dev = model;
-
-            metadata.supported = options->supports(opt);
-            if (metadata.supported)
-            {
-                try
-                {
-                    metadata.range = options->get_option_range(opt);
-                    metadata.read_only = options->is_option_read_only(opt);
-                    if (!metadata.read_only)
-                        metadata.value = options->get_option(opt);
-                }
-                catch (const error& e)
-                {
-                    metadata.range = { 0, 1, 0, 0 };
-                    metadata.value = 0;
-                    error_message = error_to_string(e);
-                }
-            }
-            opt_container[opt] = metadata;
+            opt_container[opt] = create_option_model(opt, opt_base_label, model, options, options_invalidated, error_message);
         }
     }
 
+    std::string get_device_sensor_name(subdevice_model* sub)
+    {
+        std::stringstream ss;
+        ss << configurations::viewer::post_processing
+            << "." << sub->dev.get_info(RS2_CAMERA_INFO_NAME)
+            << "." << sub->s->get_info(RS2_CAMERA_INFO_NAME);
+        return ss.str();
+    }
 
     processing_block_model::processing_block_model(
         subdevice_model* owner,
         const std::string& name,
-        std::shared_ptr<rs2::processing_block> block,
+        std::shared_ptr<rs2::filter> block,
         std::function<rs2::frame(rs2::frame)> invoker,
         std::string& error_message, bool enable)
-        : _name(name), _block(block), _invoker(invoker), enabled(enable)
+        : _owner(owner), _name(name), _block(block), _invoker(invoker), enabled(enable)
     {
         std::stringstream ss;
         ss << "##" << ((owner) ? owner->dev.get_info(RS2_CAMERA_INFO_NAME) : _name)
             << "/" << ((owner) ? (*owner->s).get_info(RS2_CAMERA_INFO_NAME) : "_")
             << "/" << (long long)this;
 
-        enabled = restore_processing_block(get_name().c_str(), 
+        if (_owner)
+            _full_name = get_device_sensor_name(_owner) + "." + _name;
+        else
+            _full_name = _name;
+
+        enabled = restore_processing_block(_full_name.c_str(),
                                            block, enabled);
 
-        subdevice_model::populate_options(options_metadata,
-            ss.str().c_str(),owner , block, owner ? &owner->_options_invalidated : nullptr, error_message);
+        populate_options(ss.str().c_str(), owner, owner ? &owner->_options_invalidated : nullptr, error_message);
+    }
+
+    void processing_block_model::save_to_config_file()
+    {
+        save_processing_block_to_config_file(_full_name.c_str(), _block, enabled);
+    }
+
+    option_model& processing_block_model::get_option(rs2_option opt)
+    {
+        if (options_metadata.find(opt) != options_metadata.end()) 
+            return options_metadata[opt];
+
+        std::string error_message;
+        options_metadata[opt] = create_option_model(opt, get_name(), _owner, _block, _owner ? &_owner->_options_invalidated : nullptr, error_message);
+        return options_metadata[opt];
+    }
+
+    void processing_block_model::populate_options(const std::string& opt_base_label,
+        subdevice_model* model,
+        bool* options_invalidated,
+        std::string& error_message)
+    {
+        for (auto opt : _block->get_supported_options())
+        {
+            options_metadata[opt] = create_option_model(opt, opt_base_label, model, _block, model ? &model->_options_invalidated : nullptr, error_message);
+        }
     }
 
     subdevice_model::subdevice_model(
         device& dev,
         std::shared_ptr<sensor> s, std::string& error_message)
-        : s(s), dev(dev), ui(), last_valid_ui(),
+        : s(s), dev(dev), tm2(), ui(), last_valid_ui(),
         streaming(false), _pause(false),
         depth_colorizer(std::make_shared<rs2::colorizer>()),
         yuy2rgb(std::make_shared<rs2::yuy_decoder>())
@@ -861,79 +957,29 @@ namespace rs2
         }
         catch (...) {}
 
-        if (s->is<depth_sensor>())
+        for (auto&& f : s->get_recommended_filters())
         {
-            auto colorizer = std::make_shared<processing_block_model>(
-                this, "Depth Visualization", depth_colorizer,
-                [=](rs2::frame f) { return depth_colorizer->colorize(f); }, error_message);
-            const_effects.push_back(colorizer);
+            auto shared_filter = std::make_shared<filter>(f);
+            auto model = std::make_shared<processing_block_model>(
+                this, shared_filter->get_info(RS2_CAMERA_INFO_NAME), shared_filter,
+                [=](rs2::frame f) { return shared_filter->process(f); }, error_message);
 
-            auto decimate = std::make_shared<rs2::decimation_filter>();
-            auto decimation_filter = std::make_shared<processing_block_model>(
-                this, "Decimation Filter", decimate,
-                [=](rs2::frame f) { return decimate->process(f); },
-                error_message);
-            post_processing.push_back(decimation_filter);
+            if (shared_filter->is<disparity_transform>())
+                model->visible = false;
 
-            auto threshold = std::make_shared<rs2::threshold_filter>();
-            auto threshold_filter = std::make_shared<processing_block_model>(
-                this, "Threshold Filter", threshold,
-                [=](rs2::frame f) { return threshold->process(f); },
-                error_message);
-            post_processing.push_back(threshold_filter);
+            if (shared_filter->is<zero_order_invalidation>())
+                zero_order_artifact_fix = model;
 
-            auto depth_2_disparity = std::make_shared<rs2::disparity_transform>();
-            auto depth_to_disparity = std::make_shared<processing_block_model>(
-                this, "Depth->Disparity", depth_2_disparity,
-                [=](rs2::frame f) { return depth_2_disparity->process(f); }, error_message);
-            if (s->is<depth_stereo_sensor>())
-            {
-                post_processing.push_back(depth_to_disparity);
-            }
+            if (shared_filter->is<hole_filling_filter>())
+                model->enabled = false;
 
-            auto spatial = std::make_shared<rs2::spatial_filter>();
-            auto spatial_filter = std::make_shared<processing_block_model>(
-                this, "Spatial Filter", spatial,
-                [=](rs2::frame f) { return spatial->process(f); },
-                error_message);
-            post_processing.push_back(spatial_filter);
-
-            auto temporal = std::make_shared<rs2::temporal_filter>();
-            auto temporal_filter = std::make_shared<processing_block_model>(
-                this, "Temporal Filter", temporal,
-                [=](rs2::frame f) { return temporal->process(f); }, error_message);
-            post_processing.push_back(temporal_filter);
-
-            auto hole_filling = std::make_shared<rs2::hole_filling_filter>();
-            auto hole_filling_filter = std::make_shared<processing_block_model>(
-                this, "Hole Filling Filter", hole_filling,
-                [=](rs2::frame f) { return hole_filling->process(f); }, error_message, false);
-            post_processing.push_back(hole_filling_filter);
-
-            auto disparity_2_depth = std::make_shared<rs2::disparity_transform>(false);
-            auto disparity_to_depth = std::make_shared<processing_block_model>(
-                this, "Disparity->Depth", disparity_2_depth,
-                [=](rs2::frame f) { return disparity_2_depth->process(f); }, error_message);
-            if (s->is<depth_stereo_sensor>())
-            {
-                // the block will be internally available, but removed from UI
-                disparity_to_depth->visible = false;
-                post_processing.push_back(disparity_to_depth);
-            }
+            post_processing.push_back(model);
         }
-        else
-        {
-            rs2_error* e = nullptr;
-            if (rs2_is_sensor_extendable_to(s->get().get(), RS2_EXTENSION_VIDEO, &e) && !e)
-            {
-                auto decimate = std::make_shared<rs2::decimation_filter>();
-                auto decimation_filter = std::make_shared<processing_block_model>(
-                    this, "Decimation Filter", decimate,
-                    [=](rs2::frame f) { return decimate->process(f); },
-                    error_message);
-                post_processing.push_back(decimation_filter);
-            }
-        }
+
+        auto colorizer = std::make_shared<processing_block_model>(
+            this, "Depth Visualization", depth_colorizer,
+            [=](rs2::frame f) { return depth_colorizer->colorize(f); }, error_message);
+        const_effects.push_back(colorizer);
 
         ss.str("");
         ss << "##" << dev.get_info(RS2_CAMERA_INFO_NAME)
@@ -1398,13 +1444,12 @@ namespace rs2
     {
         viewer.not_model.add_log("Stopping streaming");
 
-        // TODO  - refactor tm2 from viewer to subdevice
-        for_each(stream_display_names.begin(), stream_display_names.end(), [&viewer](std::pair<int, std::string> kvp)
+        for_each(stream_display_names.begin(), stream_display_names.end(), [this, &viewer](std::pair<int, std::string> kvp)
         {
             if ("Pose" == kvp.second)
             {
-                viewer.tm2.reset_trajectory();
-                viewer.tm2.record_trajectory(false);
+                 this->tm2.reset_trajectory();
+                 this->tm2.record_trajectory(false);
             }
         });
 
@@ -1439,8 +1484,39 @@ namespace rs2
         _pause = false;
     }
 
+    bool subdevice_model::can_enable_zero_order()
+    {
+        auto ir = std::find_if(profiles.begin(), profiles.end(), [&](stream_profile p) { return (p.stream_type() == RS2_STREAM_INFRARED); });
+        auto depth = std::find_if(profiles.begin(), profiles.end(), [&](stream_profile p) { return (p.stream_type() == RS2_STREAM_DEPTH); });
+
+        return !(ir == profiles.end() || depth == profiles.end() || !stream_enabled[depth->unique_id()] || !stream_enabled[ir->unique_id()]);
+    }
+
+    void subdevice_model::verify_zero_order_conditions()
+    {
+         if(!can_enable_zero_order())
+             throw std::runtime_error(to_string() << "Zero order filter requires both IR and Depth streams turned on.\nPlease rectify the configuration and rerun");
+    }
+
+    //The function decides if specific frame should be sent to the syncer
+    bool subdevice_model::is_synchronized_frame(viewer_model& viewer, const frame& f)
+    {
+        if(zero_order_artifact_fix && zero_order_artifact_fix->enabled && 
+            (f.get_profile().stream_type() == RS2_STREAM_DEPTH || f.get_profile().stream_type() == RS2_STREAM_INFRARED || f.get_profile().stream_type() == RS2_STREAM_CONFIDENCE))
+            return true;
+        if (!viewer.is_3d_view || viewer.is_3d_depth_source(f) || viewer.is_3d_texture_source(f))
+            return true;
+
+        return false;
+    }
+
     void subdevice_model::play(const std::vector<stream_profile>& profiles, viewer_model& viewer, std::shared_ptr<rs2::asynchronous_syncer> syncer)
     {
+        if (post_processing_enabled && zero_order_artifact_fix && zero_order_artifact_fix->enabled)
+        {
+            verify_zero_order_conditions();
+        }
+
         std::stringstream ss;
         ss << "Starting streaming of ";
         for (size_t i = 0; i < profiles.size(); i++)
@@ -1452,10 +1528,12 @@ namespace rs2
         viewer.not_model.add_log(ss.str());
 
         // TODO  - refactor tm2 from viewer to subdevice
-        for_each(stream_display_names.begin(), stream_display_names.end(), [&viewer](std::pair<int, std::string> kvp)
+        for_each(stream_display_names.begin(), stream_display_names.end(), [this, &viewer](std::pair<int, std::string> kvp)
         {
             if ("Pose" == kvp.second)
-                viewer.tm2.record_trajectory(true);
+            {
+                this->tm2.record_trajectory(true);
+            }
         });
 
         s->open(profiles);
@@ -1463,7 +1541,7 @@ namespace rs2
         try {
             s->start([&, syncer](frame f)
             {
-                if (viewer.synchronization_enable && (!viewer.is_3d_view || viewer.is_3d_depth_source(f) || viewer.is_3d_texture_source(f)))
+                if (viewer.synchronization_enable && is_synchronized_frame(viewer, f))
                 {
                     syncer->invoke(f);
                 }
@@ -1493,10 +1571,10 @@ namespace rs2
             next_option = 0;
             _options_invalidated = false;
 
-            save_processing_block("colorizer", depth_colorizer);
-            save_processing_block("yuy2rgb", yuy2rgb);
+            save_processing_block_to_config_file("colorizer", depth_colorizer);
+            save_processing_block_to_config_file("yuy2rgb", yuy2rgb);
 
-            for (auto&& pbm : post_processing) pbm->save();
+            for (auto&& pbm : post_processing) pbm->save_to_config_file();
         }
         if (next_option < RS2_OPTION_COUNT)
         {
@@ -1831,184 +1909,171 @@ namespace rs2
         return ImGui::Combo(id.c_str(), &new_index, device_names_chars.data(), static_cast<int>(device_names.size()));
     }
 
-    void viewer_model::render_pose(rs2::rect stream_rect, uint32_t pose_stream_count, float buttons_heights, ImGuiWindowFlags flags)
+    void viewer_model::render_pose(rs2::rect stream_rect, float buttons_heights, ImGuiWindowFlags flags)
     {
         int num_of_pose_buttons = 3; // trajectory, grid, info
-
-        if (pose_stream_count > 1)
-        {
-            num_of_pose_buttons = 1; // |Currently supports only single pose view
-        }
 
         ImGui::SetNextWindowPos({ stream_rect.x, stream_rect.y + buttons_heights });
         ImGui::SetNextWindowSize({ stream_rect.w, buttons_heights });
         std::string pose_label = to_string() << "header of 3dviewer - pose";
         ImGui::Begin(pose_label.c_str(), nullptr, flags);
 
-        // Draw selection buttons on the pose header
+        // Draw selection buttons on the pose header, the buttons are global to all the streaming devices
         ImGui::SetCursorPos({ stream_rect.w - 32 * num_of_pose_buttons - 5, 0 });
 
-        /* not supporting multiple stream at the moment */
-        if (pose_stream_count == 1)
-        {
-            bool color_icon = tm2.pose_info_object_button.is_pressed(); //draw trajectory is on - color the icon
-            if (color_icon)
-            {
-                ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
-                ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue);
-            }
-
-            // Draw info object button
-            if (ImGui::Button(tm2.pose_info_object_button.get_icon().c_str(), { 24, buttons_heights }))
-            {
-                for (auto&& s : streams)
-                {
-                    if (s.second.is_stream_visible() && s.second.profile.stream_type() == RS2_STREAM_POSE)
-                    {
-                        s.second.show_stream_details = !s.second.show_stream_details;
-                        tm2.pose_info_object_button.toggle_button();
-                    }
-                }
-            }
-            if (ImGui::IsItemHovered())
-            {
-                ImGui::SetTooltip("%s", tm2.pose_info_object_button.get_tooltip().c_str());
-            }
-            if (color_icon)
-            {
-                ImGui::PopStyleColor(2);
-            }
-
-
-            // Draw grid object button
-            ImGui::SameLine();
-
-            if (ImGui::Button(tm2.grid_object_button.get_icon().c_str(), { 24, buttons_heights }))
-            {
-                ImGui::OpenPopup("Grid Configuration");
-            }
-
-            if (ImGui::BeginPopupModal("Grid Configuration", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_ShowBorders | ImGuiWindowFlags_AlwaysUseWindowPadding))
-            {
-                for (auto&& s : streams)
-                {
-                    if (s.second.is_stream_visible() && s.second.profile.stream_type() == RS2_STREAM_POSE)
-                    {
-                        ImGui::Text(" Unit Scale:");
-                        ImGui::Text("     1 unit =");
-                        ImGui::SameLine();
-
-                        ImGui::PushItemWidth(100);
-                        float currentStep = s.second.texture->currentGrid.step;
-                        if (ImGui::InputFloat("##grid_step", &currentStep, 0.1f, 1.0f, 2))
-                        {
-                            if (currentStep >= 0.01)
-                            {
-                                s.second.texture->currentGrid.set(currentStep);
-                            }
-                        }
-                        ImGui::PopItemWidth();
-
-                        ImGui::SameLine();
-
-                        ImGui::PushItemWidth(80);
-                        int currentGridUnit = s.second.texture->currentGrid.unit;
-                        if (ImGui::Combo("##grid_scale_combo", &currentGridUnit, "Meter\0Feet\0\0"))
-                        {
-                            s.second.texture->currentGrid.set((grid_step_unit)currentGridUnit);
-                        }
-                        ImGui::PopItemWidth();
-
-
-                        ImGui::Separator();
-
-                        int boxHorizontalLength = s.second.texture->currentGrid.boxHorizontalLength;
-                        int boxVerticalLength = s.second.texture->currentGrid.boxVerticalLength;
-                        int boxVerticaAlignment = s.second.texture->currentGrid.boxVerticalAlignment;
-
-                        ImGui::Text(" Display");
-
-                        ImGui::Columns(2, 0, false);
-                        ImGui::SetColumnOffset(1, 100);
-
-                        ImGui::Text("     Horizontal:");
-                        ImGui::NextColumn();
-                        ImGui::PushItemWidth(148);
-                        if (ImGui::SliderIntWithSteps("##boxHorizontalLength", &boxHorizontalLength, 0, 100, 2))
-                        {
-                            s.second.texture->currentGrid.boxHorizontalLength = boxHorizontalLength;
-                        }
-                        ImGui::PopItemWidth();
-                        ImGui::NextColumn();
-
-                        ImGui::Text("     Vertical:  ");
-                        ImGui::NextColumn();
-                        ImGui::PushItemWidth(148);
-                        if (ImGui::SliderIntWithSteps("##boxVerticalLength", &boxVerticalLength, 1, 99, 2))
-                        {
-                            s.second.texture->currentGrid.boxVerticalLength = boxVerticalLength;
-                        }
-                        ImGui::PopItemWidth();
-                        ImGui::NextColumn();
-
-                        ImGui::Text("     Vertical Alignment:  ");
-                        ImGui::NextColumn();
-                        ImGui::PushItemWidth(148);
-                        if (ImGui::SliderIntWithSteps("##boxVerticalAlignment", &boxVerticaAlignment, -100, 100, 1))
-                        {
-                            s.second.texture->currentGrid.boxVerticalAlignment = boxVerticaAlignment;
-                        }
-                        ImGui::PopItemWidth();
-
-                        ImGui::Columns();
-
-                        if (ImGui::Button("OK", ImVec2(80, 0)))
-                        {
-                            s.second.texture->previousGrid = s.second.texture->currentGrid;
-                            ImGui::CloseCurrentPopup();
-                        }
-
-                        ImGui::SameLine();
-                        if (ImGui::Button("Cancel", ImVec2(80, 0)))
-                        {
-                            s.second.texture->currentGrid.set(s.second.texture->previousGrid);
-                            ImGui::CloseCurrentPopup();
-                        }
-
-                        ImGui::SameLine();
-                        if (ImGui::Button("Reset", ImVec2(80, 0)))
-                        {
-                            pose_grid resetGrid;
-                            s.second.texture->currentGrid.set(resetGrid);
-                            s.second.texture->previousGrid = s.second.texture->currentGrid;
-                            ImGui::CloseCurrentPopup();
-                        }
-                        break;
-                    }
-                }
-
-                ImGui::EndPopup();
-            }
-
-            if (ImGui::IsItemHovered())
-            {
-                ImGui::SetTooltip("%s", tm2.grid_object_button.get_tooltip().c_str());
-            }
-
-            ImGui::SameLine();
-        }
-        // Draw trajectory button
-
-        bool color_icon = tm2.trajectory_button.is_pressed(); //draw trajectory is on - color the icon
+        bool color_icon = pose_info_object_button.is_pressed(); //draw trajectory is on - color the icon
         if (color_icon)
         {
             ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
             ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue);
         }
-        if (ImGui::Button(tm2.trajectory_button.get_icon().c_str(), { 24, buttons_heights }))
+
+        // Draw info object button (is not synchronized with the info buttons in the 2D view)
+        if (ImGui::Button(pose_info_object_button.get_icon().c_str(), { 24, buttons_heights }))
         {
-            tm2.trajectory_button.toggle_button();
-            tm2.record_trajectory(tm2.trajectory_button.is_pressed());
+            show_pose_info_3d = !show_pose_info_3d;
+            pose_info_object_button.toggle_button();
+        }
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("%s", pose_info_object_button.get_tooltip().c_str());
+        }
+        if (color_icon)
+        {
+            ImGui::PopStyleColor(2);
+        }
+
+        // Draw grid object button
+        ImGui::SameLine();
+
+        if (ImGui::Button(grid_object_button.get_icon().c_str(), { 24, buttons_heights }))
+        {
+            ImGui::OpenPopup("Grid Configuration");
+        }
+
+        if (ImGui::BeginPopupModal("Grid Configuration", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_ShowBorders | ImGuiWindowFlags_AlwaysUseWindowPadding))
+        {
+            for (auto&& s : streams)
+            {
+                if (s.second.is_stream_visible() && s.second.profile.stream_type() == RS2_STREAM_POSE)
+                {
+                    ImGui::Text(" Unit Scale:");
+                    ImGui::Text("     1 unit =");
+                    ImGui::SameLine();
+
+                    ImGui::PushItemWidth(100);
+                    float currentStep = s.second.texture->currentGrid.step;
+                    if (ImGui::InputFloat("##grid_step", &currentStep, 0.1f, 1.0f, 2))
+                    {
+                        if (currentStep >= 0.01)
+                        {
+                            s.second.texture->currentGrid.set(currentStep);
+                        }
+                    }
+                    ImGui::PopItemWidth();
+
+                    ImGui::SameLine();
+
+                    ImGui::PushItemWidth(80);
+                    int currentGridUnit = s.second.texture->currentGrid.unit;
+                    if (ImGui::Combo("##grid_scale_combo", &currentGridUnit, "Meter\0Feet\0\0"))
+                    {
+                        s.second.texture->currentGrid.set((grid_step_unit)currentGridUnit);
+                    }
+                    ImGui::PopItemWidth();
+
+
+                    ImGui::Separator();
+
+                    int boxHorizontalLength = s.second.texture->currentGrid.boxHorizontalLength;
+                    int boxVerticalLength = s.second.texture->currentGrid.boxVerticalLength;
+                    int boxVerticaAlignment = s.second.texture->currentGrid.boxVerticalAlignment;
+
+                    ImGui::Text(" Display");
+
+                    ImGui::Columns(2, 0, false);
+                    ImGui::SetColumnOffset(1, 100);
+
+                    ImGui::Text("     Horizontal:");
+                    ImGui::NextColumn();
+                    ImGui::PushItemWidth(148);
+                    if (ImGui::SliderIntWithSteps("##boxHorizontalLength", &boxHorizontalLength, 0, 100, 2))
+                    {
+                        s.second.texture->currentGrid.boxHorizontalLength = boxHorizontalLength;
+                    }
+                    ImGui::PopItemWidth();
+                    ImGui::NextColumn();
+
+                    ImGui::Text("     Vertical:  ");
+                    ImGui::NextColumn();
+                    ImGui::PushItemWidth(148);
+                    if (ImGui::SliderIntWithSteps("##boxVerticalLength", &boxVerticalLength, 1, 99, 2))
+                    {
+                        s.second.texture->currentGrid.boxVerticalLength = boxVerticalLength;
+                    }
+                    ImGui::PopItemWidth();
+                    ImGui::NextColumn();
+
+                    ImGui::Text("     Vertical Alignment:  ");
+                    ImGui::NextColumn();
+                    ImGui::PushItemWidth(148);
+                    if (ImGui::SliderIntWithSteps("##boxVerticalAlignment", &boxVerticaAlignment, -100, 100, 1))
+                    {
+                        s.second.texture->currentGrid.boxVerticalAlignment = boxVerticaAlignment;
+                    }
+                    ImGui::PopItemWidth();
+
+                    ImGui::Columns();
+
+                    if (ImGui::Button("OK", ImVec2(80, 0)))
+                    {
+                        s.second.texture->previousGrid = s.second.texture->currentGrid;
+                        ImGui::CloseCurrentPopup();
+                    }
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Cancel", ImVec2(80, 0)))
+                    {
+                        s.second.texture->currentGrid.set(s.second.texture->previousGrid);
+                        ImGui::CloseCurrentPopup();
+                    }
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Reset", ImVec2(80, 0)))
+                    {
+                        pose_grid resetGrid;
+                        s.second.texture->currentGrid.set(resetGrid);
+                        s.second.texture->previousGrid = s.second.texture->currentGrid;
+                        ImGui::CloseCurrentPopup();
+                    }
+                    break;
+                }
+            }
+
+            ImGui::EndPopup();
+        }
+
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("%s", grid_object_button.get_tooltip().c_str());
+        }
+
+        ImGui::SameLine();
+
+        color_icon = trajectory_button.is_pressed(); //draw trajectory is on - color the icon
+        if (color_icon)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
+            ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue);
+        }
+        if (ImGui::Button(trajectory_button.get_icon().c_str(), { 24, buttons_heights }))
+        {
+            trajectory_button.toggle_button();
+            for (auto&& s : streams)
+            {
+                if (s.second.profile.stream_type() == RS2_STREAM_POSE)
+                    streams[s.second.profile.unique_id()].dev->tm2.record_trajectory(trajectory_button.is_pressed());
+            }
         }
         if (color_icon)
         {
@@ -2016,7 +2081,7 @@ namespace rs2
         }
         if (ImGui::IsItemHovered())
         {
-            ImGui::SetTooltip("%s", tm2.trajectory_button.get_tooltip().c_str());
+            ImGui::SetTooltip("%s", trajectory_button.get_tooltip().c_str());
         }
 
         ImGui::End();
@@ -2330,7 +2395,6 @@ namespace rs2
 
         // Draw pose header if pose stream exists
         bool pose_render = false;
-        uint32_t pose_stream_count = 0;
 
         for (auto&& s : streams)
         {
@@ -2338,17 +2402,16 @@ namespace rs2
                 s.second.profile.stream_type() == RS2_STREAM_POSE)
             {
                 pose_render = true;
-                pose_stream_count++;
+                break;
             }
         }
 
-        auto total_top_bar_height = top_bar_height; // may include single bar or additional bar for pose
-
         if (pose_render)
         {
-            total_top_bar_height += top_bar_height; // add additional bar height for pose
-            render_pose(stream_rect, pose_stream_count, buttons_heights, flags);
+            render_pose(stream_rect, buttons_heights, flags);
         }
+
+        auto total_top_bar_height = top_bar_height * (1 + pose_render); // may include single bar or additional bar for pose
 
         ImGui::PopStyleColor(6);
         ImGui::PopStyleVar();
@@ -3105,7 +3168,7 @@ namespace rs2
                 data = "[";
                 std::string comma = "";
                 unsigned int i = 0;
-                while ((pose.floatData[i] != FLT_MAX) && (i<4))
+                while ((i<4) && (pose.floatData[i] != FLT_MAX))
                 {
 
                     data += to_string() << std::fixed << std::setprecision(pose.precision) << (pose.signedNumber ? std::showpos : std::noshowpos) << comma << pose.floatData[i];
@@ -3669,34 +3732,65 @@ namespace rs2
         else
             frames.push_back(f);
 
-        for (auto& f : frames)
+        auto res = f;
+
+        //In order to know what are the processing blocks we need to apply
+        //We should find all the sub devices releted to the frames
+        std::set<std::shared_ptr<subdevice_model>> subdevices;
+        for (auto f : frames)
         {
-            for (auto&& s : viewer.streams)
-            {
-                if (!s.second.dev) continue;
-                auto dev = s.second.dev;
+            auto sub = get_frame_origin(f);
+            if(sub)
+                subdevices.insert(sub);
+        }
 
-                if (s.second.original_profile.unique_id() == f.get_profile().unique_id())
-                {
-                    if (dev->post_processing_enabled)
-                    {
-                        for (auto&& pbm : s.second.dev->post_processing)
-                        {
-                            if (pbm && pbm->enabled)
-                                f = pbm->invoke(f);
-                        }
+        for (auto sub : subdevices)
+        {
+            if (!sub->post_processing_enabled)
+                continue;
 
-                        break;
-                    }
-                }
-            }
+            for(auto&& pp : sub->post_processing)
+                if (pp->enabled)
+                    res = pp->invoke(res);
         }
 
         // Override the zero pixel in texture frame with black color for occlusion invalidation
         // TODO - this is a temporal solution to be refactored from the app level into the core library
-        for (auto&& f : frames)
+        if (auto set = res.as<frameset>())
         {
-            auto stream_type = f.get_profile().stream_type();
+            for (auto f : set)
+            {
+                zero_first_pixel(f);
+            }
+        }    
+        else
+        {
+            zero_first_pixel(f);
+        }     
+        return res;
+    }
+
+    std::shared_ptr<subdevice_model> post_processing_filters::get_frame_origin(const rs2::frame& f)
+    {
+        for (auto&& s : viewer.streams)
+        {
+            if (s.second.dev)
+            {
+                auto dev = s.second.dev;
+
+                if (s.second.original_profile.unique_id() == f.get_profile().unique_id())
+                {
+                    return dev;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    //Zero the first pixel on frame ,used to invalidate the occlusion pixels
+    void post_processing_filters::zero_first_pixel(const rs2::frame& f)
+    {
+        auto stream_type = f.get_profile().stream_type();
 
             switch (stream_type)
             {
@@ -3717,10 +3811,7 @@ namespace rs2
             break;
             default:
                 break;
-            }
         }
-
-        return source.allocate_composite_frame(frames);
     }
 
     void post_processing_filters::map_id(rs2::frame new_frame, rs2::frame old_frame)
@@ -4053,7 +4144,13 @@ namespace rs2
                         }
 
                         if (frame.is<pose_frame>())  // Aggregate the trajectory in pause mode to make the path consistent
-                            tm2.update_model_trajectory(frame.as<pose_frame>(), !paused);
+                        {
+                            auto dev = streams[frame.get_profile().unique_id()].dev;
+                            if (dev)
+                            {
+                                dev->tm2.update_model_trajectory(frame.as<pose_frame>(), !paused);
+                            }
+                        }
 
                         auto texture = upload_frame(std::move(frame));
 
@@ -4624,6 +4721,7 @@ namespace rs2
         rs2::matrix4 rx(_rx);
         rs2::matrix4 rz(_rz);
 
+        int stream_num = 0; // counter to locate the pose info window correctly (currently works for up to 3 streaming devices)
         pose_frame pose = frame{};
         for (auto&& stream : streams)
         {
@@ -4639,10 +4737,11 @@ namespace rs2
 
                 pose = f;
                 rs2_pose pose_data = pose.get_pose_data();
-                if (stream.second.show_stream_details)
+                if (show_pose_info_3d)
                 {
                     auto stream_type = stream.second.profile.stream_type();
                     auto stream_rect = viewer_rect;
+                    stream_rect.x += 460 * stream_num;
                     stream_rect.y += 2 * top_bar_height + 5;
                     stream.second.show_stream_pose(font1, stream_rect, pose_data, stream_type, true, 0);
                 }
@@ -4651,7 +4750,6 @@ namespace rs2
                 float model[4][4];
                 t.to_column_major((float*)model);
                 auto m = model;
-
 
                 r1 = m * rx;
                 r2 = rz * m * rx;
@@ -4663,10 +4761,18 @@ namespace rs2
 
                 glMultMatrixf((float*)_rx);
 
-                tm2.draw_trajectory();
+                streams[f.get_profile().unique_id()].dev->tm2.draw_trajectory(trajectory_button.is_pressed());
 
                 // remove model matrix from the rest of the render
                 glPopMatrix();
+
+                glMatrixMode(GL_MODELVIEW);
+                glPushMatrix();
+                glLoadMatrixf(r2 * view_mat);
+                render_camera_mesh(t265_mesh_id);
+                glPopMatrix();
+
+                stream_num++;
             }
         }
 
@@ -4822,15 +4928,6 @@ namespace rs2
                     glPopMatrix();
                 }
             }
-        }
-
-        if (pose)
-        {
-            glMatrixMode(GL_MODELVIEW);
-            glPushMatrix();
-            glLoadMatrixf(r1 * view_mat);
-            render_camera_mesh(t265_mesh_id);
-            glPopMatrix();
         }
 
         glPopMatrix();
@@ -6212,9 +6309,9 @@ namespace rs2
                     }
                 }
             }
-            catch (...)
+            catch (const std::exception& ex)
             {
-                ImGui::TextColored(redish, "Couldn't fetch Advanced Mode settings");
+                error_message = ex.what();
             }
 
             ImGui::TreePop();
@@ -6367,21 +6464,21 @@ namespace rs2
         {
             bool something_to_show = false;
             ImGui::PushStyleColor(ImGuiCol_Text, dark_grey);
-            if (auto loopback = dev.as<rs2::tm2>())
+            if (auto tm2_extensions = dev.as<rs2::tm2>())
             {
                 something_to_show = true;
                 try
                 {
-                    if (!loopback.is_loopback_enabled() && ImGui::Selectable("Enable loopback...", false, is_streaming ? ImGuiSelectableFlags_Disabled : 0))
+                    if (!tm2_extensions.is_loopback_enabled() && ImGui::Selectable("Enable loopback...", false, is_streaming ? ImGuiSelectableFlags_Disabled : 0))
                     {
                         if (const char* ret = file_dialog_open(file_dialog_mode::open_file, "ROS-bag\0*.bag\0", NULL, NULL))
                         {
-                            loopback.enable_loopback(ret);
+                            tm2_extensions.enable_loopback(ret);
                         }
                     }
-                    if (loopback.is_loopback_enabled() && ImGui::Selectable("Disable loopback...", false, is_streaming ? ImGuiSelectableFlags_Disabled : 0))
+                    if (tm2_extensions.is_loopback_enabled() && ImGui::Selectable("Disable loopback...", false, is_streaming ? ImGuiSelectableFlags_Disabled : 0))
                     {
-                        loopback.disable_loopback();
+                        tm2_extensions.disable_loopback();
                     }
                     if (ImGui::IsItemHovered())
                     {
@@ -6389,6 +6486,57 @@ namespace rs2
                             ImGui::SetTooltip("Stop streaming to use loopback functionality");
                         else
                             ImGui::SetTooltip("Enter the device to loopback mode (inject frames from file to FW)");
+                    }
+
+                    if (auto tm_sensor = dev.first<pose_sensor>())
+                    {
+                        if (ImGui::Selectable("Export Localization map", false, is_streaming ? ImGuiSelectableFlags_Disabled : 0))
+                        {
+                            if (auto target_path = file_dialog_open(save_file, "Tracking device Localization map (RAW)\0*.*\0", NULL, NULL))
+                            {
+                                error_message = safe_call([&]()
+                                {
+                                    std::stringstream ss;
+                                    ss << "Exporting localization map to " << target_path << " ... ";
+                                    viewer.not_model.add_log(ss.str());
+                                    bin_file_from_bytes(target_path, tm_sensor.export_localization_map());
+                                    ss.clear();
+                                    ss << "completed";
+                                    viewer.not_model.add_log(ss.str());
+                                });
+                            }
+                        }
+
+                        if (ImGui::IsItemHovered())
+                        {
+                            if (is_streaming)
+                                ImGui::SetTooltip("Stop streaming to Export localization map");
+                            else
+                                ImGui::SetTooltip("Retrieve the localization map from device");
+                        }
+
+                        if (ImGui::Selectable("Import Localization map", false, is_streaming ? ImGuiSelectableFlags_Disabled : 0))
+                        {
+                            if (auto source_path = file_dialog_open(save_file, "Tracking device Localization map (RAW)\0*.*\0", NULL, NULL))
+                            {
+                                error_message = safe_call([&]()
+                                {
+                                    std::stringstream ss;
+                                    ss << "Importing localization map from " << source_path << " ... ";
+                                    tm_sensor.import_localization_map(bytes_from_bin_file(source_path));
+                                    ss << "completed";
+                                    viewer.not_model.add_log(ss.str());
+                                });
+                            }
+                        }
+
+                        if (ImGui::IsItemHovered())
+                        {
+                            if (is_streaming)
+                                ImGui::SetTooltip("Stop streaming to Import localization map");
+                            else
+                                ImGui::SetTooltip("Load localization map from host to device");
+                        }
                     }
                 }
                 catch (const rs2::error& e)
@@ -6486,28 +6634,6 @@ namespace rs2
         ImGui::PopFont();
 
         return device_panel_height;
-    }
-
-    template <typename T>
-    std::string safe_call(T t)
-    {
-        try
-        {
-            t();
-            return "";
-        }
-        catch (const error& e)
-        {
-            return error_to_string(e);
-        }
-        catch (const std::exception& e)
-        {
-            return e.what();
-        }
-        catch (...)
-        {
-            return "Unknown error occurred";
-        }
     }
 
     void device_model::save_viewer_configurations(std::ofstream& outfile, json& j)
@@ -6610,22 +6736,29 @@ namespace rs2
         {
             assert(it.value().is_string());
             std::string formatstr = it.value();
-            if (formatstr == "R8L8")
+
+            bool found = false;
+            for (int i = 0; i < RS2_FORMAT_COUNT; i++)
             {
-                requested_streams[std::make_pair(RS2_STREAM_INFRARED, 1)].format = RS2_FORMAT_Y8;
-                requested_streams[std::make_pair(RS2_STREAM_INFRARED, 2)].format = RS2_FORMAT_Y8;
+                auto format = (rs2_format)i;
+                if (ends_with(rs2_format_to_string(format), formatstr))
+                {
+                    requested_streams[std::make_pair(RS2_STREAM_INFRARED, 1)].format = format;
+                    found = true;
+                }
             }
-            else if (formatstr == "Y8")
+
+            if (!found)
             {
-                requested_streams[std::make_pair(RS2_STREAM_INFRARED, 1)].format = RS2_FORMAT_Y8;
-            }
-            else if (formatstr == "UYVY")
-            {
-                requested_streams[std::make_pair(RS2_STREAM_INFRARED, 1)].format = RS2_FORMAT_UYVY;
-            }
-            else
-            {
-                throw std::runtime_error(to_string() << "Unsupported stream-ir-format: " << formatstr);
+                if (formatstr == "R8L8")
+                {
+                    requested_streams[std::make_pair(RS2_STREAM_INFRARED, 1)].format = RS2_FORMAT_Y8;
+                    requested_streams[std::make_pair(RS2_STREAM_INFRARED, 2)].format = RS2_FORMAT_Y8;
+                }
+                else
+                {
+                    throw std::runtime_error(to_string() << "Unsupported stream-ir-format: " << formatstr);
+                }
             }
 
             // Disable infrared stream on all sub devices
@@ -7540,35 +7673,18 @@ namespace rs2
                     const ImVec2 pos = ImGui::GetCursorPos();
 
                     draw_later.push_back([windows_width, &window, sub, pos, &viewer, this]() {
-                        if (!sub->streaming) ImGui::SetCursorPos({ windows_width - 27 , pos.y - 1 });
+                        if (!sub->streaming) ImGui::SetCursorPos({ windows_width - 34 , pos.y - 3 });
                         else ImGui::SetCursorPos({ windows_width - 34, pos.y - 3 });
 
-                        ImGui::PushFont(window.get_font());
-
-                        ImGui::PushStyleColor(ImGuiCol_Button, sensor_bg);
-                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, sensor_bg);
-                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, sensor_bg);
-
-                        if (!sub->streaming)
+                        try
                         {
-                            if (!sub->post_processing_enabled)
-                            {
-                                std::string label = to_string() << textual_icons::toggle_off;
 
-                                ImGui::PushStyleColor(ImGuiCol_Text, redish);
-                                ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
-                                ImGui::TextDisabled("%s", label.c_str());
-                            }
-                            else
-                            {
-                                std::string label = to_string() << textual_icons::toggle_on;
-                                ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
-                                ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
-                                ImGui::TextDisabled("%s", label.c_str());
-                            }
-                        }
-                        else
-                        {
+                            ImGui::PushFont(window.get_font());
+
+                            ImGui::PushStyleColor(ImGuiCol_Button, sensor_bg);
+                            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, sensor_bg);
+                            ImGui::PushStyleColor(ImGuiCol_ButtonActive, sensor_bg);
+
                             if (!sub->post_processing_enabled)
                             {
                                 std::string label = to_string() << " " << textual_icons::toggle_off << "##" << id << "," << sub->s->get_info(RS2_CAMERA_INFO_NAME) << ",post";
@@ -7576,9 +7692,13 @@ namespace rs2
                                 ImGui::PushStyleColor(ImGuiCol_Text, redish);
                                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
 
-                                if (ImGui::Button(label.c_str(), { 28,24 }))
+                                if (ImGui::Button(label.c_str(), { 30,24 }))
                                 {
+                                    if (sub->zero_order_artifact_fix && sub->zero_order_artifact_fix->enabled)
+                                        sub->verify_zero_order_conditions();
                                     sub->post_processing_enabled = true;
+                                    config_file::instance().set(get_device_sensor_name(sub.get()).c_str(),
+                                        sub->post_processing_enabled);
                                 }
                                 if (ImGui::IsItemHovered())
                                 {
@@ -7592,9 +7712,11 @@ namespace rs2
                                 ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
                                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
 
-                                if (ImGui::Button(label.c_str(), { 28,24 }))
+                                if (ImGui::Button(label.c_str(), { 30,24 }))
                                 {
                                     sub->post_processing_enabled = false;
+                                    config_file::instance().set(get_device_sensor_name(sub.get()).c_str(),
+                                        sub->post_processing_enabled);
                                 }
                                 if (ImGui::IsItemHovered())
                                 {
@@ -7602,18 +7724,15 @@ namespace rs2
                                     window.link_hovered();
                                 }
                             }
-
-                            std::stringstream ss;
-                            ss  << configurations::viewer::post_processing 
-                                << "." << sub->dev.get_info(RS2_CAMERA_INFO_NAME)
-                                << "." << sub->s->get_info(RS2_CAMERA_INFO_NAME);
-                            auto key = ss.str();
-                            config_file::instance().set(key.c_str(), 
-                                sub->post_processing_enabled);
+                            ImGui::PopStyleColor(5);
+                            ImGui::PopFont();
                         }
-
-                        ImGui::PopStyleColor(5);
-                        ImGui::PopFont();
+                        catch (...)
+                        {
+                            ImGui::PopStyleColor(5);
+                            ImGui::PopFont();
+                            throw;
+                        }
                     });
 
                     label = to_string() << "Post-Processing##" << id;
@@ -7629,85 +7748,95 @@ namespace rs2
                             const ImVec2 abs_pos = ImGui::GetCursorScreenPos();
 
                             draw_later.push_back([windows_width, &window, sub, pos, &viewer, this, pb]() {
-                                if (!sub->streaming || !sub->post_processing_enabled) ImGui::SetCursorPos({ windows_width - 27, pos.y + 1 });
+                                if (!sub->streaming || !sub->post_processing_enabled) ImGui::SetCursorPos({ windows_width - 35, pos.y -3 });
                                 else
                                     ImGui::SetCursorPos({ windows_width - 35, pos.y - 3 });
 
-                                ImGui::PushFont(window.get_font());
-
-                                ImGui::PushStyleColor(ImGuiCol_Button, sensor_bg);
-                                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, sensor_bg);
-                                ImGui::PushStyleColor(ImGuiCol_ButtonActive, sensor_bg);
-
-                                if (!sub->streaming || !sub->post_processing_enabled)
+                                try
                                 {
-                                    if (!pb->enabled)
-                                    {
-                                        std::string label = to_string() << textual_icons::toggle_off;
+                                    ImGui::PushFont(window.get_font());
 
-                                        ImGui::PushStyleColor(ImGuiCol_Text, redish);
-                                        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
-                                        ImGui::TextDisabled("%s", label.c_str());
-                                    }
-                                    else
-                                    {
-                                        std::string label = to_string() << textual_icons::toggle_on;
-                                        ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
-                                        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
-                                        ImGui::TextDisabled("%s", label.c_str());
-                                    }
-                                }
-                                else
-                                {
-                                    if (!pb->enabled)
-                                    {
-                                        std::string label = to_string() << " " << textual_icons::toggle_off << "##" << id << "," << sub->s->get_info(RS2_CAMERA_INFO_NAME) << "," << pb->get_name();
+                                    ImGui::PushStyleColor(ImGuiCol_Button, sensor_bg);
+                                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, sensor_bg);
+                                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, sensor_bg);
 
-                                        ImGui::PushStyleColor(ImGuiCol_Text, redish);
-                                        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
-
-                                        if (ImGui::Button(label.c_str(), { 30,24 }))
+                                    if (!sub->post_processing_enabled)
+                                    {
+                                        if (!pb->enabled)
                                         {
-                                            pb->enabled = true;
-                                            pb->save();
+                                            std::string label = to_string() << " " << textual_icons::toggle_off << "##" << id << "," << sub->s->get_info(RS2_CAMERA_INFO_NAME) << "," << pb->get_name();
+
+                                            ImGui::PushStyleColor(ImGuiCol_Text, redish);
+                                            ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
+                                            ImGui::ButtonEx(label.c_str(), { 25,24 }, ImGuiButtonFlags_Disabled);
                                         }
-                                        if (ImGui::IsItemHovered())
+                                        else
                                         {
-                                            label = to_string() << "Enable " << pb->get_name() << " post-processing filter";
-                                            ImGui::SetTooltip("%s", label.c_str());
-                                            window.link_hovered();
+                                            std::string label = to_string() << " " << textual_icons::toggle_on << "##" << id << "," << sub->s->get_info(RS2_CAMERA_INFO_NAME) << "," << pb->get_name();
+                                            ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
+                                            ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
+                                            ImGui::ButtonEx(label.c_str(), { 25,24 }, ImGuiButtonFlags_Disabled);
                                         }
                                     }
                                     else
                                     {
-                                        std::string label = to_string() << " " << textual_icons::toggle_on << "##" << id << "," << sub->s->get_info(RS2_CAMERA_INFO_NAME) << "," << pb->get_name();
-                                        ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
-                                        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
+                                        if (!pb->enabled)
+                                        {
+                                            std::string label = to_string() << " " << textual_icons::toggle_off << "##" << id << "," << sub->s->get_info(RS2_CAMERA_INFO_NAME) << "," << pb->get_name();
 
-                                        if (ImGui::Button(label.c_str(), { 30,24 }))
-                                        {
-                                            pb->enabled = false;
-                                            pb->save();
+                                            ImGui::PushStyleColor(ImGuiCol_Text, redish);
+                                            ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
+
+                                            if (ImGui::Button(label.c_str(), { 25,24 }))
+                                            {
+                                                if (pb->get_block()->is<zero_order_invalidation>())
+                                                    sub->verify_zero_order_conditions();
+                                                pb->enabled = true;
+                                                pb->save_to_config_file();
+                                            }
+                                            if (ImGui::IsItemHovered())
+                                            {
+                                                label = to_string() << "Enable " << pb->get_name() << " post-processing filter";
+                                                ImGui::SetTooltip("%s", label.c_str());
+                                                window.link_hovered();
+                                            }
                                         }
-                                        if (ImGui::IsItemHovered())
+                                        else
                                         {
-                                            label = to_string() << "Disable " << pb->get_name() << " post-processing filter";
-                                            ImGui::SetTooltip("%s", label.c_str());
-                                            window.link_hovered();
+                                            std::string label = to_string() << " " << textual_icons::toggle_on << "##" << id << "," << sub->s->get_info(RS2_CAMERA_INFO_NAME) << "," << pb->get_name();
+                                            ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
+                                            ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
+
+                                                if (ImGui::Button(label.c_str(), { 25,24 }))
+                                                {
+                                                    pb->enabled = false;
+                                                    pb->save_to_config_file();
+                                                }
+                                                if (ImGui::IsItemHovered())
+                                                {
+                                                    label = to_string() << "Disable " << pb->get_name() << " post-processing filter";
+                                                    ImGui::SetTooltip("%s", label.c_str());
+                                                window.link_hovered();
+                                            }
                                         }
                                     }
-                                }
 
-                                ImGui::PopStyleColor(5);
-                                ImGui::PopFont();
+                                    ImGui::PopStyleColor(5);
+                                    ImGui::PopFont();
+                                }
+                                catch (...)
+                                {
+                                    ImGui::PopStyleColor(5);
+                                    ImGui::PopFont();
+                                    throw;
+                                }
                             });
 
                             label = to_string() << pb->get_name() << "##" << id;
                             if (ImGui::TreeNode(label.c_str()))
                             {
-                                for (auto i = 0; i < RS2_OPTION_COUNT; i++)
+                                for (auto&& opt : pb->get_option_list())
                                 {
-                                    auto opt = static_cast<rs2_option>(i);
                                     if (skip_option(opt)) continue;
                                     pb->get_option(opt).draw_option(
                                         dev.is<playback>() || update_read_only_options,
@@ -8200,35 +8329,9 @@ namespace rs2
         texture_buffer::draw_circle(1, 0, 0, 0, 0, 1, sphere_radius, { 0.0, controller_height + sphere_radius, 0.0 }, 1.0f);
     }
 
-    void tm2_model::draw_pose_object()
-    {
-        if (!camera_object_button.is_pressed()) // draw camera box
-        {
-            glBegin(GL_QUADS);
-            for (auto&& colored_face : camera_box)
-            {
-                auto& c = colored_face.second;
-                glColor3f(c[0], c[1], c[2]);
-                for (auto&& v : colored_face.first)
-                {
-                    glVertex3f(v.x, v.y, v.z);
-                }
-            }
-            glEnd();
-
-            texture_buffer::draw_circle(1, 0, 0, 0, 1, 0, lens_radius, center_left, 1.0f);
-            texture_buffer::draw_circle(1, 0, 0, 0, 1, 0, lens_radius, center_right, 1.0f);
-        }
-        else //draw axis
-        {
-            texture_buffer::draw_axes(0.1f, 1.f);
-        }
-    }
-
     // Aggregate the trajectory path
     void tm2_model::update_model_trajectory(const pose_frame& pose, bool track)
     {
-        // TODO refactor for multi-cam
         static bool prev_track = track;
         if (!_trajectory_tracking)
             return;
@@ -8253,9 +8356,9 @@ namespace rs2
         prev_track = track;
     }
 
-    void tm2_model::draw_trajectory()
+    void tm2_model::draw_trajectory(bool is_trajectory_button_pressed)
     {
-        if (!trajectory_button.is_pressed())
+        if (!is_trajectory_button_pressed)
         {
             record_trajectory(false);
             reset_trajectory();

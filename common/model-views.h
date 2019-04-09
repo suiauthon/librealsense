@@ -293,7 +293,7 @@ namespace rs2
     class viewer_model;
     class subdevice_model;
 
-    void save_processing_block(const char* name, 
+    void save_processing_block_to_config_file(const char* name, 
         std::shared_ptr<rs2::processing_block> pb, bool enable = true);
 
     class processing_block_model
@@ -301,29 +301,40 @@ namespace rs2
     public:
         processing_block_model(subdevice_model* owner,
             const std::string& name,
-            std::shared_ptr<rs2::processing_block> block,
+            std::shared_ptr<rs2::filter> block,
             std::function<rs2::frame(rs2::frame)> invoker,
             std::string& error_message,
             bool enabled = true);
 
         const std::string& get_name() const { return _name; }
 
-        option_model& get_option(rs2_option opt) { return options_metadata[opt]; }
+        option_model& get_option(rs2_option opt);
 
         rs2::frame invoke(rs2::frame f) const { return _invoker(f); }
 
-        void save()
+        void save_to_config_file();
+
+        std::vector<rs2_option> get_option_list()
         {
-            save_processing_block(_name.c_str(), _block, enabled);
+            return _block->get_supported_options();
         }
+
+        void populate_options(const std::string& opt_base_label,
+            subdevice_model* model,
+            bool* options_invalidated,
+            std::string& error_message);
+
+        std::shared_ptr<rs2::filter> get_block() { return _block; }
 
         bool enabled = true;
         bool visible = true;
     private:
-        std::shared_ptr<rs2::processing_block> _block;
+        std::shared_ptr<rs2::filter> _block;
         std::map<int, option_model> options_metadata;
         std::string _name;
+        std::string _full_name;
         std::function<rs2::frame(rs2::frame)> _invoker;
+        subdevice_model* _owner;
     };
 
     class syncer_model
@@ -395,6 +406,104 @@ namespace rs2
         std::atomic<bool> _active;
     };
 
+    option_model create_option_mode(rs2_option opt, std::shared_ptr<options> options, const std::string& opt_base_label, bool* options_invalidated, std::string& error_message);
+
+    using color = std::array<float, 3>;
+    using face = std::array<float3, 4>;
+    using colored_cube = std::array<std::pair<face, color>, 6>;
+    using tracked_point = std::pair<rs2_vector, unsigned int>; // translation and confidence
+
+    class press_button_model
+    {
+    public:
+        press_button_model(const char* icon_default, const char* icon_pressed, std::string tooltip_default, std::string tooltip_pressed,
+                           bool init_pressed)
+        {
+            state_pressed = init_pressed;
+            tooltip[unpressed] = tooltip_default;
+            tooltip[pressed] = tooltip_pressed;
+            icon[unpressed] = icon_default;
+            icon[pressed] = icon_pressed;
+        }
+
+        void toggle_button() { state_pressed = !state_pressed; }
+        void set_button_pressed(bool p) { state_pressed = p; }
+        bool is_pressed() { return state_pressed; }
+        std::string get_tooltip() { return(state_pressed ? tooltip[pressed] : tooltip[unpressed]); }
+        std::string get_icon() { return(state_pressed ? icon[pressed] : icon[unpressed]); }
+
+    private:
+        enum button_state
+        {
+            unpressed, //default
+            pressed
+        };
+
+        bool state_pressed = false;
+        std::string tooltip[2];
+        std::string icon[2];
+    };
+
+    class tm2_model
+    {
+    public:
+        tm2_model() : _trajectory_tracking(true)
+        {   
+        }
+        void draw_controller_pose_object();
+        void draw_trajectory(bool is_trajectory_button_pressed);
+        void update_model_trajectory(const pose_frame& pose, bool track);
+        void record_trajectory(bool on) { _trajectory_tracking = on; };
+        void reset_trajectory() { trajectory.clear(); };
+
+    private:
+        void add_to_trajectory(tracked_point& p);
+
+        const float len_x = 0.1f;
+        const float len_y = 0.03f;
+        const float len_z = 0.01f;
+        const float lens_radius = 0.005f;
+        /*
+        4--------------------------3
+        /|                         /|
+        5-|------------------------6 |
+        | /1                       | /2
+        |/                         |/
+        7--------------------------8
+        */
+        float3 v1{ -len_x / 2, -len_y / 2,  len_z / 2 };
+        float3 v2{ len_x / 2, -len_y / 2,  len_z / 2 };
+        float3 v3{ len_x / 2,  len_y / 2,  len_z / 2 };
+        float3 v4{ -len_x / 2,  len_y / 2,  len_z / 2 };
+        float3 v5{ -len_x / 2,  len_y / 2, -len_z / 2 };
+        float3 v6{ len_x / 2,  len_y / 2, -len_z / 2 };
+        float3 v7{ -len_x / 2, -len_y / 2, -len_z / 2 };
+        float3 v8{ len_x / 2, -len_y / 2, -len_z / 2 };
+        face f1{ { v1,v2,v3,v4 } }; //Back
+        face f2{ { v2,v8,v6,v3 } }; //Right side
+        face f3{ { v4,v3,v6,v5 } }; //Top side
+        face f4{ { v1,v4,v5,v7 } }; //Left side
+        face f5{ { v7,v8,v6,v5 } }; //Front
+        face f6{ { v1,v2,v8,v7 } }; //Bottom side
+
+        std::array<color, 6> colors{ {
+            { { 0.5f, 0.5f, 0.5f } }, //Back
+        { { 0.7f, 0.7f, 0.7f } }, //Right side
+        { { 1.0f, 0.7f, 0.7f } }, //Top side
+        { { 0.7f, 0.7f, 0.7f } }, //Left side
+        { { 0.4f, 0.4f, 0.4f } }, //Front
+        { { 0.7f, 0.7f, 0.7f } }  //Bottom side
+            } };
+
+        colored_cube camera_box{ { { f1,colors[0] },{ f2,colors[1] },{ f3,colors[2] },{ f4,colors[3] },{ f5,colors[4] },{ f6,colors[5] } } };
+        float3 center_left{ v5.x + len_x / 3, v6.y - len_y / 3, v5.z };
+        float3 center_right{ v6.x - len_x / 3, v6.y - len_y / 3, v5.z };
+
+        std::vector<tracked_point> trajectory;
+        std::vector<float2> boundary;
+        bool                _trajectory_tracking;
+
+    };
 
     class subdevice_model
     {
@@ -413,6 +522,7 @@ namespace rs2
         std::vector<stream_profile> get_selected_profiles();
         void stop(viewer_model& viewer);
         void play(const std::vector<stream_profile>& profiles, viewer_model& viewer, std::shared_ptr<rs2::asynchronous_syncer>);
+        bool is_synchronized_frame(viewer_model& viewer, const frame& f);
         void update(std::string& error_message, notifications_model& model);
         void draw_options(const std::vector<rs2_option>& drawing_order,
                           bool update_read_only_options, std::string& error_message,
@@ -427,6 +537,9 @@ namespace rs2
         bool is_paused() const;
         void pause();
         void resume();
+
+        bool can_enable_zero_order();
+        void verify_zero_order_conditions();
 
         void restore_ui_selection() { ui = last_valid_ui; }
         void store_ui_selection() { last_valid_ui = ui; }
@@ -455,6 +568,7 @@ namespace rs2
         std::function<void()> on_frame = []{};
         std::shared_ptr<sensor> s;
         device dev;
+        tm2_model tm2;
 
         std::map<int, option_model> options_metadata;
         std::vector<std::string> resolutions;
@@ -500,6 +614,7 @@ namespace rs2
 
         std::shared_ptr<rs2::colorizer> depth_colorizer;
         std::shared_ptr<rs2::yuy_decoder> yuy2rgb;
+        std::shared_ptr<processing_block_model> zero_order_artifact_fix;
 
         std::vector<std::shared_ptr<processing_block_model>> post_processing;
         bool post_processing_enabled = true;
@@ -802,6 +917,9 @@ namespace rs2
         void map_id_frame_to_frame(rs2::frame first, rs2::frame second);
 
         rs2::frame apply_filters(rs2::frame f, const rs2::frame_source& source);
+        std::shared_ptr<subdevice_model> get_frame_origin(const rs2::frame& f);
+
+        void zero_first_pixel(const rs2::frame& f);
         rs2::frame last_tex_frame;
         rs2::processing_block processing_block;
         std::shared_ptr<pointcloud> pc;
@@ -818,109 +936,6 @@ namespace rs2
         int last_stream_id = 0;
     };
 
-    class press_button_model
-    {
-    public:
-        press_button_model(const char* icon_default, const char* icon_pressed, std::string tooltip_default, std::string tooltip_pressed)
-        {
-            tooltip[unpressed] = tooltip_default;
-            tooltip[pressed] = tooltip_pressed;
-            icon[unpressed] = icon_default;
-            icon[pressed] = icon_pressed;
-        }
-
-        void toggle_button() { state_pressed = !state_pressed; }
-        void set_button_pressed(bool p) { state_pressed = p; }
-        bool is_pressed() { return state_pressed; }
-        std::string get_tooltip() { return(state_pressed ? tooltip[pressed]: tooltip[unpressed]); }
-        std::string get_icon() { return(state_pressed ? icon[pressed] : icon[unpressed]); }
-
-    private:
-        enum button_state
-        {
-            unpressed, //default
-            pressed
-        };
-
-        bool state_pressed = false;
-        std::string tooltip[2];
-        std::string icon[2];
-    };
-
-    using color = std::array<float, 3>;
-    using face = std::array<float3, 4>;
-    using colored_cube = std::array<std::pair<face, color>, 6>;
-    using tracked_point = std::pair<rs2_vector, unsigned int>; // translation and confidence
-
-    class tm2_model
-    {
-    public:
-        tm2_model(): _trajectory_tracking(true)
-        {   // Render trajectory path by default
-            trajectory_button.toggle_button();
-        }
-        void draw_controller_pose_object();
-        void draw_pose_object();
-        void draw_trajectory();
-        void update_model_trajectory(const pose_frame& pose, bool track);
-        void record_trajectory(bool on) { _trajectory_tracking = on; };
-        void reset_trajectory() { trajectory.clear(); };
-
-        press_button_model trajectory_button{ u8"\uf1b0", u8"\uf1b0","Draw trajectory", "Stop drawing trajectory" };
-        press_button_model camera_object_button{ u8"\uf047", u8"\uf083",  "Draw pose axis", "Draw camera pose" };
-        press_button_model grid_object_button{ u8"\uf1cb", u8"\uf1cb",  "Configure Grid", "Configure Grid" };
-        press_button_model pose_info_object_button{ u8"\uf05a", u8"\uf05a",  "Show pose stream info overlay", "Hide pose stream info overlay" };
-
-
-    private:
-        void add_to_trajectory(tracked_point& p);
-
-        const float len_x = 0.1f;
-        const float len_y = 0.03f;
-        const float len_z = 0.01f;
-        const float lens_radius = 0.005f;
-        /*
-          4--------------------------3
-         /|                         /|
-        5-|------------------------6 |
-        | /1                       | /2
-        |/                         |/
-        7--------------------------8
-        */
-        float3 v1{ -len_x/2, -len_y/2,  len_z/2 };
-        float3 v2{  len_x/2, -len_y/2,  len_z/2 };
-        float3 v3{  len_x/2,  len_y/2,  len_z/2 };
-        float3 v4{ -len_x/2,  len_y/2,  len_z/2 };
-        float3 v5{ -len_x/2,  len_y/2, -len_z/2 };
-        float3 v6{  len_x/2,  len_y/2, -len_z/2 };
-        float3 v7{ -len_x/2, -len_y/2, -len_z/2 };
-        float3 v8{  len_x/2, -len_y/2, -len_z/2 };
-        face f1{ { v1,v2,v3,v4 } }; //Back
-        face f2{ { v2,v8,v6,v3 } }; //Right side
-        face f3{ { v4,v3,v6,v5 } }; //Top side
-        face f4{ { v1,v4,v5,v7 } }; //Left side
-        face f5{ { v7,v8,v6,v5 } }; //Front
-        face f6{ { v1,v2,v8,v7 } }; //Bottom side
-
-        std::array<color, 6> colors{ {
-            {{ 0.5f, 0.5f, 0.5f }}, //Back
-            {{ 0.7f, 0.7f, 0.7f }}, //Right side
-            {{ 1.0f, 0.7f, 0.7f }}, //Top side
-            {{ 0.7f, 0.7f, 0.7f }}, //Left side
-            {{ 0.4f, 0.4f, 0.4f }}, //Front
-            {{ 0.7f, 0.7f, 0.7f }}  //Bottom side
-            } };
-
-        colored_cube camera_box{ { { f1,colors[0] },{ f2,colors[1] },{ f3,colors[2] },{ f4,colors[3] },{ f5,colors[4] },{ f6,colors[5] } } };
-        float3 center_left{ v5.x + len_x / 3, v6.y - len_y / 3, v5.z };
-        float3 center_right{ v6.x - len_x / 3, v6.y - len_y / 3, v5.z };
-
-        std::vector<tracked_point> trajectory;
-        std::vector<float2> boundary;
-        bool                _trajectory_tracking;
-
-    };
-
     class viewer_model
     {
     public:
@@ -933,7 +948,7 @@ namespace rs2
         const float default_log_h = 110.f;
 
         float get_output_height() const { return (is_output_collapsed ? default_log_h : 15); }
-
+          
         rs2::frame handle_ready_frames(const rect& viewer_rect, ux_window& window, int devices, std::string& error_message);
 
         viewer_model();
@@ -970,7 +985,7 @@ namespace rs2
 
         void show_event_log(ImFont* font_14, float x, float y, float w, float h);
 
-        void render_pose(rs2::rect stream_rect, uint32_t pose_stream_count, float buttons_heights, ImGuiWindowFlags flags);
+        void render_pose(rs2::rect stream_rect, float buttons_heights, ImGuiWindowFlags flags);
 
         void show_3dviewer_header(ImFont* font, rs2::rect stream_rect, bool& paused, std::string& error_message);
 
@@ -993,7 +1008,6 @@ namespace rs2
         stream_model* selected_stream = nullptr;
         std::shared_ptr<syncer_model> syncer;
         post_processing_filters ppf;
-        tm2_model tm2;
 
         notifications_model not_model;
         bool is_output_collapsed = false;
@@ -1021,6 +1035,13 @@ namespace rs2
         float dim_level = 1.f;
 
         bool continue_with_ui_not_aligned = false;
+
+        press_button_model trajectory_button{ u8"\uf1b0", u8"\uf1b0","Draw trajectory", "Stop drawing trajectory", true };
+        press_button_model grid_object_button{ u8"\uf1cb", u8"\uf1cb",  "Configure Grid", "Configure Grid", false };
+        press_button_model pose_info_object_button{ u8"\uf05a", u8"\uf05a",  "Show pose stream info overlay", "Hide pose stream info overlay", false };
+
+        bool show_pose_info_3d = false;
+
     private:
         struct rgb {
             uint32_t r, g, b;

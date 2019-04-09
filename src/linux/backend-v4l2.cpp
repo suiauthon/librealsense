@@ -515,7 +515,7 @@ namespace librealsense
             DIR * dir = opendir("/sys/class/video4linux");
             if(!dir)
             {
-                LOG_ERROR("Cannot access /sys/class/video4linux");
+                LOG_INFO("Cannot access /sys/class/video4linux");
                 return;
             }
 
@@ -1465,12 +1465,10 @@ namespace librealsense
             _md_fd(0),
             _md_name(info.metadata_node_id)
         {
-            LOG_INFO(__FUNCTION__);
         }
 
         v4l_uvc_meta_device::~v4l_uvc_meta_device()
         {
-            LOG_INFO(__FUNCTION__);
         }
 
         void v4l_uvc_meta_device::streamon() const
