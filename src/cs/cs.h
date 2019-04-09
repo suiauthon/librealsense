@@ -152,7 +152,7 @@ namespace librealsense
     public:
         explicit cs_sensor(cs_camera* owner, std::shared_ptr<platform::cs_device> cs_device,
             std::unique_ptr<frame_timestamp_reader> timestamp_reader, std::shared_ptr<context> ctx)
-            : sensor_base("RGB Camera", owner),
+            : sensor_base("RGB Camera", owner, (recommended_proccesing_blocks_interface*)this),
               _default_stream(new stream(RS2_STREAM_COLOR)),
               _timestamp_reader(std::move(timestamp_reader)),
               _device(std::move(cs_device)),
