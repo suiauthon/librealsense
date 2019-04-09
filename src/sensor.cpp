@@ -260,9 +260,8 @@ namespace librealsense
 
     stream_profiles sensor_base::get_stream_profiles(int tag) const
     {
-        if (tag == profile_tag::PROFILE_TAG_ANY) {
+        if (tag == profile_tag::PROFILE_TAG_ANY)
             return *_profiles;
-        }
 
         stream_profiles results;
         for (auto p : *_profiles)

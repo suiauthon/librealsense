@@ -16,8 +16,7 @@ namespace librealsense
             _dispatcher(10),
             _hub(ctx, RS2_PRODUCT_LINE_ANY_INTEL),
             _synced_streams({ RS2_STREAM_COLOR, RS2_STREAM_DEPTH, RS2_STREAM_INFRARED, RS2_STREAM_FISHEYE })
-        {
-        }
+        {}
 
         pipeline::~pipeline()
         {
@@ -58,7 +57,7 @@ namespace librealsense
         {
             std::shared_ptr<profile> profile = nullptr;
             //first try to get the previously resolved profile (if exists)
-            auto cached_profile = conf->get_cached_resolved_profile(); //ako postoji vec profil uzima taj profil
+            auto cached_profile = conf->get_cached_resolved_profile();
             if (cached_profile)
             {
                 profile = cached_profile;
@@ -70,14 +69,13 @@ namespace librealsense
                 {
                     try
                     {
-                        profile = conf->resolve(shared_from_this(), std::chrono::seconds(5)); //trazi kamere ustekane u laptop i vraca profile
+                        profile = conf->resolve(shared_from_this(), std::chrono::seconds(5));
                         break;
                     }
                     catch (...)
                     {
-                        if (i == NUM_TIMES_TO_RETRY) {
+                        if (i == NUM_TIMES_TO_RETRY)
                             throw;
-                        }
                     }
                 }
             }
@@ -87,12 +85,7 @@ namespace librealsense
 
             auto synced_streams_ids = on_start(profile);
 
-            for (int i=0; i<synced_streams_ids.size(); i++) {
-                printf("Synced streams id[%d]: %d\n", i, synced_streams_ids[i]);
-            }
-
             frame_callback_ptr callbacks = get_callback(synced_streams_ids);
-
 
             auto dev = profile->get_device();
             if (auto playback = As<librealsense::playback_device>(dev))
@@ -212,13 +205,9 @@ namespace librealsense
             {
                 // if the user requested to sync the frame push it to the syncer, otherwise push it to the aggregator
                 if (std::find(synced_streams_ids.begin(), synced_streams_ids.end(), fref->get_stream()->get_unique_id()) != synced_streams_ids.end())
-                {
                     _syncer->invoke(std::move(fref));
-                }
                 else
-                {
                     _aggregator->invoke(std::move(fref));
-                }
             };
 
             frame_callback_ptr rv = {

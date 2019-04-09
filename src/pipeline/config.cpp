@@ -138,7 +138,6 @@ namespace librealsense
 
             //Look for satisfy device in case the user did not specify one.
             auto devs = pipe->get_context()->query_devices(RS2_PRODUCT_LINE_ANY_INTEL);
-
             for (auto dev_info : devs)
             {
                 try

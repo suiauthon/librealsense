@@ -16,13 +16,11 @@ namespace librealsense
         {
             if (!to_file.empty())
             {
-                printf("Neki tekst nije prazan\n");
                 if (!dev)
                     throw librealsense::invalid_value_exception("Failed to create a profile, device is null");
 
                 _dev = std::make_shared<record_device>(dev, std::make_shared<ros_writer>(to_file, dev->compress_while_record()));
             }
-            printf("Konstruktor profilea\n");
             _multistream = config.resolve(_dev.get());
         }
 
