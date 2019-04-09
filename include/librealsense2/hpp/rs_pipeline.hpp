@@ -345,12 +345,10 @@ namespace rs2
         */
         pipeline(context ctx = context())
         {
-            printf("Ulazim u pipeline konstruktor\n");
             rs2_error* e = nullptr;
             _pipeline = std::shared_ptr<rs2_pipeline>(
                 rs2_create_pipeline(ctx._context.get(), &e),
                 rs2_delete_pipeline);
-            printf("Nakon stvaranja pipelina \n");
             error::handle(e);
         }
 
@@ -367,7 +365,6 @@ namespace rs2
         */
         pipeline_profile start()
         {
-            printf("Ulazim u pipeline start\n");
             rs2_error* e = nullptr;
             auto p = std::shared_ptr<rs2_pipeline_profile>(
                 rs2_pipeline_start(_pipeline.get(), &e),

@@ -17,7 +17,6 @@ namespace librealsense
             _hub(ctx, RS2_PRODUCT_LINE_ANY_INTEL),
             _synced_streams({ RS2_STREAM_COLOR, RS2_STREAM_DEPTH, RS2_STREAM_INFRARED, RS2_STREAM_FISHEYE })
         {
-            printf("Stvoril sam pipeline\n");
         }
 
         pipeline::~pipeline()
@@ -72,7 +71,6 @@ namespace librealsense
                     try
                     {
                         profile = conf->resolve(shared_from_this(), std::chrono::seconds(5)); //trazi kamere ustekane u laptop i vraca profile
-                        printf("Nasao sam profil\n");
                         break;
                     }
                     catch (...)
@@ -84,25 +82,21 @@ namespace librealsense
                 }
             }
 
-            printf("Profile size: %d\n", profile->_multistream.get_profiles().size());
             assert(profile);
             assert(profile->_multistream.get_profiles().size() > 0);
 
             auto synced_streams_ids = on_start(profile);
 
-            printf("Synced streams ids size: %d\n", synced_streams_ids.size());
             for (int i=0; i<synced_streams_ids.size(); i++) {
                 printf("Synced streams id[%d]: %d\n", i, synced_streams_ids[i]);
             }
 
             frame_callback_ptr callbacks = get_callback(synced_streams_ids);
 
-            printf("Imam callback pointer\n");
 
             auto dev = profile->get_device();
             if (auto playback = As<librealsense::playback_device>(dev))
             {
-                printf("Tu sad radim magiju sa deviceom\n");
                 _playback_stopped_token = playback->playback_status_changed += [this, callbacks](rs2_playback_status status)
                 {
                     if (status == RS2_PLAYBACK_STATUS_STOPPED)
@@ -175,7 +169,6 @@ namespace librealsense
 
         std::vector<int> pipeline::on_start(std::shared_ptr<profile> profile)
         {
-            printf("On start\n");
             std::vector<int> _streams_to_aggregate_ids;
             std::vector<int> _streams_to_sync_ids;
             bool sync_any = false;
@@ -184,7 +177,6 @@ namespace librealsense
             // check wich of the active profiles should be synced and update the sync list accordinglly
             for (auto&& s : profile->get_active_streams())
             {
-                printf("Imam aktivni stream\n");
                 _streams_to_aggregate_ids.push_back(s->get_unique_id());
                 bool sync_current = sync_any;
                 if (!sync_any && std::find(_synced_streams.begin(), _synced_streams.end(), s->get_stream_type()) != _synced_streams.end())
@@ -204,11 +196,8 @@ namespace librealsense
 
         frame_callback_ptr pipeline::get_callback(std::vector<int> synced_streams_ids)
         {
-            printf("Usao sam u get callback\n");
             auto pipeline_process_callback = [&](frame_holder fref)
             {
-                printf("Tu mi dolazi novi frame i on se stavlja u aggregator\n");
-                printf("Frame data: %d\n",fref.frame->get_frame_data()[0]);
                 _aggregator->invoke(std::move(fref));
             };
 
@@ -221,19 +210,14 @@ namespace librealsense
 
             auto to_syncer = [&, synced_streams_ids](frame_holder fref)
             {
-                printf("Ovo jos ne znam kad se izvodi\n");
                 // if the user requested to sync the frame push it to the syncer, otherwise push it to the aggregator
                 if (std::find(synced_streams_ids.begin(), synced_streams_ids.end(), fref->get_stream()->get_unique_id()) != synced_streams_ids.end())
                 {
-                    printf("ide u syncer\n");
                     _syncer->invoke(std::move(fref));
-                    printf("Stavi ga u syncer\n");
                 }
                 else
                 {
-                    printf("ide u agregator\n");
                     _aggregator->invoke(std::move(fref));
-                    printf("Stavi ga u agregator\n");
                 }
             };
 
@@ -260,8 +244,6 @@ namespace librealsense
             frame_holder f;
             if (_aggregator->dequeue(&f, timeout_ms))
             {
-                printf("Vracam frame!\n");
-                printf("Frame data %d\n", f.frame->get_frame_data()[0]);
                 return f;
             }
 

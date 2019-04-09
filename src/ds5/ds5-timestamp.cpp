@@ -139,7 +139,6 @@ namespace librealsense
 
     rs2_timestamp_domain ds5_timestamp_reader::get_frame_timestamp_domain(const request_mapping & mode, const platform::frame_object& fo) const
     {
-        auto a = RS2_TIMESTAMP_DOMAIN_SYSTEM_TIME;
         return RS2_TIMESTAMP_DOMAIN_SYSTEM_TIME;
     }
 

@@ -453,42 +453,12 @@ namespace librealsense
                 libusb_config_descriptor *config;
                 status = libusb_get_active_config_descriptor(usb_device, &config);
 
-                /*//////////////////////////////////////*/
-                //DODANO
-                /*//////////////////////////////////////*/
-                libusb_device_descriptor desc;
-                libusb_device_handle *devHandle = NULL;
-                usb_device_info info{};
-                int r = libusb_get_device_descriptor(usb_device, &desc);
-                if (r >= 0) {
-                    info.vid = desc.idVendor;
-                    info.pid = desc.idProduct;
-
-                    auto retVal = libusb_open(usb_device, &devHandle);
-                    if (retVal == LIBUSB_SUCCESS)
-                    {
-                        unsigned char strDesc[256];
-
-                        retVal = libusb_get_string_descriptor_ascii(devHandle, desc.iSerialNumber, strDesc, 256);
-
-                        if (retVal != 0)
-                        {
-                            std::stringstream ss;
-                            ss << strDesc;
-                            ss >> info.serial;
-                        }
-                        libusb_close(devHandle);
-                    }
-
-                }
-                /*/////////////////////////////////////*/
-
                 if(status == 0)
                 {
                     auto parent_device = libusb_get_parent(usb_device);
                     if (parent_device)
                     {
-                        //usb_device_info info{};
+                        usb_device_info info{};
                         auto usb_params = get_usb_descriptors(usb_device);
                         info.unique_id = std::get<0>(usb_params);
                         info.conn_spec = static_cast<usb_spec>(std::get<1>(usb_params));
