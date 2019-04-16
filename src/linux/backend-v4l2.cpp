@@ -1723,7 +1723,7 @@ namespace librealsense
 
         std::shared_ptr<cs_device> v4l_backend::create_cs_device(cs_device_info info) const
         {
-
+           return std::make_shared<platform::cs_device>(info);
         }
 
         std::vector<cs_device_info> v4l_backend::query_cs_devices() const

@@ -57,94 +57,18 @@ namespace librealsense
                          const platform::cs_device_info &hwm_device,
                          const platform::backend_device_group& group,
                          bool register_device_notifications)
-        : device(ctx, group, register_device_notifications)
+        : device(ctx, group, register_device_notifications),
+          _color_stream(new stream(RS2_STREAM_COLOR)),
+          _depth_stream(new stream(RS2_STREAM_COLOR))
     {
-        auto color_ep = std::make_shared<cs_sensor>(this, std::make_shared<platform::cs_device>(hwm_device),
-                                                    std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
-                                                    ctx);
+        _cs_device = ctx->get_backend().create_cs_device(hwm_device);
 
-        add_sensor(color_ep);
+        _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
+        _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
 
         register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
         register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
         register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
-
-        //std::string pid_str(to_string() << std::setfill('0') << std::setw(4) << std::hex << hwm_device.pid);
-        //std::transform(pid_str.begin(), pid_str.end(), pid_str.begin(), ::toupper);
-
-        //register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.unique_id);
-        //register_info(RS2_CAMERA_INFO_PRODUCT_ID, pid_str);
-
-        color_ep->register_pixel_format(pf_yuy2);
-        color_ep->register_pixel_format(pf_yuyv);
-        color_ep->register_pixel_format(pf_raw8);
-
-        //TODO
-        //napraviti ove registracije opcija
-
-        /*
-        register_info(RS2_CAMERA_INFO_PRODUCT_ID, pid_str);
-
-        color_ep->register_pixel_format(pf_yuy2);
-        color_ep->register_pixel_format(pf_yuyv);
-
-        color_ep->try_register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
-        color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
-        color_ep->try_register_pu(RS2_OPTION_CONTRAST);
-        color_ep->try_register_pu(RS2_OPTION_EXPOSURE);
-        color_ep->try_register_pu(RS2_OPTION_GAMMA);
-        color_ep->try_register_pu(RS2_OPTION_HUE);
-        color_ep->try_register_pu(RS2_OPTION_SATURATION);
-        color_ep->try_register_pu(RS2_OPTION_SHARPNESS);
-        color_ep->try_register_pu(RS2_OPTION_WHITE_BALANCE);
-        color_ep->try_register_pu(RS2_OPTION_ENABLE_AUTO_EXPOSURE);
-        color_ep->try_register_pu(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
-
-
-
-
-
-        color_ep->register_pixel_format(pf_yuy2);
-        color_ep->register_pixel_format(pf_yuyv);
-
-        color_ep->register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
-        color_ep->register_pu(RS2_OPTION_BRIGHTNESS);
-        color_ep->register_pu(RS2_OPTION_CONTRAST);
-        color_ep->register_pu(RS2_OPTION_GAIN);
-        color_ep->register_pu(RS2_OPTION_GAMMA);
-        color_ep->register_pu(RS2_OPTION_HUE);
-        color_ep->register_pu(RS2_OPTION_SATURATION);
-        color_ep->register_pu(RS2_OPTION_SHARPNESS);
-
-        auto white_balance_option = std::make_shared<uvc_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE);
-        auto auto_white_balance_option = std::make_shared<uvc_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
-        color_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
-        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
-        color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
-                                  std::make_shared<auto_disabling_control>(
-                                          white_balance_option,
-                                          auto_white_balance_option));
-
-        auto exposure_option = std::make_shared<uvc_pu_option>(*color_ep, RS2_OPTION_EXPOSURE);
-        auto auto_exposure_option = std::make_shared<uvc_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
-        color_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
-        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
-        color_ep->register_option(RS2_OPTION_EXPOSURE,
-                                  std::make_shared<auto_disabling_control>(
-                                          exposure_option,
-                                          auto_exposure_option));
-
-        auto md_offset = offsetof(metadata_raw, mode);
-        color_ep->register_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP, make_uvc_header_parser(&platform::uvc_header::timestamp,
-                                                                                               [](rs2_metadata_type param) { return static_cast<rs2_metadata_type>(param * TIMESTAMP_10NSEC_TO_MSEC); }));
-        color_ep->register_metadata(RS2_FRAME_METADATA_FRAME_COUNTER,   make_sr300_attribute_parser(&md_sr300_rgb::frame_counter, md_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_ACTUAL_FPS,      make_sr300_attribute_parser(&md_sr300_rgb::actual_fps, md_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_SENSOR_TIMESTAMP,make_sr300_attribute_parser(&md_sr300_rgb::frame_latency, md_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE, make_sr300_attribute_parser(&md_sr300_rgb::actual_exposure, md_offset, [](rs2_metadata_type param) { return param*100; }));
-        color_ep->register_metadata(RS2_FRAME_METADATA_AUTO_EXPOSURE,   make_sr300_attribute_parser(&md_sr300_rgb::auto_exp_mode, md_offset, [](rs2_metadata_type param) { return (param !=1); }));
-        color_ep->register_metadata(RS2_FRAME_METADATA_GAIN_LEVEL,      make_sr300_attribute_parser(&md_sr300_rgb::gain, md_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_WHITE_BALANCE,   make_sr300_attribute_parser(&md_sr300_rgb::color_temperature, md_offset));*/
-
     }
 
     cs_timestamp_reader::cs_timestamp_reader(std::shared_ptr<platform::time_service> ts):
@@ -180,7 +104,7 @@ namespace librealsense
 
     void cs_sensor::open(const stream_profiles& requests)
     {
-        printf("OPEN\n");
+        printf("Cs sensor OPEN\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("open(...) failed. CS device is streaming!");
@@ -222,9 +146,9 @@ namespace librealsense
                                               // Ignore any frames which appear corrupted or invalid
                                               // Determine the timestamp for this frame
                                               auto timestamp = timestamp_reader->get_frame_timestamp(mode, f);
-                                              printf("Timestamp callback: %lf\n", timestamp);
+                                              //printf("Timestamp callback: %lf\n", timestamp);
                                               auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(mode, f);
-                                              printf("Timestamp domain callback: %d\n", timestamp_domain);
+                                              //printf("Timestamp domain callback: %d\n", timestamp_domain);
                                               auto frame_counter = timestamp_reader->get_frame_counter(mode, f);
 
                                               auto requires_processing = mode.requires_processing();
@@ -306,7 +230,7 @@ namespace librealsense
 
                                                   if (_on_before_frame_callback)
                                                   {
-                                                      printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
+                                                      //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
                                                       auto callback = _source.begin_callback();
                                                       auto stream_type = pref->get_stream()->get_stream_type();
                                                       _on_before_frame_callback(stream_type, pref, std::move(callback));
@@ -314,7 +238,7 @@ namespace librealsense
 
                                                   if (pref->get_stream().get())
                                                   {
-                                                      printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
+                                                      //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
                                                       _source.invoke_callback(std::move(pref));
                                                   }
                                               }
@@ -376,11 +300,12 @@ namespace librealsense
 
     void cs_sensor::close()
     {
+        printf("Cs sensor CLOSE\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
-            throw wrong_api_call_sequence_exception("close() failed. UVC device is streaming!");
+            throw wrong_api_call_sequence_exception("close() failed. CS device is streaming!");
         else if (!_is_opened)
-            throw wrong_api_call_sequence_exception("close() failed. UVC device was not opened!");
+            throw wrong_api_call_sequence_exception("close() failed. CS device was not opened!");
 
         for (auto& profile : _internal_config)
         {
@@ -394,11 +319,12 @@ namespace librealsense
 
     void cs_sensor::start(frame_callback_ptr callback)
     {
+        printf("Cs sensor START\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
-            throw wrong_api_call_sequence_exception("start_streaming(...) failed. UVC device is already streaming!");
+            throw wrong_api_call_sequence_exception("start_streaming(...) failed. CS device is already streaming!");
         else if(!_is_opened)
-            throw wrong_api_call_sequence_exception("start_streaming(...) failed. UVC device was not opened!");
+            throw wrong_api_call_sequence_exception("start_streaming(...) failed. CS device was not opened!");
 
         _source.set_callback(callback);
         _is_streaming = true;
@@ -408,9 +334,10 @@ namespace librealsense
 
     void cs_sensor::stop()
     {
+        printf("Cs sensor STOP\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (!_is_streaming)
-            throw wrong_api_call_sequence_exception("stop_streaming() failed. UVC device is not streaming!");
+            throw wrong_api_call_sequence_exception("stop_streaming() failed. CS device is not streaming!");
 
         _is_streaming = false;
         _device->stop_callbacks();
@@ -422,7 +349,8 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_power_lock);
         if (_user_count.fetch_add(1) == 0)
         {
-            _device->set_power_state(platform::D0);
+            if (_device->set_power_state(platform::D0) != platform::D0)
+                throw wrong_api_call_sequence_exception("set power state(...) failed. CS device cannot be turned on!");
         }
     }
 
@@ -431,7 +359,8 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_power_lock);
         if (_user_count.fetch_add(-1) == 1)
         {
-            _device->set_power_state(platform::D3);
+            if (_device->set_power_state(platform::D3) != platform::D3)
+                throw wrong_api_call_sequence_exception("set power state(...) failed. CS device cannot be turned off!");
         }
     }
 
@@ -440,6 +369,31 @@ namespace librealsense
         _source.flush();
         _source.reset();
         _timestamp_reader->reset();
+    }
+
+    void cs_sensor::register_pu(rs2_option id)
+    {
+        register_option(id, std::make_shared<cs_pu_option>(*this, id));
+    }
+
+    void cs_sensor::try_register_pu(rs2_option id)
+    {
+        try
+        {
+            auto opt = std::make_shared<cs_pu_option>(*this, id);
+            auto range = opt->get_range();
+            if (range.max <= range.min || range.step <= 0 || range.def < range.min || range.def > range.max) return;
+
+            auto val = opt->query();
+            if (val < range.min || val > range.max) return;
+            opt->set(val);
+
+            register_option(id, opt);
+        }
+        catch (...)
+        {
+            LOG_WARNING("Exception was thrown when inspecting properties of a sensor");
+        }
     }
 
     namespace platform
@@ -476,6 +430,155 @@ namespace librealsense
             return all_stream_profiles;
         }
 
+        bool cs_device::get_pu(rs2_option opt, int32_t& value)
+        {
+            return get_cs_param_value(opt, value);
+        }
+
+        bool cs_device::set_pu(rs2_option opt, int32_t value)
+        {
+            return set_cs_param(opt, value);
+        }
+
+        control_range cs_device::get_pu_range(rs2_option option)
+        {
+            int32_t max, min, value;
+            // Auto controls range is trimed to {0,1} range
+            if(option >= RS2_OPTION_ENABLE_AUTO_EXPOSURE && option <= RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE)
+            {
+                static const int32_t min = 0, max = 1, step = 1, def = 1;
+                control_range range(min, max, step, def);
+
+                return range;
+            }
+
+            if (!get_cs_param_value(option, value)) value = 0;
+            if (!get_cs_param_min(option, min)) min = 0;
+            if (!get_cs_param_max(option, max)) max = 0;
+
+            control_range range(min, max, get_cs_param_step(option), value);
+
+            return range;
+        }
+
+        bool cs_device::set_cs_param(rs2_option option, int32_t value)
+        {
+            switch(option)
+            {
+                case RS2_OPTION_EXPOSURE: return _connected_device->SetFloatNodeValue(get_cs_param_name(option),
+                                                                                      (double)value);
+                case RS2_OPTION_GAMMA: return _connected_device->SetFloatNodeValue(get_cs_param_name(option),
+                                                                                      (double)value);
+                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
+                {
+                    if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option), "Continuous");
+                    else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option), "Off");
+                }
+                default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
+            }
+        }
+
+        std::string cs_device::get_cs_param_name(rs2_option option)
+        {
+            switch(option)
+            {
+                case RS2_OPTION_EXPOSURE: return std::string("ExposureTime");
+                case RS2_OPTION_GAMMA: return std::string("Gamma");
+                case RS2_OPTION_ENABLE_AUTO_EXPOSURE: return std::string("ExposureAuto");
+                default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
+            }
+        }
+
+        bool cs_device::get_cs_param_min(rs2_option option, int32_t &value)
+        {
+            double double_value;
+            int int_value;
+            bool status;
+
+            switch(option)
+            {
+                case RS2_OPTION_EXPOSURE:
+                {
+                    status = _connected_device->GetFloatNodeMin(get_cs_param_name(option), double_value);
+                    value = static_cast<int32_t>(double_value);
+                    return status;
+                }
+                case RS2_OPTION_GAMMA:
+                {
+                    status = _connected_device->GetFloatNodeMin(get_cs_param_name(option), double_value);
+                    value = static_cast<int32_t>(double_value);
+                    return status;
+                }
+                default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
+            }
+        }
+
+        bool cs_device::get_cs_param_max(rs2_option option, int32_t &value)
+        {
+            double double_value;
+            int int_value;
+            bool status;
+
+            switch(option)
+            {
+                case RS2_OPTION_EXPOSURE:
+                {
+                    status = _connected_device->GetFloatNodeMax(get_cs_param_name(option), double_value);
+                    value = static_cast<int32_t>(double_value);
+                    return status;
+                }
+                case RS2_OPTION_GAMMA:
+                {
+                    status = _connected_device->GetFloatNodeMax(get_cs_param_name(option), double_value);
+                    value = static_cast<int32_t>(double_value);
+                    return status;
+                }
+                default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
+            }
+        }
+
+        int32_t cs_device::get_cs_param_step(rs2_option option)
+        {
+            switch(option)
+            {
+                case RS2_OPTION_EXPOSURE: return 1;
+                case RS2_OPTION_GAMMA: return 1;
+                default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
+            }
+        }
+
+        bool cs_device::get_cs_param_value(rs2_option option, int32_t &value)
+        {
+            double double_value;
+            std::string string_value;
+            int int_value;
+            bool status;
+
+            switch(option)
+            {
+                case RS2_OPTION_EXPOSURE:
+                {
+                    status = _connected_device->GetFloatNodeValue(get_cs_param_name(option), double_value);
+                    value = static_cast<int32_t>(double_value);
+                    return status;
+                }
+                case RS2_OPTION_GAMMA:
+                {
+                    status = _connected_device->GetFloatNodeValue(get_cs_param_name(option), double_value);
+                    value = static_cast<int32_t>(double_value);
+                    return status;
+                }
+                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
+                {
+                    status = _connected_device->GetStringNodeValue(get_cs_param_name(option), string_value);
+                    if (string_value.compare(std::string("Off")) == 0) value = 0;
+                    else if (string_value.compare(std::string("Continuous")) == 0) value = 1;
+                    return true;
+                }
+                default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
+            }
+        }
+
         void cs_device::close(stream_profile profile)
         {
             if(_is_capturing)
@@ -508,29 +611,16 @@ namespace librealsense
 
         }
 
-        void cs_device::set_power_state(power_state state)
-        {
-            std::lock_guard<std::mutex> lock(_power_lock);
-
-            if (state == D0 && _power_state == D3)
-            {
-                _smcs_api = smcs::GetCameraAPI();
-                _power_state = D0;
-            }
-            if (state == D3 && _power_state == D0)
-            {
-                _power_state = D3;
-            }
-        }
-
-        bool cs_device::connect(void)
+        power_state cs_device::set_power_state(power_state state)
         {
             std::lock_guard<std::mutex> lock(_power_lock);
 
             std::string serial;
 
-            if (_power_state == D0 && !_is_connected)
+            if (state == D0 && _power_state == D3)
             {
+                _smcs_api = smcs::GetCameraAPI();
+
                 auto devices = _smcs_api->GetAllDevices();
 
                 for (int i = 0; i < devices.size(); i++)
@@ -539,13 +629,50 @@ namespace librealsense
                     if (!serial.compare(_device_info.serial))
                     {
                         _connected_device = devices[i];
+
+                        printf("Power je on\n");
+
+                        if (_connected_device != NULL && _connected_device->Connect())
+                            _power_state = D0;
                     }
                 }
 
-                if (_connected_device != NULL && _connected_device->Connect())
+            }
+            if (state == D3 && _power_state == D0)
+            {
+                printf("Power je off\n");
+                _connected_device->Disconnect();
+                _connected_device = NULL;
+                _power_state = D3;
+            }
+
+            return _power_state;
+        }
+
+        bool cs_device::connect(void)
+        {
+            printf("Cs device connect\n");
+            std::lock_guard<std::mutex> lock(_power_lock);
+
+            std::string serial;
+
+            if (_power_state == D0 && !_is_connected)
+            {
+                /*auto devices = _smcs_api->GetAllDevices();
+
+                for (int i = 0; i < devices.size(); i++)
                 {
+                    serial = devices[i]->GetSerialNumber();
+                    if (!serial.compare(_device_info.serial))
+                    {
+                        _connected_device = devices[i];
+                    }
+                }*/
+
+                //if (_connected_device != NULL && _connected_device->Connect())
+                //{
                     _is_connected = true;
-                }
+                //}
             }
 
             return _is_connected;
@@ -553,17 +680,28 @@ namespace librealsense
 
         void cs_device::disconnect(void)
         {
+            printf("Cs device disconnect\n");
             std::lock_guard<std::mutex> lock(_power_lock);
             if (_power_state == D0 && _is_connected)
             {
-                if (_connected_device != NULL)
-                {
-                    _connected_device->Disconnect();
-                    _connected_device = NULL;
+                //if (_connected_device != NULL)
+                //{
+                //    _connected_device->Disconnect();
+                //    _connected_device = NULL;
                     _is_connected = false;
-                }
+                //}
             }
         }
+
+        bool cs_device::reset(void)
+        {
+            if (_is_connected)
+            {
+                return _connected_device->CommandNodeExecute("DeviceReset");
+            }
+            return false;
+        }
+
 
         void cs_device::start_callbacks()
         {
@@ -675,6 +813,72 @@ namespace librealsense
         {
             //TODO
             //tu se odabire profil na kameri
+        }
+    }
+
+    void cs_pu_option::set(float value)
+    {
+        _ep.invoke_powered(
+            [this, value](platform::cs_device& dev)
+            {
+                if (!dev.set_pu(_id, static_cast<int32_t>(value)))
+                    throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
+
+                _record(*this);
+            });
+    }
+
+    float cs_pu_option::query() const
+    {
+        return static_cast<float>(_ep.invoke_powered(
+            [this](platform::cs_device& dev)
+            {
+                int32_t value = 0;
+                if (!dev.get_pu(_id, value))
+                    throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
+                return static_cast<float>(value);
+            }));
+    }
+
+    option_range cs_pu_option::get_range() const
+    {
+        auto cs_range = _ep.invoke_powered(
+            [this](platform::cs_device& dev)
+            {
+                return dev.get_pu_range(_id);
+            });
+
+        if (cs_range.min.size() < sizeof(int32_t)) return option_range{0,0,1,0};
+
+        auto min = *(reinterpret_cast<int32_t*>(cs_range.min.data()));
+        auto max = *(reinterpret_cast<int32_t*>(cs_range.max.data()));
+        auto step = *(reinterpret_cast<int32_t*>(cs_range.step.data()));
+        auto def = *(reinterpret_cast<int32_t*>(cs_range.def.data()));
+        return option_range{static_cast<float>(min),
+                            static_cast<float>(max),
+                            static_cast<float>(step),
+                            static_cast<float>(def)};
+    }
+
+    const char* cs_pu_option::get_description() const
+    {
+        switch(_id)
+        {
+            case RS2_OPTION_BACKLIGHT_COMPENSATION: return "Enable / disable backlight compensation";
+            case RS2_OPTION_BRIGHTNESS: return "CS image brightness";
+            case RS2_OPTION_CONTRAST: return "CS image contrast";
+            case RS2_OPTION_EXPOSURE: return "Controls exposure time of color camera. Setting any value will disable auto exposure";
+            case RS2_OPTION_GAIN: return "CS image gain";
+            case RS2_OPTION_GAMMA: return "CS image gamma setting";
+            case RS2_OPTION_HUE: return "CS image hue";
+            case RS2_OPTION_SATURATION: return "CS image saturation setting";
+            case RS2_OPTION_SHARPNESS: return "CS image sharpness setting";
+            case RS2_OPTION_WHITE_BALANCE: return "Controls white balance of color image. Setting any value will disable auto white balance";
+            case RS2_OPTION_ENABLE_AUTO_EXPOSURE: return "Enable / disable auto-exposure";
+            case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE: return "Enable / disable auto-white-balance";
+            case RS2_OPTION_POWER_LINE_FREQUENCY: return "Power Line Frequency";
+            case RS2_OPTION_AUTO_EXPOSURE_PRIORITY: return "Limit exposure time when auto-exposure is ON to preserve constant fps rate";
+            default: return _ep.get_option_name(_id);
         }
     }
 
