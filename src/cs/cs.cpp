@@ -37,17 +37,20 @@ namespace librealsense
         std::string string_node;
 
         auto smcs_api = smcs::GetCameraAPI();
-        smcs_api->FindAllDevices(1);
+        smcs_api->FindAllDevices(0.5);
         auto devices = smcs_api->GetAllDevices();
 
         for (int i = 0; i < devices.size(); i++)
         {
-            auto info = platform::cs_device_info();
-            info.serial = devices[i]->GetSerialNumber();
-            info.id = devices[i]->GetModelName();
-            info.info = devices[i]->GetManufacturerSpecificInfo();
+            if (devices[i]->IsOnNetwork())
+            {
+                auto info = platform::cs_device_info();
+                info.serial = devices[i]->GetSerialNumber();
+                info.id = devices[i]->GetModelName();
+                info.info = devices[i]->GetManufacturerSpecificInfo();
 
-            results.push_back(info);
+                results.push_back(info);
+            }
         }
 
         return results;
@@ -59,7 +62,7 @@ namespace librealsense
                          bool register_device_notifications)
         : device(ctx, group, register_device_notifications),
           _color_stream(new stream(RS2_STREAM_COLOR)),
-          _depth_stream(new stream(RS2_STREAM_COLOR))
+          _depth_stream(new stream(RS2_STREAM_DEPTH))
     {
         _cs_device = ctx->get_backend().create_cs_device(hwm_device);
 
@@ -243,7 +246,7 @@ namespace librealsense
                                                   }
                                               }
 
-                                          });
+                                          }, _sensor_type);
 
             }
             catch(...)
@@ -405,30 +408,25 @@ namespace librealsense
             INT64 int64Value;
             std::string node_value;
 
-            if (this->connect())
-            {
-                if (_connected_device->GetIntegerNodeValue("Width", int64Value)) {
-                    profile.width = (uint32_t)int64Value;
-                }
-                if (_connected_device->GetIntegerNodeValue("Height", int64Value)) {
-                    profile.height = (uint32_t)int64Value;
-                }
-                if (_connected_device->GetStringNodeValue("PixelFormat", node_value)) {
-                    profile.format = 'GREY';
-                }
-                if (_connected_device->GetIntegerNodeValue("FPS", int64Value)) {
-                    profile.fps = (uint32_t)int64Value;
-                }
-                else profile.fps = 50;
-
-                all_stream_profiles.push_back(profile);
-
-                this->disconnect();
+            if (_connected_device->GetIntegerNodeValue("Width", int64Value)) {
+                profile.width = (uint32_t)int64Value;
             }
+            if (_connected_device->GetIntegerNodeValue("Height", int64Value)) {
+                profile.height = (uint32_t)int64Value;
+            }
+            if (_connected_device->GetStringNodeValue("PixelFormat", node_value)) {
+                profile.format = 'GREY';
+            }
+            if (_connected_device->GetIntegerNodeValue("FPS", int64Value)) {
+                profile.fps = (uint32_t)int64Value;
+            }
+            else profile.fps = 50;
 
+            all_stream_profiles.push_back(profile);
 
             return all_stream_profiles;
         }
+
 
         bool cs_device::get_pu(rs2_option opt, int32_t& value)
         {
@@ -606,11 +604,6 @@ namespace librealsense
             }
         }
 
-        uint32_t cs_device::get_rs2_format(std::string format)
-        {
-
-        }
-
         power_state cs_device::set_power_state(power_state state)
         {
             std::lock_guard<std::mutex> lock(_power_lock);
@@ -619,87 +612,19 @@ namespace librealsense
 
             if (state == D0 && _power_state == D3)
             {
-                _smcs_api = smcs::GetCameraAPI();
-
-                auto devices = _smcs_api->GetAllDevices();
-
-                for (int i = 0; i < devices.size(); i++)
-                {
-                    serial = devices[i]->GetSerialNumber();
-                    if (!serial.compare(_device_info.serial))
-                    {
-                        _connected_device = devices[i];
-
-                        printf("Power je on\n");
-
-                        if (_connected_device != NULL && _connected_device->Connect())
-                            _power_state = D0;
-                    }
-                }
-
+                _power_state = D0;
             }
             if (state == D3 && _power_state == D0)
             {
-                printf("Power je off\n");
-                _connected_device->Disconnect();
-                _connected_device = NULL;
                 _power_state = D3;
             }
 
             return _power_state;
         }
 
-        bool cs_device::connect(void)
-        {
-            printf("Cs device connect\n");
-            std::lock_guard<std::mutex> lock(_power_lock);
-
-            std::string serial;
-
-            if (_power_state == D0 && !_is_connected)
-            {
-                /*auto devices = _smcs_api->GetAllDevices();
-
-                for (int i = 0; i < devices.size(); i++)
-                {
-                    serial = devices[i]->GetSerialNumber();
-                    if (!serial.compare(_device_info.serial))
-                    {
-                        _connected_device = devices[i];
-                    }
-                }*/
-
-                //if (_connected_device != NULL && _connected_device->Connect())
-                //{
-                    _is_connected = true;
-                //}
-            }
-
-            return _is_connected;
-        }
-
-        void cs_device::disconnect(void)
-        {
-            printf("Cs device disconnect\n");
-            std::lock_guard<std::mutex> lock(_power_lock);
-            if (_power_state == D0 && _is_connected)
-            {
-                //if (_connected_device != NULL)
-                //{
-                //    _connected_device->Disconnect();
-                //    _connected_device = NULL;
-                    _is_connected = false;
-                //}
-            }
-        }
-
         bool cs_device::reset(void)
         {
-            if (_is_connected)
-            {
-                return _connected_device->CommandNodeExecute("DeviceReset");
-            }
-            return false;
+            return _connected_device->CommandNodeExecute("DeviceReset");
         }
 
 
@@ -718,12 +643,8 @@ namespace librealsense
             _is_capturing = false;
             _is_started = false;
 
-            if (_is_connected)
-            {
-                _connected_device->CommandNodeExecute("AcquisitionStop");
-                _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
-                this->disconnect();
-            }
+            _connected_device->CommandNodeExecute("AcquisitionStop");
+            _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
 
             _thread->join();
             _thread.reset();
@@ -731,16 +652,13 @@ namespace librealsense
 
         void cs_device::start_data_capture()
         {
-            if (this->connect())
-            {
-                // disable trigger mode
-                _connected_device->SetStringNodeValue("TriggerMode", "Off");
-                // set continuous acquisition mode
-                _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
-                // start acquisition
-                _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
-                _connected_device->CommandNodeExecute("AcquisitionStart");
-            }
+            // disable trigger mode
+            _connected_device->SetStringNodeValue("TriggerMode", "Off");
+            // set continuous acquisition mode
+            _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
+            // start acquisition
+            _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
+            _connected_device->CommandNodeExecute("AcquisitionStart");
         }
 
         void cs_device::capture_loop()
@@ -794,7 +712,7 @@ namespace librealsense
             }
         }
 
-        void cs_device::probe_and_commit(stream_profile profile, frame_callback callback)
+        void cs_device::probe_and_commit(stream_profile profile, frame_callback callback, cs_sensor_type sensor_type)
         {
             if(!_is_capturing && !_callback)
             {

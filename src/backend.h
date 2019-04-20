@@ -333,6 +333,11 @@ namespace librealsense
 
                 return s.str();
             }
+
+            bool operator <(const cs_device_info& obj) const
+            {
+                return (std::make_tuple(id, vid, info, serial) < std::make_tuple(obj.id, obj.vid, obj.info, obj.serial));
+            }
         };
 
         inline bool operator==(const cs_device_info& a,

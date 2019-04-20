@@ -12,6 +12,11 @@
 #include "smcs_cpp/IImageBitmap.h"
 #include "stream.h"
 
+typedef enum cs_sensor_type {
+    CS_SENSOR_COLOR,
+    CS_SENSOR_DEPTH
+} cs_sensor_type;
+
 namespace librealsense
 {
     class cs_camera;
@@ -25,24 +30,41 @@ namespace librealsense
             explicit cs_device(platform::cs_device_info hwm)
                     : _device_info(std::move(hwm)),
                       _power_state(D3),
-                      _is_connected(false),
                       _is_capturing(false),
                       _is_started(false),
                       _thread(nullptr),
                       _connected_device(NULL)
-            {}
+            {
+                printf("Stvaram cs device\n");
+                _smcs_api = smcs::GetCameraAPI();
+                auto devices = _smcs_api->GetAllDevices();
+
+                for (int i = 0; i < devices.size(); i++)
+                {
+                    auto serial = devices[i]->GetSerialNumber();
+                    if (!serial.compare(_device_info.serial))
+                    {
+                        _connected_device = devices[i];
+
+                        if (_connected_device == NULL || !_connected_device->Connect())
+                            throw wrong_api_call_sequence_exception("Could not create CS device!");
+                    }
+                }
+            }
+
+            ~cs_device()
+            {
+                printf("Ubijam cs device\n");
+                _connected_device->Disconnect();
+            }
 
             power_state set_power_state(power_state state);
 
             void stream_on(std::function<void(const notification& n)> error_handler);
 
-            void probe_and_commit(stream_profile profile, frame_callback callback);
+            void probe_and_commit(stream_profile profile, frame_callback callback, cs_sensor_type sensor_type);
 
             void close(stream_profile profile);
-
-            bool connect(void);
-
-            void disconnect(void);
 
             void start_callbacks();
 
@@ -73,7 +95,6 @@ namespace librealsense
             stream_profile _profile;
 
         private:
-            uint32_t get_rs2_format(std::string format);
             std::string get_cs_param_name(rs2_option option);
             bool get_cs_param_min(rs2_option option, int32_t &value);
             bool get_cs_param_max(rs2_option option, int32_t &value);
@@ -85,13 +106,12 @@ namespace librealsense
             std::unique_ptr<std::thread> _thread;
             platform::cs_device_info _device_info;
             power_state _power_state;
-            std::atomic<bool> _is_connected;
             std::atomic<bool> _is_capturing;
             std::atomic<bool> _is_started;
             std::mutex _power_lock;
             smcs::ICameraAPI _smcs_api;
             smcs::IDevice _connected_device;
-            frame_callback _callback;
+            frame_callback _callback, _depth_callback;
         };
     }
 
@@ -188,10 +208,12 @@ namespace librealsense
     {
     public:
         explicit cs_sensor(std::string name, std::shared_ptr<platform::cs_device> cs_device,
-                           std::unique_ptr<frame_timestamp_reader> timestamp_reader, device* dev)
+                           std::unique_ptr<frame_timestamp_reader> timestamp_reader, device* dev,
+                           cs_sensor_type sensor_type)
                 : sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
                   _timestamp_reader(std::move(timestamp_reader)),
                   _device(std::move(cs_device)),
+                  _sensor_type(sensor_type),
                   _user_count(0)
         {
             register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
@@ -345,6 +367,7 @@ namespace librealsense
         std::mutex _configure_lock;
         std::unique_ptr<power> _power;
         std::shared_ptr<platform::cs_device> _device;
+        cs_sensor_type _sensor_type;
     };
 
     class cs_camera : public device
@@ -377,7 +400,7 @@ namespace librealsense
             explicit cs_color_sensor(cs_camera* owner, std::shared_ptr<platform::cs_device> cs_device,
                                      std::unique_ptr<frame_timestamp_reader> timestamp_reader,
                                      std::shared_ptr<context> ctx)
-                    : cs_sensor("RGB Camera", cs_device, move(timestamp_reader), owner),
+                    : cs_sensor("RGB Camera", cs_device, move(timestamp_reader), owner, CS_SENSOR_COLOR),
                       _owner(owner)
             {}
 
@@ -394,7 +417,7 @@ namespace librealsense
                     {
                         assign_stream(_owner->_color_stream, p);
                     }
-                    //assign_stream(_default_stream, p);
+
                     //TODO
                     //provjeriti
                     //environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_owner->_color_stream, *p);
@@ -412,7 +435,7 @@ namespace librealsense
             explicit cs_depth_sensor(cs_camera* owner, std::shared_ptr<platform::cs_device> cs_device,
                                      std::unique_ptr<frame_timestamp_reader> timestamp_reader,
                                      std::shared_ptr<context> ctx)
-                    : cs_sensor("RGB Camera1", cs_device, move(timestamp_reader), owner),
+                    : cs_sensor("CS Depth Sensor", cs_device, move(timestamp_reader), owner, CS_SENSOR_DEPTH),
                       _owner(owner)
             {}
 
@@ -425,11 +448,11 @@ namespace librealsense
                 for (auto p : results)
                 {
                     // Register stream types
-                    if (p->get_stream_type() == RS2_STREAM_COLOR)
+                    if (p->get_stream_type() == RS2_STREAM_DEPTH)
                     {
                         assign_stream(_owner->_depth_stream, p);
                     }
-                    //assign_stream(_default_stream, p);
+
                     //TODO
                     //provjeriti
                     //environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_owner->_color_stream, *p);

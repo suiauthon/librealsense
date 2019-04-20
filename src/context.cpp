@@ -76,6 +76,13 @@ bool contains(const std::shared_ptr<librealsense::device_info>& first,
             second_data.hid_devices.end())
             return false;
     }
+    for (auto&& cs : first_data.cs_devices)
+    {
+        if (std::find(second_data.cs_devices.begin(),
+                      second_data.cs_devices.end(), cs) ==
+            second_data.cs_devices.end())
+            return false;
+    }
     for (auto&& pd : first_data.playback_devices)
     {
         if (std::find(second_data.playback_devices.begin(),
