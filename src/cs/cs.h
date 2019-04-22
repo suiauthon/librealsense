@@ -387,6 +387,8 @@ namespace librealsense
 
         cs_sensor& get_cs_sensor(size_t subdevice) { return dynamic_cast<cs_sensor&>(get_sensor(subdevice)); }
 
+        std::shared_ptr<matcher> create_matcher(const frame_holder& frame) const override;
+
         void hardware_reset() override
         {
             get_cs_sensor(_color_device_idx).stop();
@@ -555,5 +557,19 @@ namespace librealsense
         std::shared_ptr<stream_interface> _color_stream;
         std::shared_ptr<stream_interface> _depth_stream;
         std::shared_ptr<platform::cs_device> _cs_device;
+    };
+
+    class csUCC2592C_camera
+    {
+    public:
+    private:
+    };
+
+
+    class csD435e_camera
+    {
+    public:
+
+    private:
     };
 }

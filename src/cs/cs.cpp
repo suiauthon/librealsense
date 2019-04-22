@@ -12,6 +12,7 @@ namespace librealsense
     std::shared_ptr<device_interface> cs_info::create(std::shared_ptr<context> ctx,
                                                       bool register_device_notifications) const
     {
+
         return std::make_shared<cs_camera>(ctx, _hwm, this->get_device_data(),
                                            register_device_notifications);
     }
@@ -66,12 +67,19 @@ namespace librealsense
     {
         _cs_device = ctx->get_backend().create_cs_device(hwm_device);
 
-        _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
-        _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
+        _color_device_idx = add_sensor(create_color_device(ctx, ctx->get_backend().create_cs_device(hwm_device)));
+        _depth_device_idx = add_sensor(create_depth_device(ctx, ctx->get_backend().create_cs_device(hwm_device)));
 
         register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
         register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
         register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
+    }
+
+    std::shared_ptr<matcher> cs_camera::create_matcher(const frame_holder& frame) const
+    {
+        std::vector<stream_interface*> streams = { _depth_stream.get(), _color_stream.get() };
+        //return std::make_shared<identity_matcher>( frame.frame->get_stream()->get_unique_id(), frame.frame->get_stream()->get_stream_type());
+        return matcher_factory::create(RS2_MATCHER_DEFAULT, streams);
     }
 
     cs_timestamp_reader::cs_timestamp_reader(std::shared_ptr<platform::time_service> ts):
@@ -687,7 +695,7 @@ namespace librealsense
             UINT32 src_pixel_type;
             UINT32 src_width, src_height;
 
-            if (_connected_device.IsValid() && _connected_device->IsConnected()) {
+            /*if (_connected_device.IsValid() && _connected_device->IsConnected()) {
                 if (!_connected_device->IsBufferEmpty()) {
                     _connected_device->GetImageInfo(&image_info_);
 
@@ -709,7 +717,7 @@ namespace librealsense
                     _connected_device->PopImage(image_info_);
                     _connected_device->ClearImageBuffer();
                 }
-            }
+            }*/
         }
 
         void cs_device::probe_and_commit(stream_profile profile, frame_callback callback, cs_sensor_type sensor_type)
