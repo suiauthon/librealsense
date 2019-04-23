@@ -12,10 +12,10 @@
 #include "smcs_cpp/IImageBitmap.h"
 #include "stream.h"
 
-typedef enum cs_sensor_type {
-    CS_SENSOR_COLOR,
-    CS_SENSOR_DEPTH
-} cs_sensor_type;
+typedef enum cs_stream {
+    CS_STREAM_COLOR,
+    CS_STREAM_DEPTH
+} cs_stream;
 
 namespace librealsense
 {
@@ -30,9 +30,11 @@ namespace librealsense
             explicit cs_device(platform::cs_device_info hwm)
                     : _device_info(std::move(hwm)),
                       _power_state(D3),
-                      _is_capturing(false),
+                      _is_color_capturing(false),
+                      _is_depth_capturing(false),
                       _is_started(false),
-                      _thread(nullptr),
+                      _color_thread(nullptr),
+                      _depth_thread(nullptr),
                       _connected_device(NULL)
             {
                 printf("Stvaram cs device\n");
@@ -60,17 +62,14 @@ namespace librealsense
 
             power_state set_power_state(power_state state);
 
-            void stream_on(std::function<void(const notification& n)> error_handler);
+            void stream_on(std::function<void(const notification& n)> error_handler, cs_stream stream);
 
-            void probe_and_commit(stream_profile profile, frame_callback callback, cs_sensor_type sensor_type);
+            void probe_and_commit(stream_profile profile, frame_callback callback, cs_stream stream);
 
-            void close(stream_profile profile);
+            void close(stream_profile profile, cs_stream stream);
 
-            void start_callbacks();
-
-            void stop_callbacks();
-
-            void poll();
+            void color_image_poll();
+            void depth_image_poll();
 
             power_state get_power_state() const { return _power_state; }
 
@@ -86,13 +85,12 @@ namespace librealsense
 
         protected:
             void prepare_capture_buffers();
-            void stop_data_capture();
-            void start_data_capture();
-            void capture_loop();
+            void color_capture_loop();
+            void depth_capture_loop();
             void set_format(stream_profile profile);
 
-            std::function<void(const notification& n)> _error_handler;
-            stream_profile _profile;
+            std::function<void(const notification& n)> _color_error_handler, _depth_error_handler;
+            stream_profile _color_profile, _depth_profile;
 
         private:
             std::string get_cs_param_name(rs2_option option);
@@ -103,15 +101,15 @@ namespace librealsense
             bool set_cs_param(rs2_option option, int32_t value);
 
             //std::vector<std::shared_ptr<buffer>> _buffers;
-            std::unique_ptr<std::thread> _thread;
+            std::unique_ptr<std::thread> _color_thread, _depth_thread;
             platform::cs_device_info _device_info;
             power_state _power_state;
-            std::atomic<bool> _is_capturing;
+            std::atomic<bool> _is_color_capturing, _is_depth_capturing;
             std::atomic<bool> _is_started;
-            std::mutex _power_lock;
+            std::mutex _power_lock, _stream_lock;
             smcs::ICameraAPI _smcs_api;
             smcs::IDevice _connected_device;
-            frame_callback _callback, _depth_callback;
+            frame_callback _color_callback, _depth_callback;
         };
     }
 
@@ -208,12 +206,11 @@ namespace librealsense
     {
     public:
         explicit cs_sensor(std::string name, std::shared_ptr<platform::cs_device> cs_device,
-                           std::unique_ptr<frame_timestamp_reader> timestamp_reader, device* dev,
-                           cs_sensor_type sensor_type)
+                           std::unique_ptr<frame_timestamp_reader> timestamp_reader, device* dev, cs_stream stream)
                 : sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
                   _timestamp_reader(std::move(timestamp_reader)),
                   _device(std::move(cs_device)),
-                  _sensor_type(sensor_type),
+                  _cs_stream(stream),
                   _user_count(0)
         {
             register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
@@ -365,9 +362,9 @@ namespace librealsense
         std::atomic<int> _user_count;
         std::mutex _power_lock;
         std::mutex _configure_lock;
+        cs_stream _cs_stream;
         std::unique_ptr<power> _power;
         std::shared_ptr<platform::cs_device> _device;
-        cs_sensor_type _sensor_type;
     };
 
     class cs_camera : public device
@@ -392,8 +389,8 @@ namespace librealsense
         void hardware_reset() override
         {
             get_cs_sensor(_color_device_idx).stop();
-            //printf("Reset %d\n",_cs_device->reset());
-            //get_cs_sensor(_color_device_idx).close();
+            printf("Reset %d\n",_cs_device->reset());
+            get_cs_sensor(_color_device_idx).close();
         }
 
         class cs_color_sensor : public cs_sensor
@@ -402,7 +399,7 @@ namespace librealsense
             explicit cs_color_sensor(cs_camera* owner, std::shared_ptr<platform::cs_device> cs_device,
                                      std::unique_ptr<frame_timestamp_reader> timestamp_reader,
                                      std::shared_ptr<context> ctx)
-                    : cs_sensor("RGB Camera", cs_device, move(timestamp_reader), owner, CS_SENSOR_COLOR),
+                    : cs_sensor("RGB Camera", cs_device, move(timestamp_reader), owner, CS_STREAM_COLOR),
                       _owner(owner)
             {}
 
@@ -419,6 +416,7 @@ namespace librealsense
                     {
                         assign_stream(_owner->_color_stream, p);
                     }
+                    assign_stream(_owner->_color_stream, p);
 
                     //TODO
                     //provjeriti
@@ -437,7 +435,7 @@ namespace librealsense
             explicit cs_depth_sensor(cs_camera* owner, std::shared_ptr<platform::cs_device> cs_device,
                                      std::unique_ptr<frame_timestamp_reader> timestamp_reader,
                                      std::shared_ptr<context> ctx)
-                    : cs_sensor("CS Depth Sensor", cs_device, move(timestamp_reader), owner, CS_SENSOR_DEPTH),
+                    : cs_sensor("CS Depth Sensor", cs_device, move(timestamp_reader), owner, CS_STREAM_DEPTH),
                       _owner(owner)
             {}
 
@@ -454,6 +452,8 @@ namespace librealsense
                     {
                         assign_stream(_owner->_depth_stream, p);
                     }
+
+                    assign_stream(_owner->_depth_stream, p);
 
                     //TODO
                     //provjeriti
@@ -557,19 +557,5 @@ namespace librealsense
         std::shared_ptr<stream_interface> _color_stream;
         std::shared_ptr<stream_interface> _depth_stream;
         std::shared_ptr<platform::cs_device> _cs_device;
-    };
-
-    class csUCC2592C_camera
-    {
-    public:
-    private:
-    };
-
-
-    class csD435e_camera
-    {
-    public:
-
-    private:
     };
 }
