@@ -12,15 +12,21 @@
 #include "smcs_cpp/IImageBitmap.h"
 #include "stream.h"
 
-typedef enum cs_stream {
-    CS_STREAM_COLOR,
-    CS_STREAM_DEPTH
-} cs_stream;
-
 namespace librealsense
 {
     class cs_camera;
     class cs_sensor;
+
+    typedef enum cs_stream {
+        CS_STREAM_COLOR,
+        CS_STREAM_DEPTH
+    } cs_stream;
+
+    typedef enum cs_camera_model {
+        CS_UCC2592C,
+        CS_D435E,
+        CS_UNDEFINED
+    };
 
     namespace platform
     {
@@ -198,6 +204,8 @@ namespace librealsense
 
         static std::vector<platform::cs_device_info> query_cs_devices();
 
+        cs_camera_model get_camera_model(std::string pid) const;
+
     private:
         platform::cs_device_info _hwm;
     };
@@ -367,212 +375,237 @@ namespace librealsense
         std::shared_ptr<platform::cs_device> _device;
     };
 
-    class cs_camera : public device
+    class cs_color : public virtual device
     {
     public:
-        std::vector<tagged_profile> get_profiles_tags() const override
-        {
-            std::vector<tagged_profile> markers;
-            markers.push_back({ RS2_STREAM_ANY, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
-            return markers;
-        };
+        cs_color(std::shared_ptr<context> ctx,
+                 const platform::cs_device_info &hwm_device,
+                 const platform::backend_device_group& group,
+                 bool register_device_notifications)
+                : device(ctx, group, register_device_notifications),
+                  _color_stream(new stream(RS2_STREAM_COLOR))
+        {};
 
-        cs_camera(std::shared_ptr<context> ctx,
-                  const platform::cs_device_info &hwm_device,
-                  const platform::backend_device_group& group,
-                  bool register_device_notifications);
+        std::shared_ptr<cs_sensor> create_color_device(std::shared_ptr<context> ctx,
+                                                       std::shared_ptr<platform::cs_device> cs_device);
+    protected:
+        std::shared_ptr<stream_interface> _color_stream;
+        uint8_t _color_device_idx;
 
-        cs_sensor& get_cs_sensor(size_t subdevice) { return dynamic_cast<cs_sensor&>(get_sensor(subdevice)); }
+    private:
+        friend class cs_color_sensor;
+
+        //lazy<std::vector<uint8_t>> _color_calib_table_raw;
+        //std::shared_ptr<lazy<rs2_extrinsics>> _color_extrinsic;
+    };
+
+    class cs_depth : public virtual device
+    {
+    public:
+        cs_depth(std::shared_ptr<context> ctx,
+                 const platform::cs_device_info &hwm_device,
+                 const platform::backend_device_group& group,
+                 bool register_device_notifications)
+                : device(ctx, group, register_device_notifications),
+                  _depth_stream(new stream(RS2_STREAM_DEPTH))
+        {};
+
+        std::shared_ptr<cs_sensor> create_depth_device(std::shared_ptr<context> ctx,
+                                                       std::shared_ptr<platform::cs_device> cs_device);
+    protected:
+        std::shared_ptr<stream_interface> _depth_stream;
+        uint8_t _depth_device_idx;
+
+    private:
+        friend class cs_depth_sensor;
+
+        //lazy<std::vector<uint8_t>> _depth_calib_table_raw;
+        //std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
+    };
+
+    class cs_mono : public virtual device
+    {
+    public:
+        cs_mono(std::shared_ptr<context> ctx,
+                 const platform::cs_device_info &hwm_device,
+                 const platform::backend_device_group& group,
+                 bool register_device_notifications)
+                : device(ctx, group, register_device_notifications),
+                  _fisheye_stream(new stream(RS2_STREAM_FISHEYE))
+        {};
+
+        std::shared_ptr<cs_sensor> create_mono_device(std::shared_ptr<context> ctx,
+                                                       std::shared_ptr<platform::cs_device> cs_device);
+    protected:
+        std::shared_ptr<stream_interface> _fisheye_stream;
+        uint8_t _mono_device_idx;
+
+    private:
+        friend class cs_mono_sensor;
+
+        //lazy<std::vector<uint8_t>> _depth_calib_table_raw;
+        //std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
+    };
+
+    class CSMono_camera: public cs_mono
+    {
+    public:
+        CSMono_camera(std::shared_ptr<context> ctx,
+                      const platform::cs_device_info &hwm_device,
+                      const platform::backend_device_group& group,
+                      bool register_device_notifications);
 
         std::shared_ptr<matcher> create_matcher(const frame_holder& frame) const override;
 
-        void hardware_reset() override
-        {
-            /*if (get_cs_sensor(_color_device_idx).is_streaming())
-                get_cs_sensor(_color_device_idx).stop();*/
+        std::vector<tagged_profile> get_profiles_tags() const override;
 
-            printf("Reset %d\n",_cs_device->reset());
+        cs_sensor& get_cs_sensor(size_t subdevice) { return dynamic_cast<cs_sensor&>(get_sensor(subdevice)); }
 
-
-            /*if (get_cs_sensor(_color_device_idx)._is_opened
-                        get_cs_sensor(_color_device_idx).close();*/
-        }
-
-        class cs_color_sensor : public cs_sensor
-        {
-        public:
-            explicit cs_color_sensor(cs_camera* owner, std::shared_ptr<platform::cs_device> cs_device,
-                                     std::unique_ptr<frame_timestamp_reader> timestamp_reader,
-                                     std::shared_ptr<context> ctx)
-                    : cs_sensor("RGB Camera", cs_device, move(timestamp_reader), owner, CS_STREAM_COLOR),
-                      _owner(owner)
-            {}
-
-            stream_profiles init_stream_profiles() override
-            {
-                auto lock = environment::get_instance().get_extrinsics_graph().lock();
-
-                auto results = cs_sensor::init_stream_profiles();
-
-                for (auto p : results)
-                {
-                    // Register stream types
-                    if (p->get_stream_type() == RS2_STREAM_COLOR)
-                    {
-                        assign_stream(_owner->_color_stream, p);
-                    }
-                    assign_stream(_owner->_color_stream, p);
-
-                    //TODO
-                    //provjeriti
-                    //environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_owner->_color_stream, *p);
-                }
-
-                return results;
-            }
-        private:
-            const cs_camera* _owner;
-        };
-
-        class cs_depth_sensor : public cs_sensor
-        {
-        public:
-            explicit cs_depth_sensor(cs_camera* owner, std::shared_ptr<platform::cs_device> cs_device,
-                                     std::unique_ptr<frame_timestamp_reader> timestamp_reader,
-                                     std::shared_ptr<context> ctx)
-                    : cs_sensor("CS Depth Sensor", cs_device, move(timestamp_reader), owner, CS_STREAM_DEPTH),
-                      _owner(owner)
-            {}
-
-            stream_profiles init_stream_profiles() override
-            {
-                auto lock = environment::get_instance().get_extrinsics_graph().lock();
-
-                auto results = cs_sensor::init_stream_profiles();
-
-                for (auto p : results)
-                {
-                    // Register stream types
-                    if (p->get_stream_type() == RS2_STREAM_DEPTH)
-                    {
-                        assign_stream(_owner->_depth_stream, p);
-                    }
-
-                    assign_stream(_owner->_depth_stream, p);
-
-                    //TODO
-                    //provjeriti
-                    //environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_owner->_color_stream, *p);
-                }
-
-                return results;
-            }
-        private:
-            const cs_camera* _owner;
-        };
-
-        std::shared_ptr<cs_sensor> create_color_device(std::shared_ptr<context> ctx,
-                                                       std::shared_ptr<platform::cs_device> cs_device)
-        {
-            auto color_ep = std::make_shared<cs_color_sensor>(this, cs_device,
-                                                              std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
-                                                              ctx);
-
-            color_ep->register_pixel_format(pf_raw8);
-
-            /*color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
-            color_ep->try_register_pu(RS2_OPTION_CONTRAST);
-            color_ep->try_register_pu(RS2_OPTION_HUE);
-            color_ep->try_register_pu(RS2_OPTION_SATURATION);
-            color_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
-            color_ep->try_register_pu(RS2_OPTION_GAMMA);
-
-            auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE);
-            auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
-            color_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
-            color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
-            color_ep->register_option(RS2_OPTION_EXPOSURE,
-                                      std::make_shared<auto_disabling_control>(
-                                              exposure_option,
-                                              auto_exposure_option));
-
-            /*auto gain_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_GAIN);
-            color_ep->register_option(RS2_OPTION_GAIN,
-                                      std::make_shared<auto_disabling_control>(
-                                              gain_option,
-                                              auto_exposure_option));
-
-            auto white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE);
-            auto auto_white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
-            color_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
-            color_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
-            color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
-                                      std::make_shared<auto_disabling_control>(
-                                              white_balance_option,
-                                              auto_white_balance_option));*/
-
-            return color_ep;
-        }
-
-        std::shared_ptr<cs_sensor> create_depth_device(std::shared_ptr<context> ctx,
-                                                       std::shared_ptr<platform::cs_device> cs_device)
-        {
-            auto depth_ep = std::make_shared<cs_depth_sensor>(this, cs_device,
-                                                              std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
-                                                              ctx);
-
-            depth_ep->register_pixel_format(pf_raw8);
-
-            /*color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
-            color_ep->try_register_pu(RS2_OPTION_CONTRAST);
-            color_ep->try_register_pu(RS2_OPTION_HUE);
-            color_ep->try_register_pu(RS2_OPTION_SATURATION);
-            color_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
-            depth_ep->try_register_pu(RS2_OPTION_GAMMA);
-
-            auto exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_EXPOSURE);
-            auto auto_exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
-            depth_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
-            depth_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
-            depth_ep->register_option(RS2_OPTION_EXPOSURE,
-                                      std::make_shared<auto_disabling_control>(
-                                              exposure_option,
-                                              auto_exposure_option));
-
-            /*auto gain_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_GAIN);
-            color_ep->register_option(RS2_OPTION_GAIN,
-                                      std::make_shared<auto_disabling_control>(
-                                              gain_option,
-                                              auto_exposure_option));
-
-            auto white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE);
-            auto auto_white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
-            color_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
-            color_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
-            color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
-                                      std::make_shared<auto_disabling_control>(
-                                              white_balance_option,
-                                              auto_white_balance_option));*/
-
-            return depth_ep;
-        }
     private:
-        uint8_t _color_device_idx;
-        uint8_t _depth_device_idx;
-        std::shared_ptr<stream_interface> _color_stream;
-        std::shared_ptr<stream_interface> _depth_stream;
         std::shared_ptr<platform::cs_device> _cs_device;
     };
 
-    class D435e_camera : public cs_camera
+    class D435e_camera : public cs_color,
+                         public cs_depth
     {
     public:
         D435e_camera(std::shared_ptr<context> ctx,
                      const platform::cs_device_info &hwm_device,
                      const platform::backend_device_group& group,
-                     bool register_device_notifications)
-                : cs_camera(ctx, hwm_device, group, register_device_notifications)
-        {}
+                     bool register_device_notifications);
+
+        std::shared_ptr<matcher> create_matcher(const frame_holder& frame) const override;
+
+        std::vector<tagged_profile> get_profiles_tags() const override;
+
+        cs_sensor& get_cs_sensor(size_t subdevice) { return dynamic_cast<cs_sensor&>(get_sensor(subdevice)); }
+
+        //void hardware_reset() override
+        //{
+            /*if (get_cs_sensor(_color_device_idx).is_streaming())
+                get_cs_sensor(_color_device_idx).stop();*/
+
+            //printf("Reset %d\n",_cs_device->reset());
+
+
+            /*if (get_cs_sensor(_color_device_idx)._is_opened
+                        get_cs_sensor(_color_device_idx).close();*/
+        //}
     private:
+        std::shared_ptr<platform::cs_device> _cs_device;
+    };
+
+    class cs_color_sensor : public cs_sensor
+    {
+    public:
+        explicit cs_color_sensor(cs_color* owner, std::shared_ptr<platform::cs_device> cs_device,
+                                 std::unique_ptr<frame_timestamp_reader> timestamp_reader,
+                                 std::shared_ptr<context> ctx)
+                : cs_sensor("RGB Camera", cs_device, move(timestamp_reader), owner, CS_STREAM_COLOR),
+                  _owner(owner)
+        {};
+
+        stream_profiles init_stream_profiles() override
+        {
+            auto lock = environment::get_instance().get_extrinsics_graph().lock();
+
+            auto results = cs_sensor::init_stream_profiles();
+
+            for (auto p : results)
+            {
+                // Register stream types
+                if (p->get_stream_type() == RS2_STREAM_COLOR)
+                {
+                    assign_stream(_owner->_color_stream, p);
+                }
+
+                //TODO
+                //provjeriti
+                //environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_owner->_color_stream, *p);
+            }
+
+            return results;
+        };
+
+        //rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
+        //processing_blocks get_recommended_processing_blocks() const override;
+    private:
+        const cs_color* _owner;
+    };
+
+    class cs_depth_sensor : public cs_sensor
+    {
+    public:
+        explicit cs_depth_sensor(cs_depth* owner, std::shared_ptr<platform::cs_device> cs_device,
+                                 std::unique_ptr<frame_timestamp_reader> timestamp_reader,
+                                 std::shared_ptr<context> ctx)
+                : cs_sensor("Depth Sensor", cs_device, move(timestamp_reader), owner, CS_STREAM_DEPTH),
+                  _owner(owner)
+        {};
+
+        stream_profiles init_stream_profiles() override
+        {
+            auto lock = environment::get_instance().get_extrinsics_graph().lock();
+
+            auto results = cs_sensor::init_stream_profiles();
+
+            for (auto p : results)
+            {
+                // Register stream types
+                if (p->get_stream_type() == RS2_STREAM_DEPTH)
+                {
+                    assign_stream(_owner->_depth_stream, p);
+                }
+
+                //TODO
+                //provjeriti
+                //environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_owner->_color_stream, *p);
+            }
+
+            return results;
+        }
+
+        //rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
+        //processing_blocks get_recommended_processing_blocks() const override;
+    private:
+        const cs_depth* _owner;
+    };
+
+    class cs_mono_sensor : public cs_sensor
+    {
+    public:
+        explicit cs_mono_sensor(cs_mono* owner, std::shared_ptr<platform::cs_device> cs_device,
+                                 std::unique_ptr<frame_timestamp_reader> timestamp_reader,
+                                 std::shared_ptr<context> ctx)
+                : cs_sensor("MONO Camera", cs_device, move(timestamp_reader), owner, CS_STREAM_COLOR),
+                  _owner(owner)
+        {};
+
+        stream_profiles init_stream_profiles() override
+        {
+            auto lock = environment::get_instance().get_extrinsics_graph().lock();
+
+            auto results = cs_sensor::init_stream_profiles();
+
+            for (auto p : results)
+            {
+                // Register stream types
+                if (p->get_stream_type() == RS2_STREAM_FISHEYE)
+                {
+                    assign_stream(_owner->_fisheye_stream, p);
+                }
+
+                //TODO
+                //provjeriti
+                //environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_owner->_color_stream, *p);
+            }
+
+            return results;
+        };
+
+        //rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
+        //processing_blocks get_recommended_processing_blocks() const override;
+    private:
+        const cs_mono* _owner;
     };
 }

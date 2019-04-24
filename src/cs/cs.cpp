@@ -12,9 +12,22 @@ namespace librealsense
     std::shared_ptr<device_interface> cs_info::create(std::shared_ptr<context> ctx,
                                                       bool register_device_notifications) const
     {
+        switch (get_camera_model(_hwm.id))
+        {
+            case CS_UCC2592C:
+                return std::make_shared<CSMono_camera>(ctx, _hwm, this->get_device_data(), register_device_notifications);
+            case CS_D435E:
+                return std::make_shared<D435e_camera>(ctx, _hwm, this->get_device_data(), register_device_notifications);
+            default:
+                throw std::runtime_error(to_string() << "Unsupported CS model! 0x"
+                                                     << std::hex << std::setw(4) << std::setfill('0') <<_hwm.id);
+        }
+    }
 
-        return std::make_shared<cs_camera>(ctx, _hwm, this->get_device_data(),
-                                           register_device_notifications);
+    cs_camera_model cs_info::get_camera_model(std::string pid) const
+    {
+        if (pid.compare("UCC2592C") == 0) return CS_UCC2592C;
+        else return CS_UNDEFINED;
     }
 
     std::vector <std::shared_ptr<device_info>> cs_info::pick_cs_devices(
@@ -59,31 +72,6 @@ namespace librealsense
         }
 
         return results;
-    }
-
-    cs_camera::cs_camera(std::shared_ptr<context> ctx,
-                         const platform::cs_device_info &hwm_device,
-                         const platform::backend_device_group& group,
-                         bool register_device_notifications)
-        : device(ctx, group, register_device_notifications),
-          _color_stream(new stream(RS2_STREAM_COLOR)),
-          _depth_stream(new stream(RS2_STREAM_DEPTH, 1))
-    {
-        _cs_device = ctx->get_backend().create_cs_device(hwm_device);
-
-        _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
-        _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
-
-        register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
-        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
-        register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
-    }
-
-    std::shared_ptr<matcher> cs_camera::create_matcher(const frame_holder& frame) const
-    {
-        std::vector<stream_interface*> streams = { _depth_stream.get(), _color_stream.get() };
-        //return std::make_shared<identity_matcher>( frame.frame->get_stream()->get_unique_id(), frame.frame->get_stream()->get_stream_type());
-        return matcher_factory::create(RS2_MATCHER_DEFAULT, streams);
     }
 
     cs_timestamp_reader::cs_timestamp_reader(std::shared_ptr<platform::time_service> ts):
@@ -407,6 +395,202 @@ namespace librealsense
         {
             LOG_WARNING("Exception was thrown when inspecting properties of a sensor");
         }
+    }
+
+    std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
+                                                             std::shared_ptr<platform::cs_device> cs_device)
+    {
+        auto color_ep = std::make_shared<cs_color_sensor>(this, cs_device,
+                                                          std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
+                                                          ctx);
+
+        color_ep->register_pixel_format(pf_raw8);
+
+        /*color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
+        color_ep->try_register_pu(RS2_OPTION_CONTRAST);
+        color_ep->try_register_pu(RS2_OPTION_HUE);
+        color_ep->try_register_pu(RS2_OPTION_SATURATION);
+        color_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
+        color_ep->try_register_pu(RS2_OPTION_GAMMA);
+
+        auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE);
+        auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
+        color_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
+        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
+        color_ep->register_option(RS2_OPTION_EXPOSURE,
+                                  std::make_shared<auto_disabling_control>(
+                                          exposure_option,
+                                          auto_exposure_option));
+
+        /*auto gain_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_GAIN);
+        color_ep->register_option(RS2_OPTION_GAIN,
+                                  std::make_shared<auto_disabling_control>(
+                                          gain_option,
+                                          auto_exposure_option));
+
+        auto white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE);
+        auto auto_white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
+        color_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
+        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
+        color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
+                                  std::make_shared<auto_disabling_control>(
+                                          white_balance_option,
+                                          auto_white_balance_option));*/
+
+        return color_ep;
+    }
+
+    std::shared_ptr<cs_sensor> cs_mono::create_mono_device(std::shared_ptr<context> ctx,
+                                                             std::shared_ptr<platform::cs_device> cs_device)
+    {
+        auto color_ep = std::make_shared<cs_mono_sensor>(this, cs_device,
+                                                          std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
+                                                          ctx);
+
+        color_ep->register_pixel_format(pf_raw8);
+
+        /*color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
+        color_ep->try_register_pu(RS2_OPTION_CONTRAST);
+        color_ep->try_register_pu(RS2_OPTION_HUE);
+        color_ep->try_register_pu(RS2_OPTION_SATURATION);
+        color_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
+        color_ep->try_register_pu(RS2_OPTION_GAMMA);
+
+        auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE);
+        auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
+        color_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
+        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
+        color_ep->register_option(RS2_OPTION_EXPOSURE,
+                                  std::make_shared<auto_disabling_control>(
+                                          exposure_option,
+                                          auto_exposure_option));
+
+        /*auto gain_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_GAIN);
+        color_ep->register_option(RS2_OPTION_GAIN,
+                                  std::make_shared<auto_disabling_control>(
+                                          gain_option,
+                                          auto_exposure_option));
+
+        auto white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE);
+        auto auto_white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
+        color_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
+        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
+        color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
+                                  std::make_shared<auto_disabling_control>(
+                                          white_balance_option,
+                                          auto_white_balance_option));*/
+
+        return color_ep;
+    }
+
+    std::shared_ptr<cs_sensor> cs_depth::create_depth_device(std::shared_ptr<context> ctx,
+                                                             std::shared_ptr<platform::cs_device> cs_device)
+    {
+        auto depth_ep = std::make_shared<cs_depth_sensor>(this, cs_device,
+                                                          std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
+                                                          ctx);
+
+        depth_ep->register_pixel_format(pf_raw8);
+
+        /*depth_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
+        depth_ep->try_register_pu(RS2_OPTION_CONTRAST);
+        depth_ep->try_register_pu(RS2_OPTION_HUE);
+        depth_ep->try_register_pu(RS2_OPTION_SATURATION);
+        depth_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
+        depth_ep->try_register_pu(RS2_OPTION_GAMMA);
+
+        auto exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_EXPOSURE);
+        auto auto_exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
+        depth_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
+        depth_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
+        depth_ep->register_option(RS2_OPTION_EXPOSURE,
+                                  std::make_shared<auto_disabling_control>(
+                                          exposure_option,
+                                          auto_exposure_option));
+
+        /*auto gain_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_GAIN);
+        depth_ep->register_option(RS2_OPTION_GAIN,
+                                  std::make_shared<auto_disabling_control>(
+                                          gain_option,
+                                          auto_exposure_option));
+
+        auto white_balance_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_WHITE_BALANCE);
+        auto auto_white_balance_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
+        depth_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
+        depth_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
+        depth_ep->register_option(RS2_OPTION_WHITE_BALANCE,
+                                  std::make_shared<auto_disabling_control>(
+                                          white_balance_option,
+                                          auto_white_balance_option));*/
+
+        return depth_ep;
+    }
+
+    CSMono_camera::CSMono_camera(std::shared_ptr<context> ctx,
+                                 const platform::cs_device_info &hwm_device,
+                                 const platform::backend_device_group& group,
+                                 bool register_device_notifications)
+            : device(ctx, group, register_device_notifications),
+              cs_mono(ctx, hwm_device, group, register_device_notifications)
+    {
+        _cs_device = ctx->get_backend().create_cs_device(hwm_device);
+        _mono_device_idx = add_sensor(create_mono_device(ctx, _cs_device));
+
+        register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
+        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
+        register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
+    }
+
+    D435e_camera::D435e_camera(std::shared_ptr<context> ctx,
+                               const platform::cs_device_info &hwm_device,
+                               const platform::backend_device_group& group,
+                               bool register_device_notifications)
+            : device(ctx, group, register_device_notifications),
+              cs_color(ctx, hwm_device, group, register_device_notifications),
+              cs_depth(ctx, hwm_device, group, register_device_notifications)
+    {
+        _cs_device = ctx->get_backend().create_cs_device(hwm_device);
+
+        _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
+        _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
+
+        register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
+        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
+        register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
+    }
+
+    std::shared_ptr<matcher> CSMono_camera::create_matcher(const frame_holder& frame) const
+    {
+        std::vector<stream_interface*> streams = { _fisheye_stream.get()};
+        if (frame.frame->supports_frame_metadata(RS2_FRAME_METADATA_FRAME_COUNTER))
+        {
+            return matcher_factory::create(RS2_MATCHER_DLR_C, streams);
+        }
+        return matcher_factory::create(RS2_MATCHER_DEFAULT, streams);
+    }
+
+    std::shared_ptr<matcher> D435e_camera::create_matcher(const frame_holder& frame) const
+    {
+        std::vector<stream_interface*> streams = { _depth_stream.get(), _color_stream.get() };
+        if (frame.frame->supports_frame_metadata(RS2_FRAME_METADATA_FRAME_COUNTER))
+        {
+            return matcher_factory::create(RS2_MATCHER_DLR_C, streams);
+        }
+        return matcher_factory::create(RS2_MATCHER_DEFAULT, streams);
+    }
+
+    std::vector<tagged_profile> CSMono_camera::get_profiles_tags() const
+    {
+        std::vector<tagged_profile> markers;
+        markers.push_back({ RS2_STREAM_ANY, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
+        return markers;
+    }
+
+    std::vector<tagged_profile> D435e_camera::get_profiles_tags() const
+    {
+        std::vector<tagged_profile> markers;
+        markers.push_back({ RS2_STREAM_ANY, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
+        return markers;
     }
 
     namespace platform
