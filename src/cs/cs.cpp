@@ -38,7 +38,9 @@ namespace librealsense
         std::string string_node;
 
         auto smcs_api = smcs::GetCameraAPI();
+        printf("Trazim\n");
         smcs_api->FindAllDevices(0.5);
+        printf("Nasao\n");
         auto devices = smcs_api->GetAllDevices();
 
         for (int i = 0; i < devices.size(); i++)
@@ -67,7 +69,6 @@ namespace librealsense
           _color_stream(new stream(RS2_STREAM_COLOR)),
           _depth_stream(new stream(RS2_STREAM_DEPTH, 1))
     {
-
         _cs_device = ctx->get_backend().create_cs_device(hwm_device);
 
         _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
@@ -429,7 +430,7 @@ namespace librealsense
             if (_connected_device->GetIntegerNodeValue("FPS", int64Value)) {
                 profile.fps = (uint32_t)int64Value;
             }
-            else profile.fps = 71;
+            else profile.fps = 50;
 
             all_stream_profiles.push_back(profile);
 

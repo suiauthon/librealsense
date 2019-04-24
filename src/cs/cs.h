@@ -388,9 +388,14 @@ namespace librealsense
 
         void hardware_reset() override
         {
-            get_cs_sensor(_color_device_idx).stop();
+            /*if (get_cs_sensor(_color_device_idx).is_streaming())
+                get_cs_sensor(_color_device_idx).stop();*/
+
             printf("Reset %d\n",_cs_device->reset());
-            get_cs_sensor(_color_device_idx).close();
+
+
+            /*if (get_cs_sensor(_color_device_idx)._is_opened
+                        get_cs_sensor(_color_device_idx).close();*/
         }
 
         class cs_color_sensor : public cs_sensor
@@ -557,5 +562,17 @@ namespace librealsense
         std::shared_ptr<stream_interface> _color_stream;
         std::shared_ptr<stream_interface> _depth_stream;
         std::shared_ptr<platform::cs_device> _cs_device;
+    };
+
+    class D435e_camera : public cs_camera
+    {
+    public:
+        D435e_camera(std::shared_ptr<context> ctx,
+                     const platform::cs_device_info &hwm_device,
+                     const platform::backend_device_group& group,
+                     bool register_device_notifications)
+                : cs_camera(ctx, hwm_device, group, register_device_notifications)
+        {}
+    private:
     };
 }
