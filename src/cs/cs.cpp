@@ -625,6 +625,8 @@ namespace librealsense
 
     std::vector<uint8_t> cs_camera::send_receive_raw_data(const std::vector<uint8_t>& input)
     {
+        std::vector<uint8_t> a;
+        return a;
         //TODO implement
     }
 
