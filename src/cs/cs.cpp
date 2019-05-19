@@ -16,6 +16,8 @@ namespace librealsense
         {
             case CS_UCC2592C:
                 return std::make_shared<CSMono_camera>(ctx, _hwm, this->get_device_data(), register_device_notifications);
+            case CS_UCC1932C:
+                return std::make_shared<CSMono_camera>(ctx, _hwm, this->get_device_data(), register_device_notifications);
             case CS_D435E:
                 return std::make_shared<D435e_camera>(ctx, _hwm, this->get_device_data(), register_device_notifications);
             default:
@@ -24,10 +26,24 @@ namespace librealsense
         }
     }
 
-    cs_camera_model cs_info::get_camera_model(std::string pid) const
+    cs_camera_model cs_info::get_camera_model(std::string pid)
     {
         if (pid.compare("UCC2592C") == 0) return CS_UCC2592C;
+        else if (pid.compare("UCC1932C") == 0) return CS_UCC1932C;
         else return CS_UNDEFINED;
+    }
+
+    bool cs_info::is_timestamp_supported(std::string pid)
+    {
+        switch (get_camera_model(pid))
+        {
+            case CS_UCC2592C:
+                return false;
+            case CS_UCC1932C:
+                return true;
+            default:
+                return false;
+        }
     }
 
     std::vector <std::shared_ptr<device_info>> cs_info::pick_cs_devices(
@@ -89,7 +105,12 @@ namespace librealsense
     rs2_time_t cs_timestamp_reader::get_frame_timestamp(const request_mapping& mode, const platform::frame_object& fo)
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
-        return _ts->get_time();
+        rs2_time_t time;
+
+        if (fo.backend_time < 0) time = _ts->get_time();
+        else time = fo.backend_time;
+
+        return time;
     }
 
     unsigned long long cs_timestamp_reader::get_frame_counter(const request_mapping & mode, const platform::frame_object& fo) const
@@ -526,19 +547,31 @@ namespace librealsense
         return depth_ep;
     }
 
+    cs_camera::cs_camera(std::shared_ptr<context> ctx,
+                         const platform::cs_device_info &hwm_device,
+                         const platform::backend_device_group& group,
+                         bool register_device_notifications)
+            : device(ctx, group, register_device_notifications)
+    {
+        register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
+        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
+        register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
+        //TODO ovo treba dodati ako se hoce koristiti fw loger, ali tu fali puno stvari od dohvacanja podataka s kamere koje
+        //TODO ja u ovom trenutku ne mogu napraviti
+        //TODO isto tako bi trebalo registrirati info RS2_CAMERA_INFO_PHYSICAL_PORT
+        //register_info(RS2_CAMERA_INFO_DEBUG_OP_CODE, std::to_string(static_cast<int>(fw_cmd::GLD)));
+    }
+
     CSMono_camera::CSMono_camera(std::shared_ptr<context> ctx,
                                  const platform::cs_device_info &hwm_device,
                                  const platform::backend_device_group& group,
                                  bool register_device_notifications)
             : device(ctx, group, register_device_notifications),
-              cs_mono(ctx, hwm_device, group, register_device_notifications)
+              cs_camera(ctx, hwm_device, group, register_device_notifications),
+              cs_mono(ctx, group, register_device_notifications)
     {
         _cs_device = ctx->get_backend().create_cs_device(hwm_device);
         _mono_device_idx = add_sensor(create_mono_device(ctx, _cs_device));
-
-        register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
-        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
-        register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
     }
 
     D435e_camera::D435e_camera(std::shared_ptr<context> ctx,
@@ -546,17 +579,14 @@ namespace librealsense
                                const platform::backend_device_group& group,
                                bool register_device_notifications)
             : device(ctx, group, register_device_notifications),
-              cs_color(ctx, hwm_device, group, register_device_notifications),
-              cs_depth(ctx, hwm_device, group, register_device_notifications)
+              cs_camera(ctx, hwm_device, group, register_device_notifications),
+              cs_color(ctx, group, register_device_notifications),
+              cs_depth(ctx, group, register_device_notifications)
     {
         _cs_device = ctx->get_backend().create_cs_device(hwm_device);
 
         _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
         _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
-
-        register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
-        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
-        register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
     }
 
     std::shared_ptr<matcher> CSMono_camera::create_matcher(const frame_holder& frame) const
@@ -591,6 +621,21 @@ namespace librealsense
         std::vector<tagged_profile> markers;
         markers.push_back({ RS2_STREAM_ANY, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
         return markers;
+    }
+
+    std::vector<uint8_t> cs_camera::send_receive_raw_data(const std::vector<uint8_t>& input)
+    {
+        //TODO implement
+    }
+
+    void cs_camera::create_snapshot(std::shared_ptr<debug_interface>& snapshot) const
+    {
+        //TODO implement
+    }
+
+    void cs_camera::enable_recording(std::function<void(const debug_interface&)> record_action)
+    {
+        //TODO implement
     }
 
     namespace platform
@@ -924,13 +969,17 @@ namespace librealsense
 
             UINT32 src_pixel_type;
             UINT32 src_width, src_height;
+            double timestamp;
 
-            if (_connected_device.IsValid() && _connected_device->IsConnected()) {
+            if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
                 if (!_connected_device->IsBufferEmpty()) {
                     _connected_device->GetImageInfo(&image_info_);
 
                     auto image_id = image_info_->GetImageID();
-                    auto timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
+
+                    if (cs_info::is_timestamp_supported(_device_info.id))
+                        timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
+                    else timestamp = -1;
 
                     auto im = smcs::IImageBitmapInterface(image_info_).GetRawData();
 
@@ -958,13 +1007,17 @@ namespace librealsense
 
             UINT32 src_pixel_type;
             UINT32 src_width, src_height;
+            double timestamp;
 
-            if (_connected_device.IsValid() && _connected_device->IsConnected()) {
+            if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
                 if (!_connected_device->IsBufferEmpty()) {
                     _connected_device->GetImageInfo(&image_info_);
 
                     auto image_id = image_info_->GetImageID();
-                    auto timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
+
+                    if (cs_info::is_timestamp_supported(_device_info.id))
+                        timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
+                    else timestamp = -1;
 
                     auto im = smcs::IImageBitmapInterface(image_info_).GetRawData();
 

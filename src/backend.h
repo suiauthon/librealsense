@@ -318,7 +318,7 @@ namespace librealsense
         struct cs_device_info
         {
             std::string id;
-            std::string vid;
+            uint16_t vid = 0;
             std::string info;
             std::string serial;
 
@@ -328,7 +328,7 @@ namespace librealsense
 
                 s << "info- " << info <<
                   "\nid- " << id <<
-                  "\nvid- " <<  vid <<
+                  "\nvid- " << std::hex << vid <<
                   "\nserial- " << serial;
 
                 return s.str();

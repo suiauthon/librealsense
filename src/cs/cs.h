@@ -24,6 +24,7 @@ namespace librealsense
 
     typedef enum cs_camera_model {
         CS_UCC2592C,
+        CS_UCC1932C,
         CS_D435E,
         CS_UNDEFINED
     };
@@ -63,7 +64,7 @@ namespace librealsense
             ~cs_device()
             {
                 printf("Ubijam cs device\n");
-                _connected_device->Disconnect();
+                if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
             }
 
             power_state set_power_state(power_state state);
@@ -204,7 +205,9 @@ namespace librealsense
 
         static std::vector<platform::cs_device_info> query_cs_devices();
 
-        cs_camera_model get_camera_model(std::string pid) const;
+        static cs_camera_model get_camera_model(std::string pid);
+
+        static bool is_timestamp_supported(std::string pid);
 
     private:
         platform::cs_device_info _hwm;
@@ -379,7 +382,6 @@ namespace librealsense
     {
     public:
         cs_color(std::shared_ptr<context> ctx,
-                 const platform::cs_device_info &hwm_device,
                  const platform::backend_device_group& group,
                  bool register_device_notifications)
                 : device(ctx, group, register_device_notifications),
@@ -403,7 +405,6 @@ namespace librealsense
     {
     public:
         cs_depth(std::shared_ptr<context> ctx,
-                 const platform::cs_device_info &hwm_device,
                  const platform::backend_device_group& group,
                  bool register_device_notifications)
                 : device(ctx, group, register_device_notifications),
@@ -427,7 +428,6 @@ namespace librealsense
     {
     public:
         cs_mono(std::shared_ptr<context> ctx,
-                 const platform::cs_device_info &hwm_device,
                  const platform::backend_device_group& group,
                  bool register_device_notifications)
                 : device(ctx, group, register_device_notifications),
@@ -447,7 +447,37 @@ namespace librealsense
         //std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
     };
 
-    class CSMono_camera: public cs_mono
+    class cs_camera: public virtual device,
+                     public debug_interface
+    {
+    public:
+        cs_camera(std::shared_ptr<context> ctx,
+                  const platform::cs_device_info &hwm_device,
+                  const platform::backend_device_group& group,
+                  bool register_device_notifications);
+
+        std::vector<uint8_t> send_receive_raw_data(const std::vector<uint8_t>& input) override;
+        void create_snapshot(std::shared_ptr<debug_interface>& snapshot) const override;
+        void enable_recording(std::function<void(const debug_interface&)> record_action) override;
+
+        //TODO implementirati ovo za svaku kameru posebno, ne u cs_camera nego u onoj klasi koja nasljeduje cs_cameru
+        //void hardware_reset() override
+        //{
+        /*if (get_cs_sensor(_color_device_idx).is_streaming())
+            get_cs_sensor(_color_device_idx).stop();*/
+
+        //printf("Reset %d\n",_cs_device->reset());
+
+
+        /*if (get_cs_sensor(_color_device_idx)._is_opened
+                    get_cs_sensor(_color_device_idx).close();*/
+        //}
+
+    private:
+    };
+
+    class CSMono_camera: public cs_mono,
+                         public cs_camera
     {
     public:
         CSMono_camera(std::shared_ptr<context> ctx,
@@ -466,7 +496,8 @@ namespace librealsense
     };
 
     class D435e_camera : public cs_color,
-                         public cs_depth
+                         public cs_depth,
+                         public cs_camera
     {
     public:
         D435e_camera(std::shared_ptr<context> ctx,
@@ -480,17 +511,6 @@ namespace librealsense
 
         cs_sensor& get_cs_sensor(size_t subdevice) { return dynamic_cast<cs_sensor&>(get_sensor(subdevice)); }
 
-        //void hardware_reset() override
-        //{
-            /*if (get_cs_sensor(_color_device_idx).is_streaming())
-                get_cs_sensor(_color_device_idx).stop();*/
-
-            //printf("Reset %d\n",_cs_device->reset());
-
-
-            /*if (get_cs_sensor(_color_device_idx)._is_opened
-                        get_cs_sensor(_color_device_idx).close();*/
-        //}
     private:
         std::shared_ptr<platform::cs_device> _cs_device;
     };
@@ -518,6 +538,7 @@ namespace librealsense
                 {
                     assign_stream(_owner->_color_stream, p);
                 }
+                //assign_stream(_owner->_color_stream, p);
 
                 //TODO
                 //provjeriti
@@ -556,6 +577,8 @@ namespace librealsense
                 {
                     assign_stream(_owner->_depth_stream, p);
                 }
+
+                //assign_stream(_owner->_depth_stream, p);
 
                 //TODO
                 //provjeriti
