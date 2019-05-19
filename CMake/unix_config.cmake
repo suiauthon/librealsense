@@ -47,6 +47,6 @@ macro(os_target_config)
         message( FATAL_ERROR "Failed to find libusb-1.0" )
     endif(LIBUSB1_FOUND)
 
-    target_include_directories(${LRS_TARGET} PRIVATE ${LIBUSB1_INCLUDE_DIRS})
+    target_include_directories(${LRS_TARGET} PRIVATE ${LIBUSB1_INCLUDE_DIRS} ${CAMERASUITE_INCLUDE_DIRS})
     target_link_libraries(${LRS_TARGET} PRIVATE ${LIBUSB1_LIBRARIES} ${CAMERASUITE_LIBRARY})
 endmacro()
