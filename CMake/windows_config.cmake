@@ -88,4 +88,7 @@ macro(os_target_config)
         string(REPLACE "/" "\\" _file_path_msvc "${_file_path}")
         source_group("Source Files\\${_file_path_msvc}" FILES "${_relative_file}")
     endforeach()
+
+    target_include_directories(${LRS_TARGET} PRIVATE ${CAMERASUITE_INCLUDE_DIRS})
+    target_link_libraries(${LRS_TARGET} PRIVATE ${CAMERASUITE_LIBRARY})
 endmacro()

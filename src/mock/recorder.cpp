@@ -7,7 +7,7 @@
 #include <algorithm>
 #include "types.h"
 #include <iostream>
-#include "cs/cs.h"
+#include "cs/cs-factory.h"
 
 using namespace std;
 using namespace sql;

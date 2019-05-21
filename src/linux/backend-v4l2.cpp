@@ -41,7 +41,7 @@
 #include <fts.h>
 #include <regex>
 #include <list>
-#include "cs/cs.h"
+#include "cs/cs-factory.h"
 
 #include <sys/signalfd.h>
 #include <signal.h>

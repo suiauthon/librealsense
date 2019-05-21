@@ -6,7 +6,11 @@ include_directories(${CAMERASUITE_INCLUDE_DIRS})
 
 target_sources(${LRS_TARGET}
         PRIVATE
-        "${CMAKE_CURRENT_LIST_DIR}/cs.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/cs.h"
+        "${CMAKE_CURRENT_LIST_DIR}/cs-device.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/cs-device.h"
+        "${CMAKE_CURRENT_LIST_DIR}/cs-factory.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/cs-factory.h"
+        "${CMAKE_CURRENT_LIST_DIR}/cs-timestamp.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/cs-timestamp.h"
         "${CAMERASUITE_INCLUDE_DIRS}/smcs_cpp/CameraSDK.cpp"
         )

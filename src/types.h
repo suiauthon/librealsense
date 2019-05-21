@@ -1276,6 +1276,7 @@ namespace librealsense
         bool operator == (const devices_data& other)
         {
             return !list_changed(_uvc_devices, other._uvc_devices) &&
+                   !list_changed(_cs_devices, other._cs_devices) &&
                 !list_changed(_hid_devices, other._hid_devices);
         }
 

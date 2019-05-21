@@ -20,7 +20,7 @@
 #include "stream.h"
 #include "environment.h"
 #include "context.h"
-#include "cs/cs.h"
+#include "cs/cs-factory.h"
 
 #ifdef WITH_TRACKING
 #include "tm2/tm-context.h"
