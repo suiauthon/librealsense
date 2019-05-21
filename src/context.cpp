@@ -20,7 +20,7 @@
 #include "stream.h"
 #include "environment.h"
 #include "context.h"
-#include "cs/cs.h"
+//#include "cs/cs.h"
 
 #ifdef WITH_TRACKING
 #include "tm2/tm-context.h"
@@ -76,13 +76,13 @@ bool contains(const std::shared_ptr<librealsense::device_info>& first,
             second_data.hid_devices.end())
             return false;
     }
-    for (auto&& cs : first_data.cs_devices)
+    /*for (auto&& cs : first_data.cs_devices)
     {
         if (std::find(second_data.cs_devices.begin(),
                       second_data.cs_devices.end(), cs) ==
             second_data.cs_devices.end())
             return false;
-    }
+    }*/
     for (auto&& pd : first_data.playback_devices)
     {
         if (std::find(second_data.playback_devices.begin(),
@@ -111,7 +111,7 @@ namespace librealsense
     {
         LOG_DEBUG("Librealsense " << std::string(std::begin(rs2_api_version),std::end(rs2_api_version)));
 
-        if (_objects_count == 0) smcs::InitCameraAPI();
+        //if (_objects_count == 0) smcs::InitCameraAPI();
 
         switch(type)
         {
@@ -323,13 +323,13 @@ namespace librealsense
         _device_watcher->stop(); //ensure that the device watcher will stop before the _devices_changed_callback will be deleted
 
         if (_objects_count > 0) _objects_count--;
-        if (_objects_count == 0) smcs::ExitCameraAPI();
+        //if (_objects_count == 0) smcs::ExitCameraAPI();
     }
 
     std::vector<std::shared_ptr<device_info>> context::query_devices(int mask) const
     {
 
-        platform::backend_device_group devices(_backend->query_uvc_devices(), _backend->query_usb_devices(), _backend->query_hid_devices(), _backend->query_cs_devices());
+        platform::backend_device_group devices(_backend->query_uvc_devices(), _backend->query_usb_devices(), _backend->query_hid_devices()/*, _backend->query_cs_devices()*/);
 #ifdef WITH_TRACKING
         if (_tm2_context) _tm2_context->create_manager();
 #endif
@@ -378,12 +378,12 @@ namespace librealsense
             auto uvc_devices = platform_camera_info::pick_uvc_devices(ctx, devices.uvc_devices);
             std::copy(begin(uvc_devices), end(uvc_devices), std::back_inserter(list));
         }
-
-        if (mask & RS2_PRODUCT_LINE_CS)
-        {
-            auto cs_devices = cs_info::pick_cs_devices(ctx, devices.cs_devices);
-            std::copy(begin(cs_devices), end(cs_devices), std::back_inserter(list));
-        }
+        //TODO remove this
+        //if (mask & RS2_PRODUCT_LINE_CS)
+        //{
+        //    auto cs_devices = cs_info::pick_cs_devices(ctx, devices.cs_devices);
+        //    std::copy(begin(cs_devices), end(cs_devices), std::back_inserter(list));
+        //}
 
         for (auto&& item : playback_devices)
         {

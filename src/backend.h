@@ -635,17 +635,17 @@ namespace librealsense
                 :uvc_devices(uvc_devices), usb_devices(usb_devices), hid_devices(hid_devices) {}
 
             //DODANO
-            backend_device_group(const std::vector<uvc_device_info>& uvc_devices,
+            /*backend_device_group(const std::vector<uvc_device_info>& uvc_devices,
                                  const std::vector<usb_device_info>& usb_devices,
-                                 const std::vector<hid_device_info>& hid_devices,
+                                 const std::vector<hid_device_info>& hid_devices),
                                  const std::vector<cs_device_info>& cs_devices)
-                    :uvc_devices(uvc_devices), usb_devices(usb_devices), hid_devices(hid_devices), cs_devices(cs_devices) {}
+                    :uvc_devices(uvc_devices), usb_devices(usb_devices), hid_devices(hid_devices), cs_devices(cs_devices) {}*/
 
             backend_device_group(const std::vector<usb_device_info>& usb_devices)
                 :usb_devices(usb_devices) {}
 
-            backend_device_group(const std::vector<cs_device_info>& cs_devices)
-                    :cs_devices(cs_devices) {}
+            /*backend_device_group(const std::vector<cs_device_info>& cs_devices)
+                    :cs_devices(cs_devices) {}*/
 
             backend_device_group(const std::vector<uvc_device_info>& uvc_devices, const std::vector<usb_device_info>& usb_devices)
                 :uvc_devices(uvc_devices), usb_devices(usb_devices) {}
@@ -655,7 +655,7 @@ namespace librealsense
             std::vector<uvc_device_info> uvc_devices;
             std::vector<usb_device_info> usb_devices;
             std::vector<hid_device_info> hid_devices;
-            std::vector<cs_device_info> cs_devices;
+            //std::vector<cs_device_info> cs_devices;
             std::vector<playback_device_info> playback_devices;
             std::vector<tm2_device_info> tm2_devices;
 
@@ -664,7 +664,7 @@ namespace librealsense
                 return !list_changed(uvc_devices, other.uvc_devices) &&
                     !list_changed(hid_devices, other.hid_devices) &&
                     !list_changed(playback_devices, other.playback_devices) &&
-                    !list_changed(cs_devices, other.cs_devices) &&
+                    //!list_changed(cs_devices, other.cs_devices) &&
                     !list_changed(tm2_devices, other.tm2_devices);
             }
 
@@ -692,12 +692,12 @@ namespace librealsense
                     s += "\n\n";
                 }
 
-                s += cs_devices.size()>0 ? "cs devices: \n" : "";
+                /*s += cs_devices.size()>0 ? "cs devices: \n" : "";
                 for (auto cs : cs_devices)
                 {
                     s += cs;
                     s += "\n\n";
-                }
+                }*/
 
                 s += playback_devices.size()>0 ? "playback devices: \n" : "";
                 for (auto playback_device : playback_devices)
@@ -726,8 +726,8 @@ namespace librealsense
             virtual std::shared_ptr<hid_device> create_hid_device(hid_device_info info) const = 0;
             virtual std::vector<hid_device_info> query_hid_devices() const = 0;
 
-            virtual std::shared_ptr<cs_device> create_cs_device(cs_device_info info) const = 0;
-            virtual std::vector<cs_device_info> query_cs_devices() const = 0;
+            //virtual std::shared_ptr<cs_device> create_cs_device(cs_device_info info) const = 0;
+            //virtual std::vector<cs_device_info> query_cs_devices() const = 0;
 
             virtual std::shared_ptr<time_service> create_time_service() const = 0;
 

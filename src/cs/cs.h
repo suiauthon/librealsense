@@ -200,7 +200,7 @@ namespace librealsense
 
         platform::backend_device_group get_device_data() const override
         {
-            return platform::backend_device_group({ _hwm });
+            //return platform::backend_device_group({ _hwm });
         }
 
         static std::vector<platform::cs_device_info> query_cs_devices();

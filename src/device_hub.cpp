@@ -28,7 +28,7 @@ namespace librealsense
                 }
             }
 
-            for (const auto& uvc : data.cs_devices)
+            /*for (const auto& uvc : data.cs_devices)
             {
                 if (uvc.vid == vid || vid == 0)
                 {
@@ -36,7 +36,7 @@ namespace librealsense
                     filtered = true;
                     break;
                 }
-            }
+            }*/
 
             // TODO: enable T265 filter by VID:PID via tm2_device_info
             if ((!filtered) && data.tm2_devices.size())

@@ -570,7 +570,7 @@ namespace librealsense
               cs_camera(ctx, hwm_device, group, register_device_notifications),
               cs_mono(ctx, group, register_device_notifications)
     {
-        _cs_device = ctx->get_backend().create_cs_device(hwm_device);
+        //_cs_device = ctx->get_backend().create_cs_device(hwm_device);
         _mono_device_idx = add_sensor(create_mono_device(ctx, _cs_device));
     }
 
@@ -583,7 +583,7 @@ namespace librealsense
               cs_color(ctx, group, register_device_notifications),
               cs_depth(ctx, group, register_device_notifications)
     {
-        _cs_device = ctx->get_backend().create_cs_device(hwm_device);
+        //_cs_device = ctx->get_backend().create_cs_device(hwm_device);
 
         _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
         _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
