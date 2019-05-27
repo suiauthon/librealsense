@@ -60,7 +60,7 @@ namespace librealsense {
 
         auto smcs_api = smcs::GetCameraAPI();
         printf("Trazim\n");
-        smcs_api->FindAllDevices(0.5);
+        smcs_api->FindAllDevices(0.07);
         printf("Nasao\n");
         auto devices = smcs_api->GetAllDevices();
 
@@ -71,6 +71,7 @@ namespace librealsense {
                 auto info = platform::cs_device_info();
                 info.serial = devices[i]->GetSerialNumber();
                 info.id = devices[i]->GetModelName();
+                printf("id %s\n", info.id.c_str());
                 info.info = devices[i]->GetManufacturerSpecificInfo();
 
                 results.push_back(info);
@@ -415,7 +416,7 @@ namespace librealsense {
 
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
                 if (!_connected_device->IsBufferEmpty()) {
-                    _connected_device->GetImageInfo(&image_info_);
+                    _connected_device->GetImageInfo(&image_info_, 0);
 
                     auto image_id = image_info_->GetImageID();
 
@@ -453,7 +454,7 @@ namespace librealsense {
 
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
                 if (!_connected_device->IsBufferEmpty()) {
-                    _connected_device->GetImageInfo(&image_info_);
+                    _connected_device->GetImageInfo(&image_info_, 0);
 
                     auto image_id = image_info_->GetImageID();
 
