@@ -46,7 +46,7 @@ namespace librealsense
                                                                       << ", Arrived," << std::fixed << f.backend_time << " " << system_time);
                                                   return;
                                               }
-                                              //frame_continuation release_and_enqueue(continuation, f.pixels);
+                                              frame_continuation release_and_enqueue(continuation, f.pixels);
 
                                               // Ignore any frames which appear corrupted or invalid
                                               // Determine the timestamp for this frame
@@ -128,10 +128,10 @@ namespace librealsense
                                               // If any frame callbacks were specified, dispatch them now
                                               for (auto&& pref : refs)
                                               {
-                                                  /*if (!requires_processing)
+                                                  if (!requires_processing)
                                                   {
                                                       pref->attach_continuation(std::move(release_and_enqueue));
-                                                  }*/
+                                                  }
 
                                                   if (_on_before_frame_callback)
                                                   {
@@ -306,14 +306,14 @@ namespace librealsense
                                                           std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
                                                           ctx);
 
-        color_ep->register_pixel_format(pf_raw8);
+        color_ep->register_pixel_format(pf_yuyv);
 
         /*color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
         color_ep->try_register_pu(RS2_OPTION_CONTRAST);
         color_ep->try_register_pu(RS2_OPTION_HUE);
         color_ep->try_register_pu(RS2_OPTION_SATURATION);
         color_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
-        color_ep->try_register_pu(RS2_OPTION_GAMMA);
+        /*color_ep->try_register_pu(RS2_OPTION_GAMMA);
 
         auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE);
         auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
@@ -322,7 +322,7 @@ namespace librealsense
         color_ep->register_option(RS2_OPTION_EXPOSURE,
                                   std::make_shared<auto_disabling_control>(
                                           exposure_option,
-                                          auto_exposure_option));
+                                          auto_exposure_option));*/
 
         /*auto gain_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_GAIN);
         color_ep->register_option(RS2_OPTION_GAIN,
@@ -345,18 +345,18 @@ namespace librealsense
     std::shared_ptr<cs_sensor> cs_mono::create_mono_device(std::shared_ptr<context> ctx,
                                                              std::shared_ptr<platform::cs_device> cs_device)
     {
-        auto color_ep = std::make_shared<cs_mono_sensor>(this, cs_device,
+        auto mono_ep = std::make_shared<cs_mono_sensor>(this, cs_device,
                                                           std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
                                                           ctx);
 
-        color_ep->register_pixel_format(pf_raw8);
+        mono_ep->register_pixel_format(pf_raw8);
 
         /*color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
         color_ep->try_register_pu(RS2_OPTION_CONTRAST);
         color_ep->try_register_pu(RS2_OPTION_HUE);
         color_ep->try_register_pu(RS2_OPTION_SATURATION);
         color_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
-        color_ep->try_register_pu(RS2_OPTION_GAMMA);
+        /*color_ep->try_register_pu(RS2_OPTION_GAMMA);
 
         auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE);
         auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
@@ -365,7 +365,7 @@ namespace librealsense
         color_ep->register_option(RS2_OPTION_EXPOSURE,
                                   std::make_shared<auto_disabling_control>(
                                           exposure_option,
-                                          auto_exposure_option));
+                                          auto_exposure_option));*/
 
         /*auto gain_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_GAIN);
         color_ep->register_option(RS2_OPTION_GAIN,
@@ -382,7 +382,7 @@ namespace librealsense
                                           white_balance_option,
                                           auto_white_balance_option));*/
 
-        return color_ep;
+        return mono_ep;
     }
 
     std::shared_ptr<cs_sensor> cs_depth::create_depth_device(std::shared_ptr<context> ctx,
@@ -392,14 +392,14 @@ namespace librealsense
                                                           std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
                                                           ctx);
 
-        depth_ep->register_pixel_format(pf_raw8);
+        depth_ep->register_pixel_format(pf_z16);
 
         /*depth_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
         depth_ep->try_register_pu(RS2_OPTION_CONTRAST);
         depth_ep->try_register_pu(RS2_OPTION_HUE);
         depth_ep->try_register_pu(RS2_OPTION_SATURATION);
         depth_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
-        depth_ep->try_register_pu(RS2_OPTION_GAMMA);
+        /*depth_ep->try_register_pu(RS2_OPTION_GAMMA);
 
         auto exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_EXPOSURE);
         auto auto_exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
@@ -408,7 +408,7 @@ namespace librealsense
         depth_ep->register_option(RS2_OPTION_EXPOSURE,
                                   std::make_shared<auto_disabling_control>(
                                           exposure_option,
-                                          auto_exposure_option));
+                                          auto_exposure_option));*/
 
         /*auto gain_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_GAIN);
         depth_ep->register_option(RS2_OPTION_GAIN,

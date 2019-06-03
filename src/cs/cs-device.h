@@ -383,7 +383,6 @@ namespace librealsense
                 {
                     assign_stream(_owner->_color_stream, p);
                 }
-                //assign_stream(_owner->_color_stream, p);
 
                 //TODO
                 //provjeriti
@@ -423,8 +422,6 @@ namespace librealsense
                     assign_stream(_owner->_depth_stream, p);
                 }
 
-                //assign_stream(_owner->_depth_stream, p);
-
                 //TODO
                 //provjeriti
                 //environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_owner->_color_stream, *p);
@@ -445,7 +442,7 @@ namespace librealsense
         explicit cs_mono_sensor(cs_mono* owner, std::shared_ptr<platform::cs_device> cs_device,
                                  std::unique_ptr<frame_timestamp_reader> timestamp_reader,
                                  std::shared_ptr<context> ctx)
-                : cs_sensor("MONO Camera", cs_device, move(timestamp_reader), owner, CS_STREAM_COLOR),
+                : cs_sensor("MONO Camera", cs_device, move(timestamp_reader), owner, CS_STREAM_MONO),
                   _owner(owner)
         {};
 

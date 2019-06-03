@@ -11,8 +11,10 @@
 
 namespace librealsense {
     typedef enum cs_stream {
-        CS_STREAM_COLOR,
-        CS_STREAM_DEPTH
+        CS_STREAM_DEPTH = 0,
+        CS_STREAM_COLOR = 1,
+        CS_STREAM_MONO = 0
+
     } cs_stream;
 
     typedef enum cs_camera_model {
@@ -28,11 +30,7 @@ namespace librealsense {
             explicit cs_device(platform::cs_device_info hwm)
                     : _device_info(std::move(hwm)),
                       _power_state(D3),
-                      _is_color_capturing(false),
-                      _is_depth_capturing(false),
-                      _is_started(false),
-                      _color_thread(nullptr),
-                      _depth_thread(nullptr),
+                      _is_acquisition_active(0),
                       _connected_device(NULL) {
                 printf("Stvaram cs device\n");
                 _smcs_api = smcs::GetCameraAPI();
@@ -45,6 +43,28 @@ namespace librealsense {
 
                         if (_connected_device == NULL || !_connected_device->Connect())
                             throw wrong_api_call_sequence_exception("Could not create CS device!");
+                        else
+                        {
+                            INT64 int64Value;
+                            if (_connected_device->GetIntegerNodeValue("SourceControlCount", int64Value))
+                            {
+                                _number_of_streams = int64Value;
+                                _threads = std::vector<std::unique_ptr <std::thread>>(_number_of_streams);
+                                _is_capturing = std::vector<std::atomic<bool>>(_number_of_streams);
+                                _callbacks = std::vector<frame_callback>(_number_of_streams);
+                                _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
+                                _profiles = std::vector<stream_profile>(_number_of_streams);
+
+                                for (int i = 0; i < _number_of_streams; i++)
+                                {
+                                    _threads[i] = nullptr;
+                                    _is_capturing[i] = 0;
+                                    _callbacks[i] = nullptr;
+                                }
+                            }
+                            else
+                                throw wrong_api_call_sequence_exception("Could not create CS device!");
+                        }
                     }
                 }
             }
@@ -62,9 +82,7 @@ namespace librealsense {
 
             void close(stream_profile profile, cs_stream stream);
 
-            void color_image_poll();
-
-            void depth_image_poll();
+            void image_poll(cs_stream stream);
 
             power_state get_power_state() const { return _power_state; }
 
@@ -81,14 +99,12 @@ namespace librealsense {
         protected:
             void prepare_capture_buffers();
 
-            void color_capture_loop();
-
-            void depth_capture_loop();
+            void capture_loop(cs_stream stream);
 
             void set_format(stream_profile profile);
 
-            std::function<void(const notification &n)> _color_error_handler, _depth_error_handler;
-            stream_profile _color_profile, _depth_profile;
+            std::vector<std::function<void(const notification &n)>> _error_handler;
+            std::vector<stream_profile> _profiles;
 
         private:
             std::string get_cs_param_name(rs2_option option);
@@ -103,16 +119,20 @@ namespace librealsense {
 
             bool set_cs_param(rs2_option option, int32_t value);
 
+            void start_acquisition();
+
+            void stop__acquisition();
+
             //std::vector<std::shared_ptr<buffer>> _buffers;
-            std::unique_ptr <std::thread> _color_thread, _depth_thread;
+            std::vector<std::unique_ptr <std::thread>> _threads;
             platform::cs_device_info _device_info;
             power_state _power_state;
-            std::atomic<bool> _is_color_capturing, _is_depth_capturing;
-            std::atomic<bool> _is_started;
+            std::vector<std::atomic<bool>> _is_capturing;
             std::mutex _power_lock, _stream_lock;
+            uint8_t _is_acquisition_active, _number_of_streams;
             smcs::ICameraAPI _smcs_api;
             smcs::IDevice _connected_device;
-            frame_callback _color_callback, _depth_callback;
+            std::vector<frame_callback> _callbacks;
         };
     }
 

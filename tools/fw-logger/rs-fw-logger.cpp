@@ -94,8 +94,7 @@ int main(int argc, char* argv[])
             {
                 this_thread::sleep_for(chrono::milliseconds(100));
 
-                auto raw_data = denko
-                        v.as<debug_protocol>().send_and_receive_raw_data(input);
+                auto raw_data = dev.as<debug_protocol>().send_and_receive_raw_data(input);
                 vector<string> fw_log_lines = {""};
                 if (raw_data.size() <= 4)
                     continue;

@@ -27,6 +27,7 @@ namespace librealsense {
     cs_camera_model cs_info::get_camera_model(std::string pid) {
         if (pid.compare("UCC2592C") == 0) return CS_UCC2592C;
         else if (pid.compare("UCC1932C") == 0) return CS_UCC1932C;
+        else if (pid.compare("D435e") == 0) return CS_D435E;
         else return CS_UNDEFINED;
     }
 
@@ -60,7 +61,7 @@ namespace librealsense {
 
         auto smcs_api = smcs::GetCameraAPI();
         printf("Trazim\n");
-        smcs_api->FindAllDevices(0.07);
+        smcs_api->FindAllDevices(0.1);
         printf("Nasao\n");
         auto devices = smcs_api->GetAllDevices();
 
@@ -97,13 +98,17 @@ namespace librealsense {
                 profile.height = (uint32_t)int64Value;
             }
             if (_connected_device->GetStringNodeValue("PixelFormat", node_value)) {
-                profile.format = 'GREY';
+                profile.format = 'YUYV';
             }
             if (_connected_device->GetIntegerNodeValue("FPS", int64Value)) {
                 profile.fps = (uint32_t)int64Value;
             }
             else profile.fps = 50;
+            all_stream_profiles.push_back(profile);
+            profile.format = 'Z16 ';
+            all_stream_profiles.push_back(profile);
 
+            profile.format = 'GREY';
             all_stream_profiles.push_back(profile);
 
             return all_stream_profiles;
@@ -261,86 +266,62 @@ namespace librealsense {
 
         void cs_device::close(stream_profile profile, cs_stream stream)
         {
-            switch(stream)
+            if (stream < _number_of_streams)
             {
-                case CS_STREAM_COLOR:
+                if (_is_capturing[stream])
                 {
-                    if (_is_color_capturing)
-                    {
-                        _is_color_capturing = false;
-
-                        _connected_device->CommandNodeExecute("AcquisitionStop");
-                        _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
-
-                        _color_thread->join();
-                        _color_thread.reset();
-                    }
-                    if (_color_callback) _color_callback = nullptr;
-                    break;
+                    _is_capturing[stream] = false;
+                    stop__acquisition();
+                    _threads[stream]->join();
+                    _threads[stream].reset();
                 }
-                case CS_STREAM_DEPTH:
-                {
-                    if (_is_depth_capturing)
-                    {
-                        _is_depth_capturing = false;
-
-                        _connected_device->CommandNodeExecute("AcquisitionStop");
-                        _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
-
-                        _depth_thread->join();
-                        _depth_thread.reset();
-                    }
-                    if (_depth_callback) _depth_callback = nullptr;
-                    break;
-                }
-                default: throw wrong_api_call_sequence_exception("Unsuported streaming type!");
+                if (_callbacks[stream]) _callbacks[stream] = nullptr;
             }
+            else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
+        }
+
+        void cs_device::start_acquisition()
+        {
+            if (_is_acquisition_active == 0)
+            {
+                // disable trigger mode
+                _connected_device->SetStringNodeValue("TriggerMode", "Off");
+                // set continuous acquisition mode
+                _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
+                // start acquisition
+                _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
+                _connected_device->CommandNodeExecute("AcquisitionStart");
+            }
+
+            _is_acquisition_active++;
+
+        }
+
+        void cs_device::stop__acquisition()
+        {
+            if (_is_acquisition_active == 1)
+            {
+                _connected_device->CommandNodeExecute("AcquisitionStop");
+                _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
+            }
+
+            _is_acquisition_active--;
+            if (_is_acquisition_active < 0) _is_acquisition_active = 0;
         }
 
         void cs_device::stream_on(std::function<void(const notification& n)> error_handler, cs_stream stream)
         {
-            switch(stream)
+            if (stream < _number_of_streams)
             {
-                case CS_STREAM_COLOR:
+                if (!_is_capturing[stream])
                 {
-                    if (!_is_color_capturing)
-                    {
-                        _color_error_handler = error_handler;
-                        _is_color_capturing = true;
-
-                        // disable trigger mode
-                        _connected_device->SetStringNodeValue("TriggerMode", "Off");
-                        // set continuous acquisition mode
-                        _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
-                        // start acquisition
-                        _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
-                        _connected_device->CommandNodeExecute("AcquisitionStart");
-
-                        _color_thread = std::unique_ptr<std::thread>(new std::thread([this](){ color_capture_loop(); }));
-                    }
-                    break;
+                    _error_handler[stream] = error_handler;
+                    _is_capturing[stream] = true;
+                    start_acquisition();
+                    _threads[stream] = std::unique_ptr<std::thread>(new std::thread([this, stream](){ capture_loop(stream); }));
                 }
-                case CS_STREAM_DEPTH:
-                {
-                    if (!_is_depth_capturing)
-                    {
-                        _depth_error_handler = error_handler;
-                        _is_depth_capturing = true;
-
-                        // disable trigger mode
-                        _connected_device->SetStringNodeValue("TriggerMode", "Off");
-                        // set continuous acquisition mode
-                        _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
-                        // start acquisition
-                        _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
-                        _connected_device->CommandNodeExecute("AcquisitionStart");
-
-                        _depth_thread = std::unique_ptr<std::thread>(new std::thread([this](){ depth_capture_loop(); }));
-                    }
-                    break;
-                }
-                default: throw wrong_api_call_sequence_exception("Unsuported streaming type!");
             }
+            else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
         }
 
         power_state cs_device::set_power_state(power_state state)
@@ -366,13 +347,13 @@ namespace librealsense {
             return _connected_device->CommandNodeExecute("DeviceReset");
         }
 
-        void cs_device::color_capture_loop()
+        void cs_device::capture_loop(cs_stream stream)
         {
             try
             {
-                while(_is_color_capturing)
+                while(_is_capturing[stream])
                 {
-                    color_image_poll();
+                    image_poll(stream);
                 }
             }
             catch (const std::exception& ex)
@@ -381,133 +362,57 @@ namespace librealsense {
 
                 librealsense::notification n = {RS2_NOTIFICATION_CATEGORY_UNKNOWN_ERROR, 0, RS2_LOG_SEVERITY_ERROR, ex.what()};
 
-                _color_error_handler(n);
+                _error_handler[stream](n);
             }
         }
 
-        void cs_device::depth_capture_loop()
+        void cs_device::image_poll(cs_stream stream)
         {
-            try
-            {
-                while(_is_depth_capturing)
+            std::lock_guard<std::mutex> lock(_stream_lock);
+
+            smcs::IImageInfo image_info_;
+
+            UINT32 src_pixel_type;
+            double timestamp;
+
+            if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
+                //if (!_connected_device->IsBufferEmpty()) {
+                if (_connected_device->GetImageInfo(&image_info_, stream))
                 {
-                    depth_image_poll();
-                }
-            }
-            catch (const std::exception& ex)
-            {
-                LOG_ERROR(ex.what());
-
-                librealsense::notification n = {RS2_NOTIFICATION_CATEGORY_UNKNOWN_ERROR, 0, RS2_LOG_SEVERITY_ERROR, ex.what()};
-
-                _color_error_handler(n);
-            }
-        }
-
-        void cs_device::color_image_poll()
-        {
-            std::lock_guard<std::mutex> lock(_stream_lock);
-
-            smcs::IImageInfo image_info_;
-
-            UINT32 src_pixel_type;
-            UINT32 src_width, src_height;
-            double timestamp;
-
-            if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
-                if (!_connected_device->IsBufferEmpty()) {
-                    _connected_device->GetImageInfo(&image_info_, 0);
-
                     auto image_id = image_info_->GetImageID();
 
                     if (cs_info::is_timestamp_supported(_device_info.id))
                         timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
-                    else timestamp = -1;
+                    timestamp = -1;
 
-                    auto im = smcs::IImageBitmapInterface(image_info_).GetRawData();
+                    auto im = image_info_->GetRawData();
+                    image_info_->GetPixelType(src_pixel_type);
+                    auto image_size = image_info_->GetRawDataSize();
 
-                    smcs::IImageBitmapInterface(image_info_).GetPixelType(src_pixel_type);
-                    smcs::IImageBitmapInterface(image_info_).GetSize(src_width, src_height);
-                    smcs::IImageBitmapInterface(image_info_).GetPixelType(src_pixel_type);
+                    frame_object fo {image_size, 0, im, NULL, timestamp};
 
-                    auto c = GvspGetBitsPerPixel((GVSP_PIXEL_TYPES)src_pixel_type) / 8;
-
-                    frame_object fo {src_width*src_height*c, 0, im, NULL, timestamp};
-
-                    _color_callback(_color_profile, fo, NULL);
+                    _callbacks[stream](_profiles[stream], fo, []() {});
 
                     _connected_device->PopImage(image_info_);
-                    _connected_device->ClearImageBuffer();
+                    //_connected_device->ClearImageBuffer();
                 }
-            }
-        }
-
-        void cs_device::depth_image_poll()
-        {
-            std::lock_guard<std::mutex> lock(_stream_lock);
-
-            smcs::IImageInfo image_info_;
-
-            UINT32 src_pixel_type;
-            UINT32 src_width, src_height;
-            double timestamp;
-
-            if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
-                if (!_connected_device->IsBufferEmpty()) {
-                    _connected_device->GetImageInfo(&image_info_, 0);
-
-                    auto image_id = image_info_->GetImageID();
-
-                    if (cs_info::is_timestamp_supported(_device_info.id))
-                        timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
-                    else timestamp = -1;
-
-                    auto im = smcs::IImageBitmapInterface(image_info_).GetRawData();
-
-                    smcs::IImageBitmapInterface(image_info_).GetPixelType(src_pixel_type);
-                    smcs::IImageBitmapInterface(image_info_).GetSize(src_width, src_height);
-                    smcs::IImageBitmapInterface(image_info_).GetPixelType(src_pixel_type);
-
-                    auto c = GvspGetBitsPerPixel((GVSP_PIXEL_TYPES)src_pixel_type) / 8;
-
-                    frame_object fo {src_width*src_height*c, 0, im, NULL, timestamp};
-
-                    _depth_callback(_depth_profile, fo, NULL);
-
-                    _connected_device->PopImage(image_info_);
-                    _connected_device->ClearImageBuffer();
-                }
+                //}
             }
         }
 
         void cs_device::probe_and_commit(stream_profile profile, frame_callback callback, cs_stream stream)
         {
-            switch(stream)
+            if (stream < _number_of_streams)
             {
-                case CS_STREAM_COLOR:
+                if (!_is_capturing[stream] && !_callbacks[stream])
                 {
-                    if(!_is_color_capturing && !_color_callback)
-                    {
-                        set_format(profile);
-                        _color_profile =  profile;
-                        _color_callback = callback;
-                    }
-                    else throw wrong_api_call_sequence_exception("Device already streaming!");
-                    break;
+                    set_format(profile);
+                    _profiles[stream] = profile;
+                    _callbacks[stream] = callback;
                 }
-                case CS_STREAM_DEPTH:
-                {
-                    if(!_is_depth_capturing && !_depth_callback)
-                    {
-                        set_format(profile);
-                        _depth_profile =  profile;
-                        _depth_callback = callback;
-                    }
-                    else throw wrong_api_call_sequence_exception("Device already streaming!");
-                    break;
-                }
-                default: throw wrong_api_call_sequence_exception("Unsuported streaming type!");
+                else throw wrong_api_call_sequence_exception("Device already streaming!");
             }
+            else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
         }
 
         void cs_device::set_format(stream_profile profile)
