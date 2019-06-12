@@ -148,14 +148,14 @@ namespace librealsense
                                                   }
                                               }
 
-                                          }, _cs_stream);
+                                          }, _cs_stream_id);
 
             }
             catch(...)
             {
                 for (auto&& commited_profile : commited)
                 {
-                    _device->close(commited_profile, _cs_stream);
+                    _device->close(commited_profile, _cs_stream_id);
                 }
                 throw;
             }
@@ -174,14 +174,14 @@ namespace librealsense
             _device->stream_on([&](const notification& n)
                                {
                                    _notifications_processor->raise_notification(n);
-                               }, _cs_stream);
+                               }, _cs_stream_id);
         }
         catch (...)
         {
             for (auto& profile : _internal_config)
             {
                 try {
-                    _device->close(profile, _cs_stream);
+                    _device->close(profile, _cs_stream_id);
                 }
                 catch (...) {}
             }
@@ -214,7 +214,7 @@ namespace librealsense
 
         for (auto& profile : _internal_config)
         {
-            _device->close(profile, _cs_stream);
+            _device->close(profile, _cs_stream_id);
         }
         reset_streaming();
         _power.reset();
@@ -276,14 +276,14 @@ namespace librealsense
 
     void cs_sensor::register_pu(rs2_option id)
     {
-        register_option(id, std::make_shared<cs_pu_option>(*this, id));
+        register_option(id, std::make_shared<cs_pu_option>(*this, id, _cs_stream));
     }
 
     void cs_sensor::try_register_pu(rs2_option id)
     {
         try
         {
-            auto opt = std::make_shared<cs_pu_option>(*this, id);
+            auto opt = std::make_shared<cs_pu_option>(*this, id, _cs_stream);
             auto range = opt->get_range();
             if (range.max <= range.min || range.step <= 0 || range.def < range.min || range.def > range.max) return;
 
@@ -306,38 +306,35 @@ namespace librealsense
                                                           std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
                                                           ctx);
 
-        color_ep->register_pixel_format(pf_yuyv);
+        color_ep->register_pixel_format(pf_yuv442);
 
-        /*color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
+        color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
         color_ep->try_register_pu(RS2_OPTION_CONTRAST);
+        color_ep->try_register_pu(RS2_OPTION_GAIN);
         color_ep->try_register_pu(RS2_OPTION_HUE);
         color_ep->try_register_pu(RS2_OPTION_SATURATION);
-        color_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
-        /*color_ep->try_register_pu(RS2_OPTION_GAMMA);
+        color_ep->try_register_pu(RS2_OPTION_SHARPNESS);
+        color_ep->try_register_pu(RS2_OPTION_GAMMA);
+        color_ep->try_register_pu(RS2_OPTION_POWER_LINE_FREQUENCY);
+        color_ep->try_register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
 
-        auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE);
-        auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
+        auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE, CS_STREAM_COLOR);
+        //auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_COLOR);
         color_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
-        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
-        color_ep->register_option(RS2_OPTION_EXPOSURE,
-                                  std::make_shared<auto_disabling_control>(
-                                          exposure_option,
-                                          auto_exposure_option));*/
+        //color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
+        //color_ep->register_option(RS2_OPTION_EXPOSURE,
+        //                          std::make_shared<auto_disabling_control>(
+        //                                  exposure_option,
+        //                                  auto_exposure_option));
 
-        /*auto gain_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_GAIN);
-        color_ep->register_option(RS2_OPTION_GAIN,
-                                  std::make_shared<auto_disabling_control>(
-                                          gain_option,
-                                          auto_exposure_option));
-
-        auto white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE);
-        auto auto_white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
+        auto white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE, CS_STREAM_COLOR);
+        auto auto_white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, CS_STREAM_COLOR);
         color_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
         color_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
         color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
                                   std::make_shared<auto_disabling_control>(
                                           white_balance_option,
-                                          auto_white_balance_option));*/
+                                          auto_white_balance_option));
 
         return color_ep;
     }
@@ -526,7 +523,7 @@ namespace librealsense
         _ep.invoke_powered(
             [this, value](platform::cs_device& dev)
             {
-                if (!dev.set_pu(_id, static_cast<int32_t>(value)))
+                if (!dev.set_pu(_id, static_cast<int32_t>(value), _stream))
                     throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
 
                 _record(*this);
@@ -539,7 +536,7 @@ namespace librealsense
             [this](platform::cs_device& dev)
             {
                 int32_t value = 0;
-                if (!dev.get_pu(_id, value))
+                if (!dev.get_pu(_id, value, _stream))
                     throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
                 return static_cast<float>(value);
             }));
@@ -550,7 +547,7 @@ namespace librealsense
         auto cs_range = _ep.invoke_powered(
             [this](platform::cs_device& dev)
             {
-                return dev.get_pu_range(_id);
+                return dev.get_pu_range(_id, _stream);
             });
 
         if (cs_range.min.size() < sizeof(int32_t)) return option_range{0,0,1,0};
@@ -586,5 +583,4 @@ namespace librealsense
             default: return _ep.get_option_name(_id);
         }
     }
-
 }

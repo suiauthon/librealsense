@@ -29,13 +29,13 @@ namespace librealsense
             return true;
         }
 
-        cs_pu_option(cs_sensor& ep, rs2_option id)
-                : _ep(ep), _id(id)
+        cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+                : _ep(ep), _id(id), _stream(stream)
         {
         }
 
-        cs_pu_option(cs_sensor& ep, rs2_option id, const std::map<float, std::string>& description_per_value)
-                : _ep(ep), _id(id), _description_per_value(description_per_value)
+        cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
+                : _ep(ep), _id(id), _stream(stream), _description_per_value(description_per_value)
         {
         }
 
@@ -51,8 +51,10 @@ namespace librealsense
         {
             _record = record_action;
         }
+
     private:
         cs_sensor& _ep;
+        cs_stream _stream;
         rs2_option _id;
         const std::map<float, std::string> _description_per_value;
         std::function<void(const option &)> _record = [](const option &) {};
@@ -66,6 +68,7 @@ namespace librealsense
                 : sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
                   _timestamp_reader(std::move(timestamp_reader)),
                   _device(std::move(cs_device)),
+                  _cs_stream_id(cs_stream_to_id(stream)),
                   _cs_stream(stream),
                   _user_count(0)
         {
@@ -219,6 +222,7 @@ namespace librealsense
         std::mutex _power_lock;
         std::mutex _configure_lock;
         cs_stream _cs_stream;
+        cs_stream_id _cs_stream_id;
         std::unique_ptr<power> _power;
         std::shared_ptr<platform::cs_device> _device;
     };

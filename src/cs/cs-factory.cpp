@@ -6,6 +6,18 @@
 #include "cs/cs-device.h"
 
 namespace librealsense {
+
+    cs_stream_id cs_stream_to_id(cs_stream stream)
+    {
+        switch(stream)
+        {
+            case CS_STREAM_DEPTH: return CS_STREAM_ID_DEPTH;
+            case CS_STREAM_COLOR: return CS_STREAM_ID_COLOR;
+            case CS_STREAM_MONO: return CS_STREAM_ID_MONO;
+            default: return CS_STREAM_ID_MONO;
+        }
+    };
+
     std::shared_ptr <device_interface> cs_info::create(std::shared_ptr <context> ctx,
                                                        bool register_device_notifications) const {
         switch (get_camera_model(_hwm.id)) {
@@ -26,7 +38,7 @@ namespace librealsense {
 
     cs_camera_model cs_info::get_camera_model(std::string pid) {
         if (pid.compare("UCC2592C") == 0) return CS_UCC2592C;
-        else if (pid.compare("UCC1932C") == 0) return CS_UCC1932C;
+        else if (pid.compare("UCC1932Cg.") == 0) return CS_UCC1932C;
         else if (pid.compare("D435e") == 0) return CS_D435E;
         else return CS_UNDEFINED;
     }
@@ -89,7 +101,8 @@ namespace librealsense {
             std::vector<stream_profile> all_stream_profiles;
             stream_profile profile;
             INT64 int64Value;
-            std::string node_value;
+            smcs::StringList node_value_list;
+            uint32_t index;
 
             if (_connected_device->GetIntegerNodeValue("Width", int64Value)) {
                 profile.width = (uint32_t)int64Value;
@@ -97,8 +110,11 @@ namespace librealsense {
             if (_connected_device->GetIntegerNodeValue("Height", int64Value)) {
                 profile.height = (uint32_t)int64Value;
             }
-            if (_connected_device->GetStringNodeValue("PixelFormat", node_value)) {
-                profile.format = 'YUYV';
+            if (_connected_device->GetEnumNodeValuesList("PixelFormat", node_value_list)) {
+                for (index = 0; index < node_value_list.size(); index++) {
+                    std::cout<<node_value_list[index]<<std::endl;
+                }
+                profile.format = 'YUV ';
             }
             if (_connected_device->GetIntegerNodeValue("FPS", int64Value)) {
                 profile.fps = (uint32_t)int64Value;
@@ -115,17 +131,17 @@ namespace librealsense {
         }
 
 
-        bool cs_device::get_pu(rs2_option opt, int32_t& value)
+        bool cs_device::get_pu(rs2_option opt, int32_t& value, cs_stream stream)
         {
-            return get_cs_param_value(opt, value);
+            return get_cs_param_value(opt, value, stream);
         }
 
-        bool cs_device::set_pu(rs2_option opt, int32_t value)
+        bool cs_device::set_pu(rs2_option opt, int32_t value, cs_stream stream)
         {
-            return set_cs_param(opt, value);
+            return set_cs_param(opt, value, stream);
         }
 
-        control_range cs_device::get_pu_range(rs2_option option)
+        control_range cs_device::get_pu_range(rs2_option option, cs_stream stream)
         {
             int32_t max, min, value;
             // Auto controls range is trimed to {0,1} range
@@ -137,20 +153,34 @@ namespace librealsense {
                 return range;
             }
 
-            if (!get_cs_param_value(option, value)) value = 0;
-            if (!get_cs_param_min(option, min)) min = 0;
-            if (!get_cs_param_max(option, max)) max = 0;
+            if (!get_cs_param_value(option, value, stream)) value = 0;
+            if (!get_cs_param_min(option, min, stream)) min = 0;
+            if (!get_cs_param_max(option, max, stream)) max = 0;
 
-            control_range range(min, max, get_cs_param_step(option), value);
+            control_range range(min, max, get_cs_param_step(option, stream), value);
 
             return range;
         }
 
-        bool cs_device::set_cs_param(rs2_option option, int32_t value)
+        bool cs_device::set_cs_param(rs2_option option, int32_t value, cs_stream stream)
         {
             switch(option)
             {
-                case RS2_OPTION_EXPOSURE: return _connected_device->SetFloatNodeValue(get_cs_param_name(option),
+                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
+                case RS2_OPTION_WHITE_BALANCE:
+                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
+                case RS2_OPTION_EXPOSURE:
+                case RS2_OPTION_BACKLIGHT_COMPENSATION:
+                case RS2_OPTION_POWER_LINE_FREQUENCY:
+                case RS2_OPTION_GAMMA:
+                case RS2_OPTION_SHARPNESS:
+                case RS2_OPTION_SATURATION:
+                case RS2_OPTION_BRIGHTNESS:
+                case RS2_OPTION_CONTRAST:
+                case RS2_OPTION_GAIN:
+                case RS2_OPTION_HUE: return _connected_device->SetIntegerNodeValue(get_cs_param_name(option, stream),
+                                                                                    (int)value);
+                /*case RS2_OPTION_EXPOSURE: return _connected_device->SetFloatNodeValue(get_cs_param_name(option, stream),
                                                                                       (double)value);
                 case RS2_OPTION_GAMMA: return _connected_device->SetFloatNodeValue(get_cs_param_name(option),
                                                                                    (double)value);
@@ -158,33 +188,78 @@ namespace librealsense {
                 {
                     if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option), "Continuous");
                     else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option), "Off");
-                }
+                }*/
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
 
-        std::string cs_device::get_cs_param_name(rs2_option option)
+        std::string cs_device::get_cs_param_name(rs2_option option, cs_stream stream)
         {
             switch(option)
             {
-                case RS2_OPTION_EXPOSURE: return std::string("ExposureTime");
-                case RS2_OPTION_GAMMA: return std::string("Gamma");
-                case RS2_OPTION_ENABLE_AUTO_EXPOSURE: return std::string("ExposureAuto");
+                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_WhiteBalanceTempAuto");
+                case RS2_OPTION_WHITE_BALANCE:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_WhiteBalanceTemp");
+                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_AutoExposureMode");
+                case RS2_OPTION_EXPOSURE:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_ManualExposureTime");
+                case RS2_OPTION_BACKLIGHT_COMPENSATION:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_BacklightComp");
+                case RS2_OPTION_POWER_LINE_FREQUENCY:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_PowerLineFrequency");
+                case RS2_OPTION_GAMMA:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_Gamma");
+                case RS2_OPTION_SHARPNESS:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_Sharpness");
+                case RS2_OPTION_SATURATION:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_Saturation");
+                case RS2_OPTION_BRIGHTNESS:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_Brightness");
+                case RS2_OPTION_CONTRAST:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_Contrast");
+                case RS2_OPTION_GAIN:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_Gain");
+                case RS2_OPTION_HUE:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_Hue");
+                //case RS2_OPTION_EXPOSURE: return std::string("ExposureTime");
+                //case RS2_OPTION_GAMMA: return std::string("Gamma");
+                //case RS2_OPTION_ENABLE_AUTO_EXPOSURE: return std::string("ExposureAuto");
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
 
-        bool cs_device::get_cs_param_min(rs2_option option, int32_t &value)
+        bool cs_device::get_cs_param_min(rs2_option option, int32_t &value, cs_stream stream)
         {
             double double_value;
-            int int_value;
+            INT64 int_value;
             bool status;
 
             switch(option)
             {
+                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
+                case RS2_OPTION_WHITE_BALANCE:
+                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
                 case RS2_OPTION_EXPOSURE:
+                case RS2_OPTION_BACKLIGHT_COMPENSATION:
+                case RS2_OPTION_POWER_LINE_FREQUENCY:
+                case RS2_OPTION_GAMMA:
+                case RS2_OPTION_SHARPNESS:
+                case RS2_OPTION_SATURATION:
+                case RS2_OPTION_BRIGHTNESS:
+                case RS2_OPTION_CONTRAST:
+                case RS2_OPTION_GAIN:
+                case RS2_OPTION_HUE:
                 {
-                    status = _connected_device->GetFloatNodeMin(get_cs_param_name(option), double_value);
+                    //if (_connected_device->IsImplemented(get_cs_param_name(option, stream))
+                    status = _connected_device->GetIntegerNodeMin(get_cs_param_name(option, stream), int_value);
+                    value = static_cast<int32_t>(int_value);
+                    return status;
+                }
+                /*case RS2_OPTION_EXPOSURE:
+                {
+                    status = _connected_device->GetFloatNodeMin(get_cs_param_name(option, stream), double_value);
                     value = static_cast<int32_t>(double_value);
                     return status;
                 }
@@ -193,22 +268,41 @@ namespace librealsense {
                     status = _connected_device->GetFloatNodeMin(get_cs_param_name(option), double_value);
                     value = static_cast<int32_t>(double_value);
                     return status;
-                }
+                }*/
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
 
-        bool cs_device::get_cs_param_max(rs2_option option, int32_t &value)
+        bool cs_device::get_cs_param_max(rs2_option option, int32_t &value, cs_stream stream)
         {
             double double_value;
-            int int_value;
+            INT64 int_value;
             bool status;
 
             switch(option)
             {
+                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
+                case RS2_OPTION_WHITE_BALANCE:
+                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
                 case RS2_OPTION_EXPOSURE:
+                case RS2_OPTION_BACKLIGHT_COMPENSATION:
+                case RS2_OPTION_POWER_LINE_FREQUENCY:
+                case RS2_OPTION_GAMMA:
+                case RS2_OPTION_SHARPNESS:
+                case RS2_OPTION_SATURATION:
+                case RS2_OPTION_BRIGHTNESS:
+                case RS2_OPTION_CONTRAST:
+                case RS2_OPTION_GAIN:
+                case RS2_OPTION_HUE:
                 {
-                    status = _connected_device->GetFloatNodeMax(get_cs_param_name(option), double_value);
+                    //if (_connected_device->IsImplemented(get_cs_param_name(option, stream))
+                    status = _connected_device->GetIntegerNodeMax(get_cs_param_name(option, stream), int_value);
+                    value = static_cast<int32_t>(int_value);
+                    return status;
+                }
+                /*case RS2_OPTION_EXPOSURE:
+                {
+                    status = _connected_device->GetFloatNodeMax(get_cs_param_name(option, stream), double_value);
                     value = static_cast<int32_t>(double_value);
                     return status;
                 }
@@ -217,33 +311,70 @@ namespace librealsense {
                     status = _connected_device->GetFloatNodeMax(get_cs_param_name(option), double_value);
                     value = static_cast<int32_t>(double_value);
                     return status;
-                }
+                }*/
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
 
-        int32_t cs_device::get_cs_param_step(rs2_option option)
+        int32_t cs_device::get_cs_param_step(rs2_option option, cs_stream stream)
         {
+            INT64 int_value;
+
             switch(option)
             {
-                case RS2_OPTION_EXPOSURE: return 1;
-                case RS2_OPTION_GAMMA: return 1;
+                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
+                case RS2_OPTION_WHITE_BALANCE:
+                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
+                case RS2_OPTION_EXPOSURE:
+                case RS2_OPTION_BACKLIGHT_COMPENSATION:
+                case RS2_OPTION_POWER_LINE_FREQUENCY:
+                case RS2_OPTION_GAMMA:
+                case RS2_OPTION_SHARPNESS:
+                case RS2_OPTION_SATURATION:
+                case RS2_OPTION_BRIGHTNESS:
+                case RS2_OPTION_CONTRAST:
+                case RS2_OPTION_GAIN:
+                case RS2_OPTION_HUE:
+                {
+                    _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
+                    return static_cast<int32_t>(int_value);
+                }
+                //case RS2_OPTION_EXPOSURE: return 1;
+                //case RS2_OPTION_GAMMA: return 1;
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
 
-        bool cs_device::get_cs_param_value(rs2_option option, int32_t &value)
+        bool cs_device::get_cs_param_value(rs2_option option, int32_t &value, cs_stream stream)
         {
             double double_value;
             std::string string_value;
-            int int_value;
+            INT64 int_value;
             bool status;
 
             switch(option)
             {
+                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
+                case RS2_OPTION_WHITE_BALANCE:
+                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
                 case RS2_OPTION_EXPOSURE:
+                case RS2_OPTION_BACKLIGHT_COMPENSATION:
+                case RS2_OPTION_POWER_LINE_FREQUENCY:
+                case RS2_OPTION_GAMMA:
+                case RS2_OPTION_SHARPNESS:
+                case RS2_OPTION_SATURATION:
+                case RS2_OPTION_BRIGHTNESS:
+                case RS2_OPTION_CONTRAST:
+                case RS2_OPTION_GAIN:
+                case RS2_OPTION_HUE:
                 {
-                    status = _connected_device->GetFloatNodeValue(get_cs_param_name(option), double_value);
+                    status = _connected_device->GetIntegerNodeValue(get_cs_param_name(option, stream), int_value);
+                    value = static_cast<int32_t>(int_value);
+                    return status;
+                }
+                /*case RS2_OPTION_EXPOSURE:
+                {
+                    status = _connected_device->GetFloatNodeValue(get_cs_param_name(option, stream), double_value);
                     value = static_cast<int32_t>(double_value);
                     return status;
                 }
@@ -259,12 +390,12 @@ namespace librealsense {
                     if (string_value.compare(std::string("Off")) == 0) value = 0;
                     else if (string_value.compare(std::string("Continuous")) == 0) value = 1;
                     return true;
-                }
+                }*/
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
 
-        void cs_device::close(stream_profile profile, cs_stream stream)
+        void cs_device::close(stream_profile profile, cs_stream_id stream)
         {
             if (stream < _number_of_streams)
             {
@@ -309,7 +440,7 @@ namespace librealsense {
             if (_is_acquisition_active < 0) _is_acquisition_active = 0;
         }
 
-        void cs_device::stream_on(std::function<void(const notification& n)> error_handler, cs_stream stream)
+        void cs_device::stream_on(std::function<void(const notification& n)> error_handler, cs_stream_id stream)
         {
             if (stream < _number_of_streams)
             {
@@ -347,7 +478,7 @@ namespace librealsense {
             return _connected_device->CommandNodeExecute("DeviceReset");
         }
 
-        void cs_device::capture_loop(cs_stream stream)
+        void cs_device::capture_loop(cs_stream_id stream)
         {
             try
             {
@@ -366,7 +497,7 @@ namespace librealsense {
             }
         }
 
-        void cs_device::image_poll(cs_stream stream)
+        void cs_device::image_poll(cs_stream_id stream)
         {
             std::lock_guard<std::mutex> lock(_stream_lock);
 
@@ -400,7 +531,7 @@ namespace librealsense {
             }
         }
 
-        void cs_device::probe_and_commit(stream_profile profile, frame_callback callback, cs_stream stream)
+        void cs_device::probe_and_commit(stream_profile profile, frame_callback callback, cs_stream_id stream)
         {
             if (stream < _number_of_streams)
             {

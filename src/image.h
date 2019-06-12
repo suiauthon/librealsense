@@ -39,6 +39,7 @@ namespace librealsense
     extern const native_pixel_format pf_w10;        // Four 10 bit luminance values in one 40 bit macropixel
     extern const native_pixel_format pf_rw16;       // 10 bit in 16 bit WORD with 6 bit unused
     extern const native_pixel_format pf_bayer16;    // 16-bit Bayer raw
+    extern const native_pixel_format pf_bayer8;
     extern const native_pixel_format pf_yuy2;       // Y0 U Y1 V ordered chroma subsampled macropixel
     extern const native_pixel_format pf_yuyv;       // Y0 U Y1 V ordered chroma subsampled macropixel
     extern const native_pixel_format pf_y8;         // 8 bit IR/Luminosity (left) imager
@@ -52,6 +53,7 @@ namespace librealsense
     extern const native_pixel_format pf_sr300_invi; // 16-bit IR image
     extern const native_pixel_format pf_sr300_inzi; // Planar 16-bit IR image followed by 16-bit Z image
     extern const native_pixel_format pf_uyvyl;      // U Y0 V Y1 ordered chroma subsampled macropixel for Infrared stream
+    extern const native_pixel_format pf_yuv442;
     extern const native_pixel_format pf_accel_axes;   // Parse accel HID raw data to 3 axes
     extern const native_pixel_format pf_gyro_axes;   // Parse gyro HID raw data to 3 axes
     extern const native_pixel_format pf_rgb888;

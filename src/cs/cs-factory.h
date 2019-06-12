@@ -8,14 +8,22 @@
 #include "smcs_cpp/CameraSDK.h"
 #include "smcs_cpp/IImageBitmap.h"
 #include "context.h"
+#include "cs-option.h"
 
 namespace librealsense {
     typedef enum cs_stream {
-        CS_STREAM_DEPTH = 0,
-        CS_STREAM_COLOR = 1,
-        CS_STREAM_MONO = 0
+        CS_STREAM_DEPTH,
+        CS_STREAM_COLOR,
+        CS_STREAM_MONO
 
     } cs_stream;
+
+    typedef enum cs_stream_id {
+        CS_STREAM_ID_DEPTH = 0,
+        CS_STREAM_ID_COLOR = 1,
+        CS_STREAM_ID_MONO = 0
+
+    } cs_stream_id;
 
     typedef enum cs_camera_model {
         CS_UCC2592C,
@@ -23,6 +31,8 @@ namespace librealsense {
         CS_D435E,
         CS_UNDEFINED
     };
+
+    cs_stream_id cs_stream_to_id(cs_stream stream);
 
     namespace platform {
         class cs_device {
@@ -76,21 +86,21 @@ namespace librealsense {
 
             power_state set_power_state(power_state state);
 
-            void stream_on(std::function<void(const notification &n)> error_handler, cs_stream stream);
+            void stream_on(std::function<void(const notification &n)> error_handler, cs_stream_id stream);
 
-            void probe_and_commit(stream_profile profile, frame_callback callback, cs_stream stream);
+            void probe_and_commit(stream_profile profile, frame_callback callback, cs_stream_id stream);
 
-            void close(stream_profile profile, cs_stream stream);
+            void close(stream_profile profile, cs_stream_id stream);
 
-            void image_poll(cs_stream stream);
+            void image_poll(cs_stream_id stream);
 
             power_state get_power_state() const { return _power_state; }
 
-            bool get_pu(rs2_option opt, int32_t &value);
+            bool get_pu(rs2_option opt, int32_t &value, cs_stream stream);
 
-            bool set_pu(rs2_option opt, int32_t value);
+            bool set_pu(rs2_option opt, int32_t value, cs_stream stream);
 
-            control_range get_pu_range(rs2_option option);
+            control_range get_pu_range(rs2_option option, cs_stream stream);
 
             std::vector <stream_profile> get_profiles();
 
@@ -99,7 +109,7 @@ namespace librealsense {
         protected:
             void prepare_capture_buffers();
 
-            void capture_loop(cs_stream stream);
+            void capture_loop(cs_stream_id stream);
 
             void set_format(stream_profile profile);
 
@@ -107,17 +117,17 @@ namespace librealsense {
             std::vector<stream_profile> _profiles;
 
         private:
-            std::string get_cs_param_name(rs2_option option);
+            std::string get_cs_param_name(rs2_option option, cs_stream stream);
 
-            bool get_cs_param_min(rs2_option option, int32_t &value);
+            bool get_cs_param_min(rs2_option option, int32_t &value, cs_stream stream);
 
-            bool get_cs_param_max(rs2_option option, int32_t &value);
+            bool get_cs_param_max(rs2_option option, int32_t &value, cs_stream stream);
 
-            int32_t get_cs_param_step(rs2_option option);
+            int32_t get_cs_param_step(rs2_option option, cs_stream stream);
 
-            bool get_cs_param_value(rs2_option option, int32_t &value);
+            bool get_cs_param_value(rs2_option option, int32_t &value, cs_stream stream);
 
-            bool set_cs_param(rs2_option option, int32_t value);
+            bool set_cs_param(rs2_option option, int32_t value, cs_stream stream);
 
             void start_acquisition();
 

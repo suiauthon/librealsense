@@ -1025,6 +1025,7 @@ namespace librealsense
     //////////////////////////
     const native_pixel_format pf_fe_raw8_unpatched_kernel = { 'RAW8', 1, 1, {  { false,               &copy_pixels<1>,                               { { RS2_STREAM_FISHEYE,        RS2_FORMAT_RAW8 } } } } };
     const native_pixel_format pf_raw8                     = { 'GREY', 1, 1, {  { true,                &copy_pixels<1>,                               { { RS2_STREAM_FISHEYE,        RS2_FORMAT_RAW8 } } } } };
+    const native_pixel_format pf_bayer8                   = { 'BYR1', 1, 1, {  { false,               &copy_pixels<1>,                               { { RS2_STREAM_COLOR,          RS2_FORMAT_RAW8 } } } } };
     const native_pixel_format pf_rw16                     = { 'RW16', 1, 2, {  { false,               &copy_pixels<2>,                               { { RS2_STREAM_COLOR,          RS2_FORMAT_RAW16 } } } } };
     const native_pixel_format pf_bayer16                  = { 'BYR2', 1, 2, {  { false,               &copy_pixels<2>,                               { { RS2_STREAM_COLOR,          RS2_FORMAT_RAW16 } } } } };
     const native_pixel_format pf_rw10                     = { 'pRAA', 1, 1, {  { false,               &copy_raw10,                                   { { RS2_STREAM_COLOR,          RS2_FORMAT_RAW10 } } } } };
@@ -1072,6 +1073,12 @@ namespace librealsense
                                                                                { true,                &unpack_uyvy<RS2_FORMAT_RGBA8>,                { { RS2_STREAM_INFRARED,       RS2_FORMAT_RGBA8} } },
                                                                                { true,                &unpack_uyvy<RS2_FORMAT_BGR8 >,                { { RS2_STREAM_INFRARED,       RS2_FORMAT_BGR8 } } },
                                                                                { true,                &unpack_uyvy<RS2_FORMAT_BGRA8>,                { { RS2_STREAM_INFRARED,       RS2_FORMAT_BGRA8} } } } };
+
+    const native_pixel_format pf_yuv442                    = { 'YUV ', 1, 2, {  { true,                &unpack_uyvy<RS2_FORMAT_RGB8 >,                { { RS2_STREAM_COLOR,       RS2_FORMAT_RGB8 } } },
+                                                                               { true,                &copy_pixels<2>,                               { { RS2_STREAM_COLOR,       RS2_FORMAT_UYVY } } },
+                                                                               { true,                &unpack_uyvy<RS2_FORMAT_RGBA8>,                { { RS2_STREAM_COLOR,       RS2_FORMAT_RGBA8} } },
+                                                                               { true,                &unpack_uyvy<RS2_FORMAT_BGR8 >,                { { RS2_STREAM_COLOR,       RS2_FORMAT_BGR8 } } },
+                                                                               { true,                &unpack_uyvy<RS2_FORMAT_BGRA8>,                { { RS2_STREAM_COLOR,       RS2_FORMAT_BGRA8} } } } };
 
     const native_pixel_format pf_rgb888                   = { 'RGB2', 1, 2, {  { true,                &unpack_rgb_from_bgr,                          { { RS2_STREAM_INFRARED,       RS2_FORMAT_RGB8 } } } } };
 
