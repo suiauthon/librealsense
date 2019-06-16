@@ -315,17 +315,17 @@ namespace librealsense
         color_ep->try_register_pu(RS2_OPTION_SATURATION);
         color_ep->try_register_pu(RS2_OPTION_SHARPNESS);
         color_ep->try_register_pu(RS2_OPTION_GAMMA);
-        color_ep->try_register_pu(RS2_OPTION_POWER_LINE_FREQUENCY);
-        color_ep->try_register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
+        //color_ep->try_register_pu(RS2_OPTION_POWER_LINE_FREQUENCY);
+        //color_ep->try_register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
 
         auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE, CS_STREAM_COLOR);
-        //auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_COLOR);
+        auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_COLOR);
         color_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
-        //color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
-        //color_ep->register_option(RS2_OPTION_EXPOSURE,
-        //                          std::make_shared<auto_disabling_control>(
-        //                                  exposure_option,
-        //                                  auto_exposure_option));
+        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
+        color_ep->register_option(RS2_OPTION_EXPOSURE,
+                                  std::make_shared<auto_disabling_control>(
+                                          exposure_option,
+                                          auto_exposure_option));
 
         auto white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE, CS_STREAM_COLOR);
         auto auto_white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, CS_STREAM_COLOR);
@@ -391,21 +391,22 @@ namespace librealsense
 
         depth_ep->register_pixel_format(pf_z16);
 
+        depth_ep->try_register_pu(RS2_OPTION_GAIN);
         /*depth_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
         depth_ep->try_register_pu(RS2_OPTION_CONTRAST);
         depth_ep->try_register_pu(RS2_OPTION_HUE);
         depth_ep->try_register_pu(RS2_OPTION_SATURATION);
         depth_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
-        /*depth_ep->try_register_pu(RS2_OPTION_GAMMA);
+        //depth_ep->try_register_pu(RS2_OPTION_GAMMA);
 
-        auto exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_EXPOSURE);
-        auto auto_exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
+        auto exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_EXPOSURE, CS_STREAM_DEPTH);
+        auto auto_exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_DEPTH);
         depth_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
         depth_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
         depth_ep->register_option(RS2_OPTION_EXPOSURE,
                                   std::make_shared<auto_disabling_control>(
                                           exposure_option,
-                                          auto_exposure_option));*/
+                                          auto_exposure_option));
 
         /*auto gain_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_GAIN);
         depth_ep->register_option(RS2_OPTION_GAIN,

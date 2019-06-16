@@ -58,6 +58,7 @@ namespace librealsense {
                             INT64 int64Value;
                             if (_connected_device->GetIntegerNodeValue("SourceControlCount", int64Value))
                             {
+                                printf("Broj streamoa %d\n", int64Value);
                                 _number_of_streams = int64Value;
                                 _threads = std::vector<std::unique_ptr <std::thread>>(_number_of_streams);
                                 _is_capturing = std::vector<std::atomic<bool>>(_number_of_streams);
@@ -132,6 +133,8 @@ namespace librealsense {
             void start_acquisition();
 
             void stop__acquisition();
+
+            uint32_t cs_pixel_format_to_native_pixel_format(std::string cs_format);
 
             //std::vector<std::shared_ptr<buffer>> _buffers;
             std::vector<std::unique_ptr <std::thread>> _threads;

@@ -102,32 +102,43 @@ namespace librealsense {
             stream_profile profile;
             INT64 int64Value;
             smcs::StringList node_value_list;
-            uint32_t index;
+            bool is_successful = true;
 
-            if (_connected_device->GetIntegerNodeValue("Width", int64Value)) {
+            for (int i = 0; i < _number_of_streams; i++)
+            {
+                is_successful = is_successful & _connected_device->GetIntegerNodeValue("SensorWidth", int64Value);
                 profile.width = (uint32_t)int64Value;
-            }
-            if (_connected_device->GetIntegerNodeValue("Height", int64Value)) {
-                profile.height = (uint32_t)int64Value;
-            }
-            if (_connected_device->GetEnumNodeValuesList("PixelFormat", node_value_list)) {
-                for (index = 0; index < node_value_list.size(); index++) {
-                    std::cout<<node_value_list[index]<<std::endl;
-                }
-                profile.format = 'YUV ';
-            }
-            if (_connected_device->GetIntegerNodeValue("FPS", int64Value)) {
-                profile.fps = (uint32_t)int64Value;
-            }
-            else profile.fps = 50;
-            all_stream_profiles.push_back(profile);
-            profile.format = 'Z16 ';
-            all_stream_profiles.push_back(profile);
 
-            profile.format = 'GREY';
-            all_stream_profiles.push_back(profile);
+                is_successful = is_successful & _connected_device->GetIntegerNodeValue("SensorHeight", int64Value);
+                profile.height = (uint32_t)int64Value;
+
+                is_successful = is_successful & _connected_device->GetEnumNodeValuesList("PixelFormat", node_value_list);
+
+                if (_connected_device->GetIntegerNodeValue("FPS", int64Value)) {
+                    profile.fps = (uint32_t)int64Value;
+                }
+                else profile.fps = 30;
+
+                if (is_successful)
+                {
+                    profile.format = cs_pixel_format_to_native_pixel_format(node_value_list[i]);
+                    all_stream_profiles.push_back(profile);
+                }
+            }
 
             return all_stream_profiles;
+        }
+
+        uint32_t cs_device::cs_pixel_format_to_native_pixel_format(std::string cs_format)
+        {
+            uint32_t npf;
+            if (cs_format.compare("YUV422Packed") == 0)
+                npf = 'YUV ';
+            else if (cs_format.compare("Mono16") == 0)
+                npf = 'Z16 ';
+            else throw wrong_api_call_sequence_exception("Unsuported image format!");
+
+            return npf;
         }
 
 
@@ -166,9 +177,7 @@ namespace librealsense {
         {
             switch(option)
             {
-                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
                 case RS2_OPTION_WHITE_BALANCE:
-                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
                 case RS2_OPTION_EXPOSURE:
                 case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
@@ -180,6 +189,12 @@ namespace librealsense {
                 case RS2_OPTION_GAIN:
                 case RS2_OPTION_HUE: return _connected_device->SetIntegerNodeValue(get_cs_param_name(option, stream),
                                                                                     (int)value);
+                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
+                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
+                {
+                    if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "On");
+                    else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "Off");
+                }
                 /*case RS2_OPTION_EXPOSURE: return _connected_device->SetFloatNodeValue(get_cs_param_name(option, stream),
                                                                                       (double)value);
                 case RS2_OPTION_GAMMA: return _connected_device->SetFloatNodeValue(get_cs_param_name(option),
@@ -202,9 +217,11 @@ namespace librealsense {
                 case RS2_OPTION_WHITE_BALANCE:
                     if (stream == CS_STREAM_COLOR) return std::string("RGB_WhiteBalanceTemp");
                 case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
-                    if (stream == CS_STREAM_COLOR) return std::string("RGB_AutoExposureMode");
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_ExposureAuto");
+                    else if (stream == CS_STREAM_DEPTH) return std::string("STR_ExposureAuto");
                 case RS2_OPTION_EXPOSURE:
-                    if (stream == CS_STREAM_COLOR) return std::string("RGB_ManualExposureTime");
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_Exposure");
+                    else if (stream == CS_STREAM_DEPTH) return std::string("STR_Exposure");
                 case RS2_OPTION_BACKLIGHT_COMPENSATION:
                     if (stream == CS_STREAM_COLOR) return std::string("RGB_BacklightComp");
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
@@ -221,6 +238,7 @@ namespace librealsense {
                     if (stream == CS_STREAM_COLOR) return std::string("RGB_Contrast");
                 case RS2_OPTION_GAIN:
                     if (stream == CS_STREAM_COLOR) return std::string("RGB_Gain");
+                    if (stream == CS_STREAM_DEPTH) return std::string("STR_Gain");
                 case RS2_OPTION_HUE:
                     if (stream == CS_STREAM_COLOR) return std::string("RGB_Hue");
                 //case RS2_OPTION_EXPOSURE: return std::string("ExposureTime");
@@ -238,9 +256,7 @@ namespace librealsense {
 
             switch(option)
             {
-                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
                 case RS2_OPTION_WHITE_BALANCE:
-                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
                 case RS2_OPTION_EXPOSURE:
                 case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
@@ -281,9 +297,7 @@ namespace librealsense {
 
             switch(option)
             {
-                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
                 case RS2_OPTION_WHITE_BALANCE:
-                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
                 case RS2_OPTION_EXPOSURE:
                 case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
@@ -322,9 +336,7 @@ namespace librealsense {
 
             switch(option)
             {
-                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
                 case RS2_OPTION_WHITE_BALANCE:
-                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
                 case RS2_OPTION_EXPOSURE:
                 case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
@@ -354,9 +366,7 @@ namespace librealsense {
 
             switch(option)
             {
-                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
                 case RS2_OPTION_WHITE_BALANCE:
-                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
                 case RS2_OPTION_EXPOSURE:
                 case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
@@ -370,6 +380,14 @@ namespace librealsense {
                 {
                     status = _connected_device->GetIntegerNodeValue(get_cs_param_name(option, stream), int_value);
                     value = static_cast<int32_t>(int_value);
+                    return status;
+                }
+                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
+                case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
+                {
+                    status = _connected_device->GetStringNodeValue(get_cs_param_name(option, stream), string_value);
+                    if (string_value == "Off") value = 0;
+                    else value = 1;
                     return status;
                 }
                 /*case RS2_OPTION_EXPOSURE:
