@@ -315,8 +315,15 @@ namespace librealsense
         color_ep->try_register_pu(RS2_OPTION_SATURATION);
         color_ep->try_register_pu(RS2_OPTION_SHARPNESS);
         color_ep->try_register_pu(RS2_OPTION_GAMMA);
-        //color_ep->try_register_pu(RS2_OPTION_POWER_LINE_FREQUENCY);
-        //color_ep->try_register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
+        color_ep->try_register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
+
+        color_ep->register_option(RS2_OPTION_POWER_LINE_FREQUENCY,
+                                  std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_POWER_LINE_FREQUENCY, CS_STREAM_COLOR,
+                                                                  std::map<float, std::string>{ { 0.f, "Disabled"},
+                                                                                                { 1.f, "50Hz" },
+                                                                                                { 2.f, "60Hz" },
+                                                                                                { 3.f, "Auto" },
+                                                                                                { 4.f, "OutDoor" },}));
 
         auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE, CS_STREAM_COLOR);
         auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_COLOR);

@@ -156,7 +156,8 @@ namespace librealsense {
         {
             int32_t max, min, value;
             // Auto controls range is trimed to {0,1} range
-            if(option >= RS2_OPTION_ENABLE_AUTO_EXPOSURE && option <= RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE)
+            if(option == RS2_OPTION_ENABLE_AUTO_EXPOSURE || option == RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE ||
+                    option == RS2_OPTION_BACKLIGHT_COMPENSATION)
             {
                 static const int32_t min = 0, max = 1, step = 1, def = 1;
                 control_range range(min, max, step, def);
@@ -179,8 +180,8 @@ namespace librealsense {
             {
                 case RS2_OPTION_WHITE_BALANCE:
                 case RS2_OPTION_EXPOSURE:
-                case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
+                case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_GAMMA:
                 case RS2_OPTION_SHARPNESS:
                 case RS2_OPTION_SATURATION:
@@ -251,6 +252,7 @@ namespace librealsense {
         bool cs_device::get_cs_param_min(rs2_option option, int32_t &value, cs_stream stream)
         {
             double double_value;
+            smcs::StringList node_value_list;
             INT64 int_value;
             bool status;
 
@@ -258,8 +260,6 @@ namespace librealsense {
             {
                 case RS2_OPTION_WHITE_BALANCE:
                 case RS2_OPTION_EXPOSURE:
-                case RS2_OPTION_BACKLIGHT_COMPENSATION:
-                case RS2_OPTION_POWER_LINE_FREQUENCY:
                 case RS2_OPTION_GAMMA:
                 case RS2_OPTION_SHARPNESS:
                 case RS2_OPTION_SATURATION:
@@ -273,6 +273,10 @@ namespace librealsense {
                     value = static_cast<int32_t>(int_value);
                     return status;
                 }
+                case RS2_OPTION_POWER_LINE_FREQUENCY:
+                    status = _connected_device->GetEnumNodeValuesList(get_cs_param_name(option, stream), node_value_list);
+                    value = 0;
+                    return status;
                 /*case RS2_OPTION_EXPOSURE:
                 {
                     status = _connected_device->GetFloatNodeMin(get_cs_param_name(option, stream), double_value);
@@ -292,6 +296,7 @@ namespace librealsense {
         bool cs_device::get_cs_param_max(rs2_option option, int32_t &value, cs_stream stream)
         {
             double double_value;
+            smcs::StringList node_value_list;
             INT64 int_value;
             bool status;
 
@@ -299,8 +304,6 @@ namespace librealsense {
             {
                 case RS2_OPTION_WHITE_BALANCE:
                 case RS2_OPTION_EXPOSURE:
-                case RS2_OPTION_BACKLIGHT_COMPENSATION:
-                case RS2_OPTION_POWER_LINE_FREQUENCY:
                 case RS2_OPTION_GAMMA:
                 case RS2_OPTION_SHARPNESS:
                 case RS2_OPTION_SATURATION:
@@ -314,6 +317,10 @@ namespace librealsense {
                     value = static_cast<int32_t>(int_value);
                     return status;
                 }
+                case RS2_OPTION_POWER_LINE_FREQUENCY:
+                    status = _connected_device->GetEnumNodeValuesList(get_cs_param_name(option, stream), node_value_list);
+                    value = static_cast<int32_t>(node_value_list.size()-1);
+                    return status;
                 /*case RS2_OPTION_EXPOSURE:
                 {
                     status = _connected_device->GetFloatNodeMax(get_cs_param_name(option, stream), double_value);
@@ -338,8 +345,6 @@ namespace librealsense {
             {
                 case RS2_OPTION_WHITE_BALANCE:
                 case RS2_OPTION_EXPOSURE:
-                case RS2_OPTION_BACKLIGHT_COMPENSATION:
-                case RS2_OPTION_POWER_LINE_FREQUENCY:
                 case RS2_OPTION_GAMMA:
                 case RS2_OPTION_SHARPNESS:
                 case RS2_OPTION_SATURATION:
@@ -351,6 +356,8 @@ namespace librealsense {
                     _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
                     return static_cast<int32_t>(int_value);
                 }
+                case RS2_OPTION_POWER_LINE_FREQUENCY:
+                    return 1;
                 //case RS2_OPTION_EXPOSURE: return 1;
                 //case RS2_OPTION_GAMMA: return 1;
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
@@ -368,8 +375,8 @@ namespace librealsense {
             {
                 case RS2_OPTION_WHITE_BALANCE:
                 case RS2_OPTION_EXPOSURE:
-                case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
+                case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_GAMMA:
                 case RS2_OPTION_SHARPNESS:
                 case RS2_OPTION_SATURATION:
