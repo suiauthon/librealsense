@@ -415,6 +415,16 @@ namespace librealsense
                                           exposure_option,
                                           auto_exposure_option));
 
+        auto emitter_enabled_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_EMITTER_ENABLED, CS_STREAM_DEPTH);
+        auto laser_power_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_LASER_POWER, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_EMITTER_ENABLED, emitter_enabled_option);
+        depth_ep->register_option(RS2_OPTION_LASER_POWER, laser_power_option);
+        depth_ep->register_option(RS2_OPTION_LASER_POWER,
+                                  std::make_shared<auto_disabling_control>(
+                                          laser_power_option,
+                                          emitter_enabled_option,
+                                          std::vector<float>{0.f, 2.f}, 1.f));
+
         /*auto gain_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_GAIN);
         depth_ep->register_option(RS2_OPTION_GAIN,
                                   std::make_shared<auto_disabling_control>(

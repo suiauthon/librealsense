@@ -73,7 +73,7 @@ namespace librealsense {
 
         auto smcs_api = smcs::GetCameraAPI();
         printf("Trazim\n");
-        smcs_api->FindAllDevices(0.1);
+        smcs_api->FindAllDevices(0.15);
         printf("Nasao\n");
         auto devices = smcs_api->GetAllDevices();
 
@@ -157,7 +157,7 @@ namespace librealsense {
             int32_t max, min, value;
             // Auto controls range is trimed to {0,1} range
             if(option == RS2_OPTION_ENABLE_AUTO_EXPOSURE || option == RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE ||
-                    option == RS2_OPTION_BACKLIGHT_COMPENSATION)
+                    option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED)
             {
                 static const int32_t min = 0, max = 1, step = 1, def = 1;
                 control_range range(min, max, step, def);
@@ -188,9 +188,11 @@ namespace librealsense {
                 case RS2_OPTION_BRIGHTNESS:
                 case RS2_OPTION_CONTRAST:
                 case RS2_OPTION_GAIN:
+                case RS2_OPTION_LASER_POWER:
                 case RS2_OPTION_HUE: return _connected_device->SetIntegerNodeValue(get_cs_param_name(option, stream),
                                                                                     (int)value);
                 case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
+                case RS2_OPTION_EMITTER_ENABLED:
                 case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
                 {
                     if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "On");
@@ -242,6 +244,10 @@ namespace librealsense {
                     if (stream == CS_STREAM_DEPTH) return std::string("STR_Gain");
                 case RS2_OPTION_HUE:
                     if (stream == CS_STREAM_COLOR) return std::string("RGB_Hue");
+                case RS2_OPTION_EMITTER_ENABLED:
+                    if (stream == CS_STREAM_DEPTH) return std::string("STR_LaserEnable");
+                case RS2_OPTION_LASER_POWER:
+                    if (stream == CS_STREAM_DEPTH) return std::string("STR_LaserPower");
                 //case RS2_OPTION_EXPOSURE: return std::string("ExposureTime");
                 //case RS2_OPTION_GAMMA: return std::string("Gamma");
                 //case RS2_OPTION_ENABLE_AUTO_EXPOSURE: return std::string("ExposureAuto");
@@ -265,6 +271,7 @@ namespace librealsense {
                 case RS2_OPTION_SATURATION:
                 case RS2_OPTION_BRIGHTNESS:
                 case RS2_OPTION_CONTRAST:
+                case RS2_OPTION_LASER_POWER:
                 case RS2_OPTION_GAIN:
                 case RS2_OPTION_HUE:
                 {
@@ -308,6 +315,7 @@ namespace librealsense {
                 case RS2_OPTION_SHARPNESS:
                 case RS2_OPTION_SATURATION:
                 case RS2_OPTION_BRIGHTNESS:
+                case RS2_OPTION_LASER_POWER:
                 case RS2_OPTION_CONTRAST:
                 case RS2_OPTION_GAIN:
                 case RS2_OPTION_HUE:
@@ -348,6 +356,7 @@ namespace librealsense {
                 case RS2_OPTION_GAMMA:
                 case RS2_OPTION_SHARPNESS:
                 case RS2_OPTION_SATURATION:
+                case RS2_OPTION_LASER_POWER:
                 case RS2_OPTION_BRIGHTNESS:
                 case RS2_OPTION_CONTRAST:
                 case RS2_OPTION_GAIN:
@@ -382,6 +391,7 @@ namespace librealsense {
                 case RS2_OPTION_SATURATION:
                 case RS2_OPTION_BRIGHTNESS:
                 case RS2_OPTION_CONTRAST:
+                case RS2_OPTION_LASER_POWER:
                 case RS2_OPTION_GAIN:
                 case RS2_OPTION_HUE:
                 {
@@ -390,6 +400,7 @@ namespace librealsense {
                     return status;
                 }
                 case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
+                case RS2_OPTION_EMITTER_ENABLED:
                 case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
                 {
                     status = _connected_device->GetStringNodeValue(get_cs_param_name(option, stream), string_value);
