@@ -423,7 +423,7 @@ namespace librealsense
                                   std::make_shared<auto_disabling_control>(
                                           laser_power_option,
                                           emitter_enabled_option,
-                                          std::vector<float>{0.f, 2.f}, 1.f));
+                                          std::vector<float>{0.f}, 1.f));
 
         /*auto gain_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_GAIN);
         depth_ep->register_option(RS2_OPTION_GAIN,
