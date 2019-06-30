@@ -73,7 +73,7 @@ namespace librealsense {
 
         auto smcs_api = smcs::GetCameraAPI();
         printf("Trazim\n");
-        smcs_api->FindAllDevices(0.15);
+        smcs_api->FindAllDevices(0.10);
         printf("Nasao\n");
         auto devices = smcs_api->GetAllDevices();
 
@@ -86,6 +86,19 @@ namespace librealsense {
                 info.id = devices[i]->GetModelName();
                 printf("id %s\n", info.id.c_str());
                 info.info = devices[i]->GetManufacturerSpecificInfo();
+
+
+                printf("%s\n", devices[i]->GetManufacturerName().c_str());
+                printf("%s\n", devices[i]->GetManufacturerSpecificInfo().c_str());
+                printf("%s\n", devices[i]->GetSerialNumber().c_str());
+                printf("%s\n", devices[i]->GetModelName().c_str());
+                printf("%d\n", devices[i]->GetDeviceType()); //dodati da bude tamo ikonica da je usb 3 ili gev
+                printf("%d\n", devices[i]->GetGateway());
+                printf("%d\n", devices[i]->GetIpAddress());
+                printf("%s\n", devices[i]->GetDeviceVersion().c_str());
+                printf("%d\n", devices[i]->GetMacAddress());
+                printf("%d\n", devices[i]->GetSubnetMask());
+                printf("%d\n", devices[i]->GetVersion());
 
                 results.push_back(info);
             }
@@ -150,6 +163,85 @@ namespace librealsense {
         bool cs_device::set_pu(rs2_option opt, int32_t value, cs_stream stream)
         {
             return set_cs_param(opt, value, stream);
+        }
+
+        bool cs_device::get_auto_exposure_roi(region_of_interest roi, cs_stream stream)
+        {
+            bool status;
+            INT64 value;
+
+            printf("Getam roi\n");
+
+            switch(stream)
+            {
+                case CS_STREAM_DEPTH:
+                    status = _connected_device->GetIntegerNodeValue("STR_ExposureAutoROITop", value);
+                    roi.min_y = value;
+
+                    status = status && _connected_device->GetIntegerNodeValue("STR_ExposureAutoROIBottom", value);
+                    roi.max_y = value;
+
+                    status = status && _connected_device->GetIntegerNodeValue("STR_ExposureAutoROILeft", value);
+                    roi.min_x = value;
+
+                    status = status && _connected_device->GetIntegerNodeValue("STR_ExposureAutoROIRight", value);
+                    roi.max_x = value;
+
+                    return status;
+                case CS_STREAM_COLOR:
+                    return false;
+            }
+        }
+
+        bool cs_device::set_auto_exposure_roi(const region_of_interest &roi, cs_stream stream)
+        {
+            bool status;
+            INT64 value;
+
+            printf("setam roi\n");
+
+            switch(stream)
+            {
+                case CS_STREAM_DEPTH:
+
+                    status = _connected_device->GetIntegerNodeValue("STR_ExposureAutoROITop", value);
+                    printf("jesam %d Value roi min y %d\n", status, value);
+                    status = status && _connected_device->GetIntegerNodeValue("STR_ExposureAutoROIBottom", value);
+                    printf("jesam %d Value roi max y %d\n", status, value);
+                    status = status && _connected_device->GetIntegerNodeValue("STR_ExposureAutoROILeft", value);
+                    printf("jesam %d Value roi min x %d\n", status, value);
+                    status = status && _connected_device->GetIntegerNodeValue("STR_ExposureAutoROIRight", value);
+                    printf("jesam %d Value roi max x %d\n", status, value);
+
+
+                    _connected_device->SetStringNodeValue("STR_ExposureAuto", "Off");
+
+                    value = roi.min_y;
+                    status = _connected_device->SetIntegerNodeValue("STR_ExposureAutoROITop", value);
+
+                    printf("jesam %d Value roi min y %d\n", status, value);
+
+                    value = roi.max_y;
+                    status = status && _connected_device->SetIntegerNodeValue("STR_ExposureAutoROIBottom", value);
+
+                    printf("jesam %d Value roi max y %d\n", status, value);
+
+                    value = roi.min_x;
+                    status = status && _connected_device->SetIntegerNodeValue("STR_ExposureAutoROILeft", value);
+
+                    printf("jesam %d Value roi min x %d\n", status, value);
+
+                    value = roi.max_x;
+                    status = status && _connected_device->SetIntegerNodeValue("STR_ExposureAutoROIRight", value);
+
+                    printf("jesam %d Value roi max x %d\n", status, value);
+
+                    _connected_device->SetStringNodeValue("STR_ExposureAuto", "On");
+
+                    return status;
+                case CS_STREAM_COLOR:
+                    return false;
+            }
         }
 
         control_range cs_device::get_pu_range(rs2_option option, cs_stream stream)
@@ -456,6 +548,9 @@ namespace librealsense {
                 // set continuous acquisition mode
                 _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
                 // start acquisition
+                // optimal settings for D435e
+                _connected_device->SetIntegerNodeValue("GevSCPSPacketSize", 1500);
+                _connected_device->SetIntegerNodeValue("GevSCPD", 10);
                 _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
                 _connected_device->CommandNodeExecute("AcquisitionStart");
             }

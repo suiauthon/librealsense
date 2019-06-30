@@ -101,6 +101,9 @@ namespace librealsense {
 
             bool set_pu(rs2_option opt, int32_t value, cs_stream stream);
 
+            bool get_auto_exposure_roi(region_of_interest roi, cs_stream stream);
+            bool set_auto_exposure_roi(const region_of_interest &roi, cs_stream stream);
+
             control_range get_pu_range(rs2_option option, cs_stream stream);
 
             std::vector <stream_profile> get_profiles();

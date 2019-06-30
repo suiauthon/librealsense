@@ -5,8 +5,42 @@
 #include "cs-device.h"
 #include "cs-timestamp.h"
 
+#include "proc/decimation-filter.h"
+#include "proc/threshold.h"
+#include "proc/disparity-transform.h"
+#include "proc/spatial-filter.h"
+#include "proc/temporal-filter.h"
+#include "proc/hole-filling-filter.h"
+
 namespace librealsense
 {
+    cs_auto_exposure_roi_method::cs_auto_exposure_roi_method(cs_sensor& ep, cs_stream stream)
+            :_ep(ep), _stream(stream) {}
+
+    void cs_auto_exposure_roi_method::set(const region_of_interest& roi)
+    {
+        _ep.invoke_powered(
+                [this, roi](platform::cs_device& dev)
+                {
+                    if (!dev.set_auto_exposure_roi(roi, _stream))
+                        throw invalid_value_exception(to_string() << "set_roi failed!" << " Last Error: " << strerror(errno));
+                });
+    }
+
+    region_of_interest cs_auto_exposure_roi_method::get() const
+    {
+        region_of_interest roi;
+
+        _ep.invoke_powered(
+                [this, roi](platform::cs_device& dev)
+                {
+                    if (!dev.get_auto_exposure_roi(roi, _stream))
+                        throw invalid_value_exception(to_string() << "get_roi failed!" << " Last Error: " << strerror(errno));
+                });
+
+        return roi;
+    }
+
     void cs_sensor::open(const stream_profiles& requests)
     {
         printf("Cs sensor OPEN\n");
@@ -439,7 +473,6 @@ namespace librealsense
                                   std::make_shared<auto_disabling_control>(
                                           white_balance_option,
                                           auto_white_balance_option));*/
-
         return depth_ep;
     }
 
@@ -483,6 +516,12 @@ namespace librealsense
 
         _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
         _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
+
+        auto& depth_ep = get_cs_sensor(_depth_device_idx);
+
+        roi_sensor_interface* roi_sensor;
+        if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_ep))
+            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(depth_ep, CS_STREAM_DEPTH));
     }
 
     std::shared_ptr<matcher> CSMono_camera::create_matcher(const frame_holder& frame) const
@@ -497,7 +536,7 @@ namespace librealsense
 
     std::shared_ptr<matcher> D435e_camera::create_matcher(const frame_holder& frame) const
     {
-        std::vector<stream_interface*> streams = { _depth_stream.get(), _color_stream.get() };
+        std::vector<stream_interface*> streams = {_color_stream.get(), _depth_stream.get()};
         if (frame.frame->supports_frame_metadata(RS2_FRAME_METADATA_FRAME_COUNTER))
         {
             return matcher_factory::create(RS2_MATCHER_DLR_C, streams);
@@ -600,5 +639,22 @@ namespace librealsense
             case RS2_OPTION_AUTO_EXPOSURE_PRIORITY: return "Limit exposure time when auto-exposure is ON to preserve constant fps rate";
             default: return _ep.get_option_name(_id);
         }
+    }
+
+    processing_blocks cs_color_sensor::get_recommended_processing_blocks() const
+    {
+        return get_color_recommended_proccesing_blocks();
+    }
+
+    processing_blocks cs_depth_sensor::get_recommended_processing_blocks() const
+    {
+        auto res = get_depth_recommended_proccesing_blocks();
+        res.push_back(std::make_shared<threshold>());
+        res.push_back(std::make_shared<disparity_transform>(true));
+        res.push_back(std::make_shared<spatial_filter>());
+        res.push_back(std::make_shared<temporal_filter>());
+        res.push_back(std::make_shared<hole_filling_filter>());
+        res.push_back(std::make_shared<disparity_transform>(false));
+        return res;
     }
 }

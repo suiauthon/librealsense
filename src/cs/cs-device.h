@@ -60,6 +60,18 @@ namespace librealsense
         std::function<void(const option &)> _record = [](const option &) {};
     };
 
+    class cs_auto_exposure_roi_method : public region_of_interest_method
+    {
+    public:
+        explicit cs_auto_exposure_roi_method(cs_sensor& ep, cs_stream stream);
+
+        void set(const region_of_interest& roi) override;
+        region_of_interest get() const override;
+    private:
+        cs_sensor& _ep;
+        cs_stream _stream;
+    };
+
     class cs_sensor : public sensor_base
     {
     public:
@@ -309,19 +321,6 @@ namespace librealsense
         void create_snapshot(std::shared_ptr<debug_interface>& snapshot) const override;
         void enable_recording(std::function<void(const debug_interface&)> record_action) override;
 
-        //TODO implementirati ovo za svaku kameru posebno, ne u cs_camera nego u onoj klasi koja nasljeduje cs_cameru
-        //void hardware_reset() override
-        //{
-        /*if (get_cs_sensor(_color_device_idx).is_streaming())
-            get_cs_sensor(_color_device_idx).stop();*/
-
-        //printf("Reset %d\n",_cs_device->reset());
-
-
-        /*if (get_cs_sensor(_color_device_idx)._is_opened
-                    get_cs_sensor(_color_device_idx).close();*/
-        //}
-
     private:
     };
 
@@ -360,11 +359,27 @@ namespace librealsense
 
         cs_sensor& get_cs_sensor(size_t subdevice) { return dynamic_cast<cs_sensor&>(get_sensor(subdevice)); }
 
+        void hardware_reset() override
+        {
+            if (get_cs_sensor(_color_device_idx).is_streaming()) {
+                get_cs_sensor(_color_device_idx).stop();
+                get_cs_sensor(_color_device_idx).close();
+            }
+
+            if (get_cs_sensor(_depth_device_idx).is_streaming()) {
+                get_cs_sensor(_depth_device_idx).stop();
+                get_cs_sensor(_depth_device_idx).close();
+            }
+
+            _cs_device->reset();
+        }
+
     private:
         std::shared_ptr<platform::cs_device> _cs_device;
     };
 
-    class cs_color_sensor : public cs_sensor
+    class cs_color_sensor : public cs_sensor,
+                            public roi_sensor_base
     {
     public:
         explicit cs_color_sensor(cs_color* owner, std::shared_ptr<platform::cs_device> cs_device,
@@ -397,18 +412,19 @@ namespace librealsense
         };
 
         //rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
-        //processing_blocks get_recommended_processing_blocks() const override;
+        processing_blocks get_recommended_processing_blocks() const override;
     private:
         const cs_color* _owner;
     };
 
-    class cs_depth_sensor : public cs_sensor
+    class cs_depth_sensor : public cs_sensor,
+                            public roi_sensor_base
     {
     public:
         explicit cs_depth_sensor(cs_depth* owner, std::shared_ptr<platform::cs_device> cs_device,
                                  std::unique_ptr<frame_timestamp_reader> timestamp_reader,
                                  std::shared_ptr<context> ctx)
-                : cs_sensor("Depth Sensor", cs_device, move(timestamp_reader), owner, CS_STREAM_DEPTH),
+                : cs_sensor("Stereo Module", cs_device, move(timestamp_reader), owner, CS_STREAM_DEPTH),
                   _owner(owner)
         {};
 
@@ -435,7 +451,7 @@ namespace librealsense
         }
 
         //rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
-        //processing_blocks get_recommended_processing_blocks() const override;
+        processing_blocks get_recommended_processing_blocks() const override;
     private:
         const cs_depth* _owner;
     };
