@@ -1477,7 +1477,7 @@ namespace librealsense
                     callback_invocation_holder callback = { _callback_inflight.allocate(), &_callback_inflight };
                     if(callback)
                     {
-                        printf("Ovo se tu dogada\n");
+                        //printf("Ovo se tu dogada\n");
                         _callback(_devices_data, curr);
                         _devices_data = curr;
                     }
