@@ -101,7 +101,8 @@ namespace librealsense
                  const platform::backend_device_group& group,
                  bool register_device_notifications)
                 : device(ctx, group, register_device_notifications),
-                  _depth_stream(new stream(RS2_STREAM_DEPTH))
+                  _depth_stream(new stream(RS2_STREAM_DEPTH)),
+                  _device_capabilities(ds::d400_caps::CAP_UNDEFINED)
         {}
 
         std::shared_ptr<cs_sensor> create_depth_device(std::shared_ptr<context> ctx,
@@ -119,6 +120,7 @@ namespace librealsense
     protected:
         float get_stereo_baseline_mm() const;
         std::vector<uint8_t> get_raw_calibration_table(ds::calibration_table_id table_id) const;
+        bool is_camera_in_advanced_mode() const;
         processing_blocks get_cs_depth_recommended_proccesing_blocks() const;
 
         ds::d400_caps  parse_device_capabilities() const;
@@ -130,6 +132,8 @@ namespace librealsense
         friend class cs_depth_sensor;
 
         std::shared_ptr<cs_hw_monitor> _hw_monitor;
+        firmware_version            _fw_version;
+        firmware_version            _recommended_fw_version;
         ds::d400_caps _device_capabilities;
 
         lazy<std::vector<uint8_t>> _depth_calib_table_raw;

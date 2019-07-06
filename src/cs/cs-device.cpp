@@ -50,33 +50,41 @@ namespace librealsense
         _depth_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]()
                 {
                     rs2_extrinsics ext = identity_matrix();
-                    auto header = reinterpret_cast<const table_header*>(_depth_calib_table_raw->data());
-
-                    _depth_calib_table_raw->resize(header->table_size + sizeof(table_header));
-
                     auto table = check_calib<coefficients_table>(*_depth_calib_table_raw);
                     ext.translation[0] = 0.001f * table->baseline; // mm to meters
                     return ext;
                 });
 
+        register_stream_to_extrinsic_group(*_depth_stream, 0);
+
         _depth_calib_table_raw = [this]() { return get_raw_calibration_table(coefficients_table_id); };
 
-        //for (int i = 0; i<_depth_calib_table_raw->size(); i++)
-        //{
-            //printf("%d ", _depth_calib_table_raw->data()[i]);
-        //}
+        _fw_version = firmware_version(_hw_monitor->get_firmware_version_string(GVD, camera_fw_version_offset));
+        _recommended_fw_version = firmware_version("5.10.3.0");
+        if (_fw_version >= firmware_version("5.10.4.0"))
+            _device_capabilities = parse_device_capabilities();
+        auto serial = _hw_monitor->get_module_serial_string(GVD, module_serial_offset);
 
-        //printf("\n");
-        _depth_calib_table_raw->size();
-        (*(*_depth_extrinsic)).rotation[0];
+        auto& depth_ep = get_depth_sensor();
+        auto advanced_mode = is_camera_in_advanced_mode();
 
-        /*for (int i = 0; i<9; i++) printf("%.2f ", (*(*_depth_extrinsic)).rotation[i]);
+        using namespace platform;
 
-        printf("\n");
+        if (advanced_mode)
+        {
+            depth_ep.register_pixel_format(pf_y8i); // L+R
+            depth_ep.register_pixel_format(pf_y12i); // L+R - Calibration not rectified
+        }
 
-        for (int i = 0; i<3; i++) printf("%.2f ", (*(*_depth_extrinsic)).translation[i]);
+        roi_sensor_interface* roi_sensor;
+        if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_ep))
+            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(depth_ep, CS_STREAM_DEPTH));
 
-        printf("velicina tablice %d\n", _depth_calib_table_raw->size());*/
+        depth_ep.register_option(RS2_OPTION_STEREO_BASELINE, std::make_shared<const_value_option>("Distance in mm between the stereo imagers",
+                                                                                                  lazy<float>([this]() { return get_stereo_baseline_mm(); })));
+
+        depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
+                                                                                              lazy<float>([]() { return 0.001f; })));
     }
 
     std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
@@ -222,9 +230,21 @@ namespace librealsense
         return depth_ep;
     }
 
+    bool cs_depth::is_camera_in_advanced_mode() const
+    {
+        command cmd(ds::UAMG);
+        assert(_hw_monitor);
+        auto ret = _hw_monitor->send(cmd);
+        if (ret.empty())
+            throw invalid_value_exception("command result is empty!");
+
+        return (0 != ret.front());
+    }
+
     float cs_depth::get_stereo_baseline_mm() const
     {
         using namespace ds;
+
         auto table = check_calib<coefficients_table>(*_depth_calib_table_raw);
         return fabs(table->baseline);
     }
@@ -232,7 +252,13 @@ namespace librealsense
     std::vector<uint8_t> cs_depth::get_raw_calibration_table(ds::calibration_table_id table_id) const
     {
         command cmd(ds::GETINTCAL, table_id);
-        return _hw_monitor->send(cmd);
+
+        std::vector<uint8_t> temp_depth_calib_table_raw = _hw_monitor->send(cmd);
+        auto header = reinterpret_cast<const ds::table_header*>(temp_depth_calib_table_raw.data());
+
+        temp_depth_calib_table_raw.resize(header->table_size + sizeof(ds::table_header));
+
+        return temp_depth_calib_table_raw;
     }
 
     ds::d400_caps cs_depth::parse_device_capabilities() const
@@ -336,12 +362,6 @@ namespace librealsense
         register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
         register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
         register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
-
-        auto& depth_ep = get_cs_sensor(_depth_device_idx);
-
-        roi_sensor_interface* roi_sensor;
-        if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_ep))
-            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(depth_ep, CS_STREAM_DEPTH));
     }
 
     std::shared_ptr<matcher> CSMono_camera::create_matcher(const frame_holder& frame) const
