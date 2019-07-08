@@ -62,13 +62,14 @@ namespace librealsense
     class cs_auto_exposure_roi_method : public region_of_interest_method
     {
     public:
-        explicit cs_auto_exposure_roi_method(cs_sensor& ep, cs_stream stream);
+        explicit cs_auto_exposure_roi_method(const cs_hw_monitor& hwm,
+                                             ds::fw_cmd cmd = ds::fw_cmd::SETAEROI);
 
         void set(const region_of_interest& roi) override;
         region_of_interest get() const override;
     private:
-        cs_sensor& _ep;
-        cs_stream _stream;
+        const ds::fw_cmd _cmd;
+        const cs_hw_monitor& _hw_monitor;
     };
 
     class cs_color : public virtual device
@@ -83,15 +84,23 @@ namespace librealsense
 
         std::shared_ptr<cs_sensor> create_color_device(std::shared_ptr<context> ctx,
                                                        std::shared_ptr<platform::cs_device> cs_device);
+
+        cs_sensor& get_color_sensor() { return dynamic_cast<cs_sensor&>(get_sensor(_color_device_idx)); }
+
+        void color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group);
     protected:
+        std::vector<uint8_t> get_raw_calibration_table(ds::calibration_table_id table_id) const;
+
         std::shared_ptr<stream_interface> _color_stream;
         uint8_t _color_device_idx;
 
     private:
         friend class cs_color_sensor;
 
-        //lazy<std::vector<uint8_t>> _color_calib_table_raw;
-        //std::shared_ptr<lazy<rs2_extrinsics>> _color_extrinsic;
+        std::shared_ptr<cs_hw_monitor> _hw_monitor;
+
+        lazy<std::vector<uint8_t>> _color_calib_table_raw;
+        std::shared_ptr<lazy<rs2_extrinsics>> _color_extrinsic;
     };
 
     class cs_depth : public virtual device, public debug_interface
@@ -232,6 +241,7 @@ namespace librealsense
     };
 
     class cs_color_sensor : public cs_sensor,
+                            public video_sensor_interface,
                             public roi_sensor_base
     {
     public:
@@ -256,6 +266,20 @@ namespace librealsense
                     assign_stream(_owner->_color_stream, p);
                 }
 
+                auto video = dynamic_cast<video_stream_profile_interface*>(p.get());
+                auto profile = to_profile(p.get());
+
+                std::weak_ptr<cs_color_sensor> wp =
+                        std::dynamic_pointer_cast<cs_color_sensor>(this->shared_from_this());
+                video->set_intrinsics([profile, wp]()
+                                      {
+                                          auto sp = wp.lock();
+                                          if (sp)
+                                              return sp->get_intrinsics(profile);
+                                          else
+                                              return rs2_intrinsics{};
+                                      });
+
                 //TODO
                 //provjeriti
                 //environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_owner->_color_stream, *p);
@@ -264,7 +288,7 @@ namespace librealsense
             return results;
         };
 
-        //rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
+        rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
         processing_blocks get_recommended_processing_blocks() const override;
     private:
         const cs_color* _owner;

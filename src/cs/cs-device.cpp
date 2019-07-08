@@ -14,31 +14,55 @@
 
 namespace librealsense
 {
-    cs_auto_exposure_roi_method::cs_auto_exposure_roi_method(cs_sensor& ep, cs_stream stream)
-            :_ep(ep), _stream(stream) {}
+    cs_auto_exposure_roi_method::cs_auto_exposure_roi_method(const cs_hw_monitor& hwm,
+                                                             ds::fw_cmd cmd)
+            : _hw_monitor(hwm), _cmd(cmd) {}
 
     void cs_auto_exposure_roi_method::set(const region_of_interest& roi)
     {
-        _ep.invoke_powered(
-                [this, roi](platform::cs_device& dev)
-                {
-                    if (!dev.set_auto_exposure_roi(roi, _stream))
-                        throw invalid_value_exception(to_string() << "set_roi failed!" << " Last Error: " << strerror(errno));
-                });
+        command cmd(_cmd);
+        cmd.param1 = roi.min_y;
+        cmd.param2 = roi.max_y;
+        cmd.param3 = roi.min_x;
+        cmd.param4 = roi.max_x;
+        _hw_monitor.send(cmd);
     }
 
     region_of_interest cs_auto_exposure_roi_method::get() const
     {
         region_of_interest roi;
+        command cmd(_cmd + 1);
+        auto res = _hw_monitor.send(cmd);
 
-        _ep.invoke_powered(
-                [this, roi](platform::cs_device& dev)
-                {
-                    if (!dev.get_auto_exposure_roi(roi, _stream))
-                        throw invalid_value_exception(to_string() << "get_roi failed!" << " Last Error: " << strerror(errno));
-                });
+        if (res.size() < 4 * sizeof(uint16_t))
+        {
+            throw std::runtime_error("Invalid result size!");
+        }
+
+        auto words = reinterpret_cast<uint16_t*>(res.data());
+
+        roi.min_y = words[0];
+        roi.max_y = words[1];
+        roi.min_x = words[2];
+        roi.max_x = words[3];
 
         return roi;
+    }
+
+    void cs_color::color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
+    {
+        using namespace ds;
+
+        _hw_monitor = std::make_shared<cs_hw_monitor>(get_color_sensor());
+
+        _color_calib_table_raw = [this]() { return get_raw_calibration_table(rgb_calibration_id); };
+        _color_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]() { return from_pose(get_color_stream_extrinsic(*_color_calib_table_raw)); });
+
+        auto& color_ep = get_color_sensor();
+
+        /*roi_sensor_interface* roi_sensor;
+        if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&color_ep))
+            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));*/
     }
 
     void cs_depth::depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
@@ -78,13 +102,28 @@ namespace librealsense
 
         roi_sensor_interface* roi_sensor;
         if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_ep))
-            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(depth_ep, CS_STREAM_DEPTH));
+            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor));
 
         depth_ep.register_option(RS2_OPTION_STEREO_BASELINE, std::make_shared<const_value_option>("Distance in mm between the stereo imagers",
                                                                                                   lazy<float>([this]() { return get_stereo_baseline_mm(); })));
 
-        depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
-                                                                                              lazy<float>([]() { return 0.001f; })));
+
+        /*if (advanced_mode && _fw_version >= firmware_version("5.6.3.0"))
+        {
+            auto depth_scale = std::make_shared<depth_scale_option>(*_hw_monitor);
+            auto depth_sensor = As<ds5_depth_sensor, uvc_sensor>(&depth_ep);
+            assert(depth_sensor);
+
+            depth_scale->add_observer([depth_sensor](float val)
+                                      {
+                                          depth_sensor->set_depth_scale(val);
+                                      });
+
+            depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, depth_scale);
+        }
+        else*/
+            depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
+                                                                                                  lazy<float>([]() { return 0.001f; })));
     }
 
     std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
@@ -249,6 +288,18 @@ namespace librealsense
         return fabs(table->baseline);
     }
 
+    std::vector<uint8_t> cs_color::get_raw_calibration_table(ds::calibration_table_id table_id) const
+    {
+        command cmd(ds::GETINTCAL, table_id);
+
+        std::vector<uint8_t> temp_color_calib_table_raw = _hw_monitor->send(cmd);
+        auto header = reinterpret_cast<const ds::table_header*>(temp_color_calib_table_raw.data());
+
+        temp_color_calib_table_raw.resize(header->table_size + sizeof(ds::table_header));
+
+        return temp_color_calib_table_raw;
+    }
+
     std::vector<uint8_t> cs_depth::get_raw_calibration_table(ds::calibration_table_id table_id) const
     {
         command cmd(ds::GETINTCAL, table_id);
@@ -358,6 +409,7 @@ namespace librealsense
         _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
 
         depth_init(ctx, group);
+        color_init(ctx, group);
 
         register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
         register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
@@ -509,6 +561,14 @@ namespace librealsense
     void cs_depth_sensor::enable_recording(std::function<void(const depth_stereo_sensor&)> recording_function)
     {
         //does not change over time
+    }
+
+    rs2_intrinsics cs_color_sensor::get_intrinsics(const stream_profile& profile) const
+    {
+        return get_intrinsic_by_resolution(
+                *_owner->_color_calib_table_raw,
+                ds::calibration_table_id::rgb_calibration_id,
+                profile.width, profile.height);
     }
 
     rs2_intrinsics cs_depth_sensor::get_intrinsics(const stream_profile& profile) const
