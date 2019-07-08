@@ -5,298 +5,125 @@
 #include "cs-device.h"
 #include "cs-timestamp.h"
 
+#include "proc/decimation-filter.h"
+#include "proc/threshold.h"
+#include "proc/disparity-transform.h"
+#include "proc/spatial-filter.h"
+#include "proc/temporal-filter.h"
+#include "proc/hole-filling-filter.h"
+
 namespace librealsense
 {
-    void cs_sensor::open(const stream_profiles& requests)
+    cs_auto_exposure_roi_method::cs_auto_exposure_roi_method(const cs_hw_monitor& hwm,
+                                                             ds::fw_cmd cmd)
+            : _hw_monitor(hwm), _cmd(cmd) {}
+
+    void cs_auto_exposure_roi_method::set(const region_of_interest& roi)
     {
-        printf("Cs sensor OPEN\n");
-        std::lock_guard<std::mutex> lock(_configure_lock);
-        if (_is_streaming)
-            throw wrong_api_call_sequence_exception("open(...) failed. CS device is streaming!");
-        else if (_is_opened)
-            throw wrong_api_call_sequence_exception("open(...) failed. CS device is already opened!");
+        command cmd(_cmd);
+        cmd.param1 = roi.min_y;
+        cmd.param2 = roi.max_y;
+        cmd.param3 = roi.min_x;
+        cmd.param4 = roi.max_x;
+        _hw_monitor.send(cmd);
+    }
 
-        auto on = std::unique_ptr<power>(new power(std::dynamic_pointer_cast<cs_sensor>(shared_from_this())));
+    region_of_interest cs_auto_exposure_roi_method::get() const
+    {
+        region_of_interest roi;
+        command cmd(_cmd + 1);
+        auto res = _hw_monitor.send(cmd);
 
-        _source.init(_metadata_parsers);
-        _source.set_sensor(this->shared_from_this());
-        auto mapping = resolve_requests(requests);
-
-        auto timestamp_reader = _timestamp_reader.get();
-
-        std::vector<platform::stream_profile> commited;
-
-        for (auto&& mode : mapping)
+        if (res.size() < 4 * sizeof(uint16_t))
         {
-            try
-            {
-                unsigned long long last_frame_number = 0;
-                rs2_time_t last_timestamp = 0;
-                _device->probe_and_commit(mode.profile,
-                                          [this, mode, timestamp_reader, requests, last_frame_number, last_timestamp]
-                                          (platform::stream_profile p, platform::frame_object f,
-                                           std::function<void()> continuation) mutable
-                                          {
-                                              auto system_time = environment::get_instance().get_time_service()->get_time();
-                                              if (!this->is_streaming())
-                                              {
-                                                  LOG_WARNING("Frame received with streaming inactive,"
-                                                                      << librealsense::get_string(mode.unpacker->outputs.front().stream_desc.type)
-                                                                      << mode.unpacker->outputs.front().stream_desc.index
-                                                                      << ", Arrived," << std::fixed << f.backend_time << " " << system_time);
-                                                  return;
-                                              }
-                                              frame_continuation release_and_enqueue(continuation, f.pixels);
+            throw std::runtime_error("Invalid result size!");
+        }
 
-                                              // Ignore any frames which appear corrupted or invalid
-                                              // Determine the timestamp for this frame
-                                              auto timestamp = timestamp_reader->get_frame_timestamp(mode, f);
-                                              //printf("Timestamp callback: %lf\n", timestamp);
-                                              auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(mode, f);
-                                              //printf("Timestamp domain callback: %d\n", timestamp_domain);
-                                              auto frame_counter = timestamp_reader->get_frame_counter(mode, f);
+        auto words = reinterpret_cast<uint16_t*>(res.data());
 
-                                              auto requires_processing = mode.requires_processing();
+        roi.min_y = words[0];
+        roi.max_y = words[1];
+        roi.min_x = words[2];
+        roi.max_x = words[3];
 
-                                              std::vector<byte *> dest;
-                                              std::vector<frame_holder> refs;
+        return roi;
+    }
 
-                                              auto&& unpacker = *mode.unpacker;
-                                              for (auto&& output : unpacker.outputs)
-                                              {
-                                                  LOG_DEBUG("FrameAccepted," << librealsense::get_string(output.stream_desc.type)
-                                                                             << ",Counter," << std::dec << frame_counter
-                                                                             << ",Index," << output.stream_desc.index
-                                                                             << ",BackEndTS," << std::fixed << f.backend_time
-                                                                             << ",SystemTime," << std::fixed << system_time
-                                                                             <<" ,diff_ts[Sys-BE],"<< system_time- f.backend_time
-                                                                             << ",TS," << std::fixed << timestamp << ",TS_Domain," << rs2_timestamp_domain_to_string(timestamp_domain)
-                                                                             <<",last_frame_number,"<< last_frame_number<<",last_timestamp,"<< last_timestamp);
+    void cs_color::color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
+    {
+        using namespace ds;
 
-                                                  std::shared_ptr<stream_profile_interface> request = nullptr;
-                                                  for (auto&& original_prof : mode.original_requests)
-                                                  {
-                                                      if (original_prof->get_format() == output.format &&
-                                                          original_prof->get_stream_type() == output.stream_desc.type &&
-                                                          original_prof->get_stream_index() == output.stream_desc.index)
-                                                      {
-                                                          request = original_prof;
-                                                      }
-                                                  }
+        _hw_monitor = std::make_shared<cs_hw_monitor>(get_color_sensor());
 
-                                                  auto bpp = get_image_bpp(output.format);
-                                                  frame_additional_data additional_data(timestamp,
-                                                                                        frame_counter,
-                                                                                        system_time,
-                                                                                        static_cast<uint8_t>(f.metadata_size),
-                                                                                        (const uint8_t*)f.metadata,
-                                                                                        f.backend_time,
-                                                                                        last_timestamp,
-                                                                                        last_frame_number,
-                                                                                        false);
+        _color_calib_table_raw = [this]() { return get_raw_calibration_table(rgb_calibration_id); };
+        _color_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]() { return from_pose(get_color_stream_extrinsic(*_color_calib_table_raw)); });
 
-                                                  last_frame_number = frame_counter;
-                                                  last_timestamp = timestamp;
+        auto& color_ep = get_color_sensor();
 
-                                                  auto res = output.stream_resolution({ mode.profile.width, mode.profile.height });
-                                                  auto width = res.width;
-                                                  auto height = res.height;
+        /*roi_sensor_interface* roi_sensor;
+        if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&color_ep))
+            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));*/
+    }
 
-                                                  frame_holder frame = _source.alloc_frame(stream_to_frame_types(output.stream_desc.type), width * height * bpp / 8, additional_data, requires_processing);
-                                                  if (frame.frame)
-                                                  {
-                                                      auto video = (video_frame*)frame.frame;
-                                                      video->assign(width, height, width * bpp / 8, bpp);
-                                                      video->set_timestamp_domain(timestamp_domain);
-                                                      dest.push_back(const_cast<byte*>(video->get_frame_data()));
-                                                      frame->set_stream(request);
-                                                      refs.push_back(std::move(frame));
-                                                  }
-                                                  else
-                                                  {
-                                                      LOG_INFO("Dropped frame. alloc_frame(...) returned nullptr");
-                                                      return;
-                                                  }
+    void cs_depth::depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
+    {
+        using namespace ds;
 
-                                              }
-                                              // Unpack the frame
-                                              if (requires_processing && (dest.size() > 0))
-                                              {
-                                                  unpacker.unpack(dest.data(), reinterpret_cast<const byte *>(f.pixels), mode.profile.width, mode.profile.height);
-                                              }
+        _hw_monitor = std::make_shared<cs_hw_monitor>(get_depth_sensor());
 
-                                              // If any frame callbacks were specified, dispatch them now
-                                              for (auto&& pref : refs)
-                                              {
-                                                  if (!requires_processing)
-                                                  {
-                                                      pref->attach_continuation(std::move(release_and_enqueue));
-                                                  }
-
-                                                  if (_on_before_frame_callback)
-                                                  {
-                                                      //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
-                                                      auto callback = _source.begin_callback();
-                                                      auto stream_type = pref->get_stream()->get_stream_type();
-                                                      _on_before_frame_callback(stream_type, pref, std::move(callback));
-                                                  }
-
-                                                  if (pref->get_stream().get())
-                                                  {
-                                                      //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
-                                                      _source.invoke_callback(std::move(pref));
-                                                  }
-                                              }
-
-                                          }, _cs_stream_id);
-
-            }
-            catch(...)
-            {
-                for (auto&& commited_profile : commited)
+        _depth_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]()
                 {
-                    _device->close(commited_profile, _cs_stream_id);
-                }
-                throw;
-            }
-            commited.push_back(mode.profile);
-        }
+                    rs2_extrinsics ext = identity_matrix();
+                    auto table = check_calib<coefficients_table>(*_depth_calib_table_raw);
+                    ext.translation[0] = 0.001f * table->baseline; // mm to meters
+                    return ext;
+                });
 
-        _internal_config = commited;
+        register_stream_to_extrinsic_group(*_depth_stream, 0);
 
-        if (_on_open)
-            _on_open(_internal_config);
+        _depth_calib_table_raw = [this]() { return get_raw_calibration_table(coefficients_table_id); };
 
-        _power = move(on);
-        _is_opened = true;
+        _fw_version = firmware_version(_hw_monitor->get_firmware_version_string(GVD, camera_fw_version_offset));
+        _recommended_fw_version = firmware_version("5.10.3.0");
+        if (_fw_version >= firmware_version("5.10.4.0"))
+            _device_capabilities = parse_device_capabilities();
+        auto serial = _hw_monitor->get_module_serial_string(GVD, module_serial_offset);
 
-        try {
-            _device->stream_on([&](const notification& n)
-                               {
-                                   _notifications_processor->raise_notification(n);
-                               }, _cs_stream_id);
-        }
-        catch (...)
+        auto& depth_ep = get_depth_sensor();
+        auto advanced_mode = is_camera_in_advanced_mode();
+
+        using namespace platform;
+
+        if (advanced_mode)
         {
-            for (auto& profile : _internal_config)
-            {
-                try {
-                    _device->close(profile, _cs_stream_id);
-                }
-                catch (...) {}
-            }
-            reset_streaming();
-            _power.reset();
-            _is_opened = false;
-            throw;
+            depth_ep.register_pixel_format(pf_y8i); // L+R
+            depth_ep.register_pixel_format(pf_y12i); // L+R - Calibration not rectified
         }
-        set_active_streams(requests);
-    }
 
-    rs2_extension cs_sensor::stream_to_frame_types(rs2_stream stream)
-    {
-        // TODO: explicitly return video_frame for relevant streams and default to an error?
-        switch (stream)
+        roi_sensor_interface* roi_sensor;
+        if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_ep))
+            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor));
+
+        depth_ep.register_option(RS2_OPTION_STEREO_BASELINE, std::make_shared<const_value_option>("Distance in mm between the stereo imagers",
+                                                                                                  lazy<float>([this]() { return get_stereo_baseline_mm(); })));
+
+
+        /*if (advanced_mode && _fw_version >= firmware_version("5.6.3.0"))
         {
-            case RS2_STREAM_DEPTH:  return RS2_EXTENSION_DEPTH_FRAME;
-            default:                return RS2_EXTENSION_VIDEO_FRAME;
+            auto depth_scale = std::make_shared<depth_scale_option>(*_hw_monitor);
+            auto depth_sensor = As<ds5_depth_sensor, uvc_sensor>(&depth_ep);
+            assert(depth_sensor);
+
+            depth_scale->add_observer([depth_sensor](float val)
+                                      {
+                                          depth_sensor->set_depth_scale(val);
+                                      });
+
+            depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, depth_scale);
         }
-    }
-
-    void cs_sensor::close()
-    {
-        printf("Cs sensor CLOSE\n");
-        std::lock_guard<std::mutex> lock(_configure_lock);
-        if (_is_streaming)
-            throw wrong_api_call_sequence_exception("close() failed. CS device is streaming!");
-        else if (!_is_opened)
-            throw wrong_api_call_sequence_exception("close() failed. CS device was not opened!");
-
-        for (auto& profile : _internal_config)
-        {
-            _device->close(profile, _cs_stream_id);
-        }
-        reset_streaming();
-        _power.reset();
-        _is_opened = false;
-        set_active_streams({});
-    }
-
-    void cs_sensor::start(frame_callback_ptr callback)
-    {
-        printf("Cs sensor START\n");
-        std::lock_guard<std::mutex> lock(_configure_lock);
-        if (_is_streaming)
-            throw wrong_api_call_sequence_exception("start_streaming(...) failed. CS device is already streaming!");
-        else if(!_is_opened)
-            throw wrong_api_call_sequence_exception("start_streaming(...) failed. CS device was not opened!");
-
-        _source.set_callback(callback);
-        _is_streaming = true;
-        raise_on_before_streaming_changes(true); //Required to be just before actual start allow recording to work
-    }
-
-    void cs_sensor::stop()
-    {
-        printf("Cs sensor STOP\n");
-        std::lock_guard<std::mutex> lock(_configure_lock);
-        if (!_is_streaming)
-            throw wrong_api_call_sequence_exception("stop_streaming() failed. CS device is not streaming!");
-
-        _is_streaming = false;
-        raise_on_before_streaming_changes(false);
-    }
-
-    void cs_sensor::acquire_power()
-    {
-        std::lock_guard<std::mutex> lock(_power_lock);
-        if (_user_count.fetch_add(1) == 0)
-        {
-            if (_device->set_power_state(platform::D0) != platform::D0)
-                throw wrong_api_call_sequence_exception("set power state(...) failed. CS device cannot be turned on!");
-        }
-    }
-
-    void cs_sensor::release_power()
-    {
-        std::lock_guard<std::mutex> lock(_power_lock);
-        if (_user_count.fetch_add(-1) == 1)
-        {
-            if (_device->set_power_state(platform::D3) != platform::D3)
-                throw wrong_api_call_sequence_exception("set power state(...) failed. CS device cannot be turned off!");
-        }
-    }
-
-    void cs_sensor::reset_streaming()
-    {
-        _source.flush();
-        _source.reset();
-        _timestamp_reader->reset();
-    }
-
-    void cs_sensor::register_pu(rs2_option id)
-    {
-        register_option(id, std::make_shared<cs_pu_option>(*this, id, _cs_stream));
-    }
-
-    void cs_sensor::try_register_pu(rs2_option id)
-    {
-        try
-        {
-            auto opt = std::make_shared<cs_pu_option>(*this, id, _cs_stream);
-            auto range = opt->get_range();
-            if (range.max <= range.min || range.step <= 0 || range.def < range.min || range.def > range.max) return;
-
-            auto val = opt->query();
-            if (val < range.min || val > range.max) return;
-            opt->set(val);
-
-            register_option(id, opt);
-        }
-        catch (...)
-        {
-            LOG_WARNING("Exception was thrown when inspecting properties of a sensor");
-        }
+        else*/
+            depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
+                                                                                                  lazy<float>([]() { return 0.001f; })));
     }
 
     std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
@@ -439,8 +266,101 @@ namespace librealsense
                                   std::make_shared<auto_disabling_control>(
                                           white_balance_option,
                                           auto_white_balance_option));*/
-
         return depth_ep;
+    }
+
+    bool cs_depth::is_camera_in_advanced_mode() const
+    {
+        command cmd(ds::UAMG);
+        assert(_hw_monitor);
+        auto ret = _hw_monitor->send(cmd);
+        if (ret.empty())
+            throw invalid_value_exception("command result is empty!");
+
+        return (0 != ret.front());
+    }
+
+    float cs_depth::get_stereo_baseline_mm() const
+    {
+        using namespace ds;
+
+        auto table = check_calib<coefficients_table>(*_depth_calib_table_raw);
+        return fabs(table->baseline);
+    }
+
+    std::vector<uint8_t> cs_color::get_raw_calibration_table(ds::calibration_table_id table_id) const
+    {
+        command cmd(ds::GETINTCAL, table_id);
+
+        std::vector<uint8_t> temp_color_calib_table_raw = _hw_monitor->send(cmd);
+        auto header = reinterpret_cast<const ds::table_header*>(temp_color_calib_table_raw.data());
+
+        temp_color_calib_table_raw.resize(header->table_size + sizeof(ds::table_header));
+
+        return temp_color_calib_table_raw;
+    }
+
+    std::vector<uint8_t> cs_depth::get_raw_calibration_table(ds::calibration_table_id table_id) const
+    {
+        command cmd(ds::GETINTCAL, table_id);
+
+        std::vector<uint8_t> temp_depth_calib_table_raw = _hw_monitor->send(cmd);
+        auto header = reinterpret_cast<const ds::table_header*>(temp_depth_calib_table_raw.data());
+
+        temp_depth_calib_table_raw.resize(header->table_size + sizeof(ds::table_header));
+
+        return temp_depth_calib_table_raw;
+    }
+
+    ds::d400_caps cs_depth::parse_device_capabilities() const
+    {
+        using namespace ds;
+        std::array<unsigned char, HW_MONITOR_BUFFER_SIZE> gvd_buf;
+        _hw_monitor->get_gvd(gvd_buf.size(), gvd_buf.data(), GVD);
+
+        // Opaque retrieval
+        d400_caps val{ d400_caps::CAP_UNDEFINED };
+        if (gvd_buf[active_projector])  // DepthActiveMode
+            val |= d400_caps::CAP_ACTIVE_PROJECTOR;
+        if (gvd_buf[rgb_sensor])                           // WithRGB
+            val |= d400_caps::CAP_RGB_SENSOR;
+        if (gvd_buf[imu_sensor])
+            val |= d400_caps::CAP_IMU_SENSOR;
+        if (0xFF != (gvd_buf[fisheye_sensor_lb] & gvd_buf[fisheye_sensor_hb]))
+            val |= d400_caps::CAP_FISHEYE_SENSOR;
+        if (0x1 == gvd_buf[depth_sensor_type])
+            val |= d400_caps::CAP_ROLLING_SHUTTER;  // Standard depth
+        if (0x2 == gvd_buf[depth_sensor_type])
+            val |= d400_caps::CAP_GLOBAL_SHUTTER;   // Wide depth
+
+        return val;
+    }
+
+    processing_blocks cs_depth::get_cs_depth_recommended_proccesing_blocks() const
+    {
+        auto res = get_depth_recommended_proccesing_blocks();
+        res.push_back(std::make_shared<threshold>());
+        res.push_back(std::make_shared<disparity_transform>(true));
+        res.push_back(std::make_shared<spatial_filter>());
+        res.push_back(std::make_shared<temporal_filter>());
+        res.push_back(std::make_shared<hole_filling_filter>());
+        res.push_back(std::make_shared<disparity_transform>(false));
+        return res;
+    }
+
+    std::vector<uint8_t> cs_depth::send_receive_raw_data(const std::vector<uint8_t>& input)
+    {
+        return _hw_monitor->send(input);
+    }
+
+    void cs_depth::create_snapshot(std::shared_ptr<debug_interface>& snapshot) const
+    {
+        //TODO: Implement
+    }
+
+    void cs_depth::enable_recording(std::function<void(const debug_interface&)> record_action)
+    {
+        //TODO: Implement
     }
 
     cs_camera::cs_camera(std::shared_ptr<context> ctx,
@@ -463,11 +383,15 @@ namespace librealsense
                                  const platform::backend_device_group& group,
                                  bool register_device_notifications)
             : device(ctx, group, register_device_notifications),
-              cs_camera(ctx, hwm_device, group, register_device_notifications),
+              //cs_camera(ctx, hwm_device, group, register_device_notifications),
               cs_mono(ctx, group, register_device_notifications)
     {
         _cs_device = ctx->get_backend().create_cs_device(hwm_device);
         _mono_device_idx = add_sensor(create_mono_device(ctx, _cs_device));
+
+        register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
+        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
+        register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
     }
 
     D435e_camera::D435e_camera(std::shared_ptr<context> ctx,
@@ -475,7 +399,7 @@ namespace librealsense
                                const platform::backend_device_group& group,
                                bool register_device_notifications)
             : device(ctx, group, register_device_notifications),
-              cs_camera(ctx, hwm_device, group, register_device_notifications),
+              //cs_camera(ctx, hwm_device, group, register_device_notifications),
               cs_color(ctx, group, register_device_notifications),
               cs_depth(ctx, group, register_device_notifications)
     {
@@ -483,6 +407,13 @@ namespace librealsense
 
         _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
         _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
+
+        depth_init(ctx, group);
+        color_init(ctx, group);
+
+        register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
+        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
+        register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
     }
 
     std::shared_ptr<matcher> CSMono_camera::create_matcher(const frame_holder& frame) const
@@ -497,7 +428,7 @@ namespace librealsense
 
     std::shared_ptr<matcher> D435e_camera::create_matcher(const frame_holder& frame) const
     {
-        std::vector<stream_interface*> streams = { _depth_stream.get(), _color_stream.get() };
+        std::vector<stream_interface*> streams = {_color_stream.get(), _depth_stream.get()};
         if (frame.frame->supports_frame_metadata(RS2_FRAME_METADATA_FRAME_COUNTER))
         {
             return matcher_factory::create(RS2_MATCHER_DLR_C, streams);
@@ -600,5 +531,51 @@ namespace librealsense
             case RS2_OPTION_AUTO_EXPOSURE_PRIORITY: return "Limit exposure time when auto-exposure is ON to preserve constant fps rate";
             default: return _ep.get_option_name(_id);
         }
+    }
+
+    processing_blocks cs_color_sensor::get_recommended_processing_blocks() const
+    {
+        return get_color_recommended_proccesing_blocks();
+    }
+
+    processing_blocks cs_depth_sensor::get_recommended_processing_blocks() const
+    {
+        return _owner->get_cs_depth_recommended_proccesing_blocks();
+    }
+
+    void cs_depth_sensor::create_snapshot(std::shared_ptr<depth_sensor>& snapshot) const
+    {
+        snapshot = std::make_shared<depth_sensor_snapshot>(get_depth_scale());
+    }
+
+    void cs_depth_sensor::create_snapshot(std::shared_ptr<depth_stereo_sensor>& snapshot) const
+    {
+        snapshot = std::make_shared<depth_stereo_sensor_snapshot>(get_depth_scale(), get_stereo_baseline_mm());
+    }
+
+    void cs_depth_sensor::enable_recording(std::function<void(const depth_sensor&)> recording_function)
+    {
+        //does not change over time
+    }
+
+    void cs_depth_sensor::enable_recording(std::function<void(const depth_stereo_sensor&)> recording_function)
+    {
+        //does not change over time
+    }
+
+    rs2_intrinsics cs_color_sensor::get_intrinsics(const stream_profile& profile) const
+    {
+        return get_intrinsic_by_resolution(
+                *_owner->_color_calib_table_raw,
+                ds::calibration_table_id::rgb_calibration_id,
+                profile.width, profile.height);
+    }
+
+    rs2_intrinsics cs_depth_sensor::get_intrinsics(const stream_profile& profile) const
+    {
+        return get_intrinsic_by_resolution(
+                *_owner->_depth_calib_table_raw,
+                ds::calibration_table_id::coefficients_table_id,
+                profile.width, profile.height);
     }
 }

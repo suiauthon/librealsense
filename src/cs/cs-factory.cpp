@@ -72,26 +72,331 @@ namespace librealsense {
         std::string string_node;
 
         auto smcs_api = smcs::GetCameraAPI();
-        printf("Trazim\n");
+        //printf("Trazim\n");
         smcs_api->FindAllDevices(0.15);
-        printf("Nasao\n");
+        //printf("Nasao\n");
         auto devices = smcs_api->GetAllDevices();
 
         for (int i = 0; i < devices.size(); i++) {
-            printf("Broj uredaja na kompu %d\n", devices.size());
+            //printf("Broj uredaja na kompu %d\n", devices.size());
             if (devices[i]->IsOnNetwork()) {
-                printf("Uredaj je na kompu\n");
+                //printf("Uredaj je na kompu\n");
                 auto info = platform::cs_device_info();
                 info.serial = devices[i]->GetSerialNumber();
                 info.id = devices[i]->GetModelName();
-                printf("id %s\n", info.id.c_str());
+                //printf("id %s\n", info.id.c_str());
                 info.info = devices[i]->GetManufacturerSpecificInfo();
+
+
+                /*printf("%s\n", devices[i]->GetManufacturerName().c_str());
+                printf("%s\n", devices[i]->GetManufacturerSpecificInfo().c_str());
+                printf("%s\n", devices[i]->GetSerialNumber().c_str());
+                printf("%s\n", devices[i]->GetModelName().c_str());
+                printf("%d\n", devices[i]->GetDeviceType()); //dodati da bude tamo ikonica da je usb 3 ili gev
+                printf("%d\n", devices[i]->GetGateway());
+                printf("%d\n", devices[i]->GetIpAddress());
+                printf("%s\n", devices[i]->GetDeviceVersion().c_str());
+                printf("%d\n", devices[i]->GetMacAddress());
+                printf("%d\n", devices[i]->GetSubnetMask());
+                printf("%d\n", devices[i]->GetVersion());*/
 
                 results.push_back(info);
             }
         }
 
         return results;
+    }
+
+    void cs_sensor::open(const stream_profiles& requests)
+    {
+        //printf("Cs sensor OPEN\n");
+        std::lock_guard<std::mutex> lock(_configure_lock);
+        if (_is_streaming)
+            throw wrong_api_call_sequence_exception("open(...) failed. CS device is streaming!");
+        else if (_is_opened)
+            throw wrong_api_call_sequence_exception("open(...) failed. CS device is already opened!");
+
+        auto on = std::unique_ptr<power>(new power(std::dynamic_pointer_cast<cs_sensor>(shared_from_this())));
+
+        _source.init(_metadata_parsers);
+        _source.set_sensor(this->shared_from_this());
+        auto mapping = resolve_requests(requests);
+
+        auto timestamp_reader = _timestamp_reader.get();
+
+        std::vector<platform::stream_profile> commited;
+
+        for (auto&& mode : mapping)
+        {
+            try
+            {
+                unsigned long long last_frame_number = 0;
+                rs2_time_t last_timestamp = 0;
+                _device->probe_and_commit(mode.profile,
+                                          [this, mode, timestamp_reader, requests, last_frame_number, last_timestamp]
+                                                  (platform::stream_profile p, platform::frame_object f,
+                                                   std::function<void()> continuation) mutable
+                                          {
+                                              auto system_time = environment::get_instance().get_time_service()->get_time();
+                                              if (!this->is_streaming())
+                                              {
+                                                  LOG_WARNING("Frame received with streaming inactive,"
+                                                                      << librealsense::get_string(mode.unpacker->outputs.front().stream_desc.type)
+                                                                      << mode.unpacker->outputs.front().stream_desc.index
+                                                                      << ", Arrived," << std::fixed << f.backend_time << " " << system_time);
+                                                  return;
+                                              }
+                                              frame_continuation release_and_enqueue(continuation, f.pixels);
+
+                                              // Ignore any frames which appear corrupted or invalid
+                                              // Determine the timestamp for this frame
+                                              auto timestamp = timestamp_reader->get_frame_timestamp(mode, f);
+                                              //printf("Timestamp callback: %lf\n", timestamp);
+                                              auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(mode, f);
+                                              //printf("Timestamp domain callback: %d\n", timestamp_domain);
+                                              auto frame_counter = timestamp_reader->get_frame_counter(mode, f);
+
+                                              auto requires_processing = mode.requires_processing();
+
+                                              std::vector<byte *> dest;
+                                              std::vector<frame_holder> refs;
+
+                                              auto&& unpacker = *mode.unpacker;
+                                              for (auto&& output : unpacker.outputs)
+                                              {
+                                                  LOG_DEBUG("FrameAccepted," << librealsense::get_string(output.stream_desc.type)
+                                                                             << ",Counter," << std::dec << frame_counter
+                                                                             << ",Index," << output.stream_desc.index
+                                                                             << ",BackEndTS," << std::fixed << f.backend_time
+                                                                             << ",SystemTime," << std::fixed << system_time
+                                                                             <<" ,diff_ts[Sys-BE],"<< system_time- f.backend_time
+                                                                             << ",TS," << std::fixed << timestamp << ",TS_Domain," << rs2_timestamp_domain_to_string(timestamp_domain)
+                                                                             <<",last_frame_number,"<< last_frame_number<<",last_timestamp,"<< last_timestamp);
+
+                                                  std::shared_ptr<stream_profile_interface> request = nullptr;
+                                                  for (auto&& original_prof : mode.original_requests)
+                                                  {
+                                                      if (original_prof->get_format() == output.format &&
+                                                          original_prof->get_stream_type() == output.stream_desc.type &&
+                                                          original_prof->get_stream_index() == output.stream_desc.index)
+                                                      {
+                                                          request = original_prof;
+                                                      }
+                                                  }
+
+                                                  auto bpp = get_image_bpp(output.format);
+                                                  frame_additional_data additional_data(timestamp,
+                                                                                        frame_counter,
+                                                                                        system_time,
+                                                                                        static_cast<uint8_t>(f.metadata_size),
+                                                                                        (const uint8_t*)f.metadata,
+                                                                                        f.backend_time,
+                                                                                        last_timestamp,
+                                                                                        last_frame_number,
+                                                                                        false);
+
+                                                  last_frame_number = frame_counter;
+                                                  last_timestamp = timestamp;
+
+                                                  auto res = output.stream_resolution({ mode.profile.width, mode.profile.height });
+                                                  auto width = res.width;
+                                                  auto height = res.height;
+
+                                                  frame_holder frame = _source.alloc_frame(stream_to_frame_types(output.stream_desc.type), width * height * bpp / 8, additional_data, requires_processing);
+                                                  if (frame.frame)
+                                                  {
+                                                      auto video = (video_frame*)frame.frame;
+                                                      video->assign(width, height, width * bpp / 8, bpp);
+                                                      video->set_timestamp_domain(timestamp_domain);
+                                                      dest.push_back(const_cast<byte*>(video->get_frame_data()));
+                                                      frame->set_stream(request);
+                                                      refs.push_back(std::move(frame));
+                                                  }
+                                                  else
+                                                  {
+                                                      LOG_INFO("Dropped frame. alloc_frame(...) returned nullptr");
+                                                      return;
+                                                  }
+
+                                              }
+                                              // Unpack the frame
+                                              if (requires_processing && (dest.size() > 0))
+                                              {
+                                                  unpacker.unpack(dest.data(), reinterpret_cast<const byte *>(f.pixels), mode.profile.width, mode.profile.height);
+                                              }
+
+                                              // If any frame callbacks were specified, dispatch them now
+                                              for (auto&& pref : refs)
+                                              {
+                                                  if (!requires_processing)
+                                                  {
+                                                      pref->attach_continuation(std::move(release_and_enqueue));
+                                                  }
+
+                                                  if (_on_before_frame_callback)
+                                                  {
+                                                      //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
+                                                      auto callback = _source.begin_callback();
+                                                      auto stream_type = pref->get_stream()->get_stream_type();
+                                                      _on_before_frame_callback(stream_type, pref, std::move(callback));
+                                                  }
+
+                                                  if (pref->get_stream().get())
+                                                  {
+                                                      //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
+                                                      _source.invoke_callback(std::move(pref));
+                                                  }
+                                              }
+
+                                          }, _cs_stream_id);
+
+            }
+            catch(...)
+            {
+                for (auto&& commited_profile : commited)
+                {
+                    _device->close(commited_profile, _cs_stream_id);
+                }
+                throw;
+            }
+            commited.push_back(mode.profile);
+        }
+
+        _internal_config = commited;
+
+        if (_on_open)
+            _on_open(_internal_config);
+
+        _power = move(on);
+        _is_opened = true;
+
+        try {
+            _device->stream_on([&](const notification& n)
+                               {
+                                   _notifications_processor->raise_notification(n);
+                               }, _cs_stream_id);
+        }
+        catch (...)
+        {
+            for (auto& profile : _internal_config)
+            {
+                try {
+                    _device->close(profile, _cs_stream_id);
+                }
+                catch (...) {}
+            }
+            reset_streaming();
+            _power.reset();
+            _is_opened = false;
+            throw;
+        }
+        set_active_streams(requests);
+    }
+
+    rs2_extension cs_sensor::stream_to_frame_types(rs2_stream stream)
+    {
+        // TODO: explicitly return video_frame for relevant streams and default to an error?
+        switch (stream)
+        {
+            case RS2_STREAM_DEPTH:  return RS2_EXTENSION_DEPTH_FRAME;
+            default:                return RS2_EXTENSION_VIDEO_FRAME;
+        }
+    }
+
+    void cs_sensor::close()
+    {
+        //printf("Cs sensor CLOSE\n");
+        std::lock_guard<std::mutex> lock(_configure_lock);
+        if (_is_streaming)
+            throw wrong_api_call_sequence_exception("close() failed. CS device is streaming!");
+        else if (!_is_opened)
+            throw wrong_api_call_sequence_exception("close() failed. CS device was not opened!");
+
+        for (auto& profile : _internal_config)
+        {
+            _device->close(profile, _cs_stream_id);
+        }
+        reset_streaming();
+        _power.reset();
+        _is_opened = false;
+        set_active_streams({});
+    }
+
+    void cs_sensor::start(frame_callback_ptr callback)
+    {
+        //printf("Cs sensor START\n");
+        std::lock_guard<std::mutex> lock(_configure_lock);
+        if (_is_streaming)
+            throw wrong_api_call_sequence_exception("start_streaming(...) failed. CS device is already streaming!");
+        else if(!_is_opened)
+            throw wrong_api_call_sequence_exception("start_streaming(...) failed. CS device was not opened!");
+
+        _source.set_callback(callback);
+        _is_streaming = true;
+        raise_on_before_streaming_changes(true); //Required to be just before actual start allow recording to work
+    }
+
+    void cs_sensor::stop()
+    {
+        //printf("Cs sensor STOP\n");
+        std::lock_guard<std::mutex> lock(_configure_lock);
+        if (!_is_streaming)
+            throw wrong_api_call_sequence_exception("stop_streaming() failed. CS device is not streaming!");
+
+        _is_streaming = false;
+        raise_on_before_streaming_changes(false);
+    }
+
+    void cs_sensor::acquire_power()
+    {
+        std::lock_guard<std::mutex> lock(_power_lock);
+        if (_user_count.fetch_add(1) == 0)
+        {
+            if (_device->set_power_state(platform::D0) != platform::D0)
+                throw wrong_api_call_sequence_exception("set power state(...) failed. CS device cannot be turned on!");
+        }
+    }
+
+    void cs_sensor::release_power()
+    {
+        std::lock_guard<std::mutex> lock(_power_lock);
+        if (_user_count.fetch_add(-1) == 1)
+        {
+            if (_device->set_power_state(platform::D3) != platform::D3)
+                throw wrong_api_call_sequence_exception("set power state(...) failed. CS device cannot be turned off!");
+        }
+    }
+
+    void cs_sensor::reset_streaming()
+    {
+        _source.flush();
+        _source.reset();
+        _timestamp_reader->reset();
+    }
+
+    void cs_sensor::register_pu(rs2_option id)
+    {
+        register_option(id, std::make_shared<cs_pu_option>(*this, id, _cs_stream));
+    }
+
+    void cs_sensor::try_register_pu(rs2_option id)
+    {
+        try
+        {
+            auto opt = std::make_shared<cs_pu_option>(*this, id, _cs_stream);
+            auto range = opt->get_range();
+            if (range.max <= range.min || range.step <= 0 || range.def < range.min || range.def > range.max) return;
+
+            auto val = opt->query();
+            if (val < range.min || val > range.max) return;
+            opt->set(val);
+
+            register_option(id, opt);
+        }
+        catch (...)
+        {
+            LOG_WARNING("Exception was thrown when inspecting properties of a sensor");
+        }
     }
 
     namespace platform
@@ -150,6 +455,85 @@ namespace librealsense {
         bool cs_device::set_pu(rs2_option opt, int32_t value, cs_stream stream)
         {
             return set_cs_param(opt, value, stream);
+        }
+
+        bool cs_device::get_auto_exposure_roi(region_of_interest roi, cs_stream stream)
+        {
+            bool status;
+            INT64 value;
+
+            //printf("Getam roi\n");
+
+            switch(stream)
+            {
+                case CS_STREAM_DEPTH:
+                    status = _connected_device->GetIntegerNodeValue("STR_ExposureAutoROITop", value);
+                    roi.min_y = value;
+
+                    status = status && _connected_device->GetIntegerNodeValue("STR_ExposureAutoROIBottom", value);
+                    roi.max_y = value;
+
+                    status = status && _connected_device->GetIntegerNodeValue("STR_ExposureAutoROILeft", value);
+                    roi.min_x = value;
+
+                    status = status && _connected_device->GetIntegerNodeValue("STR_ExposureAutoROIRight", value);
+                    roi.max_x = value;
+
+                    return status;
+                case CS_STREAM_COLOR:
+                    return false;
+            }
+        }
+
+        bool cs_device::set_auto_exposure_roi(const region_of_interest &roi, cs_stream stream)
+        {
+            bool status;
+            INT64 value;
+
+            //printf("setam roi\n");
+
+            switch(stream)
+            {
+                case CS_STREAM_DEPTH:
+
+                    status = _connected_device->GetIntegerNodeValue("STR_ExposureAutoROITop", value);
+                    //printf("jesam %d Value roi min y %d\n", status, value);
+                    status = status && _connected_device->GetIntegerNodeValue("STR_ExposureAutoROIBottom", value);
+                    //printf("jesam %d Value roi max y %d\n", status, value);
+                    status = status && _connected_device->GetIntegerNodeValue("STR_ExposureAutoROILeft", value);
+                    //printf("jesam %d Value roi min x %d\n", status, value);
+                    status = status && _connected_device->GetIntegerNodeValue("STR_ExposureAutoROIRight", value);
+                    //printf("jesam %d Value roi max x %d\n", status, value);
+
+
+                    _connected_device->SetStringNodeValue("STR_ExposureAuto", "Off");
+
+                    value = roi.min_y;
+                    status = _connected_device->SetIntegerNodeValue("STR_ExposureAutoROITop", value);
+
+                    //printf("jesam %d Value roi min y %d\n", status, value);
+
+                    value = roi.max_y;
+                    status = status && _connected_device->SetIntegerNodeValue("STR_ExposureAutoROIBottom", value);
+
+                    //printf("jesam %d Value roi max y %d\n", status, value);
+
+                    value = roi.min_x;
+                    status = status && _connected_device->SetIntegerNodeValue("STR_ExposureAutoROILeft", value);
+
+                    //printf("jesam %d Value roi min x %d\n", status, value);
+
+                    value = roi.max_x;
+                    status = status && _connected_device->SetIntegerNodeValue("STR_ExposureAutoROIRight", value);
+
+                    //printf("jesam %d Value roi max x %d\n", status, value);
+
+                    _connected_device->SetStringNodeValue("STR_ExposureAuto", "On");
+
+                    return status;
+                case CS_STREAM_COLOR:
+                    return false;
+            }
         }
 
         control_range cs_device::get_pu_range(rs2_option option, cs_stream stream)
@@ -456,6 +840,9 @@ namespace librealsense {
                 // set continuous acquisition mode
                 _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
                 // start acquisition
+                // optimal settings for D435e
+                _connected_device->SetIntegerNodeValue("GevSCPSPacketSize", 1500);
+                _connected_device->SetIntegerNodeValue("GevSCPD", 10);
                 _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
                 _connected_device->CommandNodeExecute("AcquisitionStart");
             }
@@ -512,6 +899,60 @@ namespace librealsense {
         bool cs_device::reset(void)
         {
             return _connected_device->CommandNodeExecute("DeviceReset");
+        }
+
+        std::vector<byte> cs_device::send_hwm(std::vector<byte>& buffer)
+        {
+            UINT64 address, regLength;
+            UINT32 restSize;
+            UINT8 readBuffer[GVCP_WRITEMEM_MAX_COUNT];
+            UINT8 resendCount = 3;
+            double maxWaitTime = 5.2;
+            UINT16 size = 0;
+            GEV_STATUS gevStatus;
+            bool status;
+
+            std::vector<byte> out_vec;
+
+            _connected_device->GetNode("STR_HWmTxBuffer")->GetRegisterNodeLength(regLength);
+            _connected_device->GetNode("STR_HWmTxBuffer")->GetRegisterNodeAddress(address);
+            _connected_device->SetMemory(address, buffer.size(), buffer.data(), &gevStatus, maxWaitTime);
+            _connected_device->CommandNodeExecute("STR_HWmTxBufferSend");
+
+            _connected_device->GetNode("STR_HWmRxBuffer")->GetRegisterNodeLength(regLength);
+            restSize = regLength - 4;
+            _connected_device->GetNode("STR_HWmRxBuffer")->GetRegisterNodeAddress(address);
+
+            _connected_device->CommandNodeExecute("STR_HWmRxBufferReceive");
+            // Receive HWm command
+            while (restSize > 0) {
+
+                size = (restSize > GVCP_WRITEMEM_MAX_COUNT) ? GVCP_WRITEMEM_MAX_COUNT : restSize;
+
+                int tryCount = resendCount;
+                bool ok;
+
+                do {
+                    ok = true;
+                    tryCount--;
+                    ok = ok && _connected_device->GetMemory(address, size, (UINT8*)(&readBuffer[0]), &gevStatus, maxWaitTime);
+                    if (ok) {
+                        // TODO use insert or std::copy instead
+                        for (UINT16 i = 0; i < size; i++) {
+                            out_vec.push_back(readBuffer[i]);
+                        }
+                    }
+                } while ((tryCount > 0) && (!ok));
+
+                if (!ok) {
+                    status = false;
+                    break;
+                }
+
+                restSize -= size;
+                address += size;
+            }
+            return out_vec;
         }
 
         void cs_device::capture_loop(cs_stream_id stream)

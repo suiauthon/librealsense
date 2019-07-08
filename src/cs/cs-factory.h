@@ -8,6 +8,8 @@
 #include "smcs_cpp/CameraSDK.h"
 #include "smcs_cpp/IImageBitmap.h"
 #include "context.h"
+#include "environment.h"
+#include "stream.h"
 #include "cs-option.h"
 
 namespace librealsense {
@@ -42,7 +44,7 @@ namespace librealsense {
                       _power_state(D3),
                       _is_acquisition_active(0),
                       _connected_device(NULL) {
-                printf("Stvaram cs device\n");
+                //printf("Stvaram cs device\n");
                 _smcs_api = smcs::GetCameraAPI();
                 auto devices = _smcs_api->GetAllDevices();
 
@@ -58,7 +60,7 @@ namespace librealsense {
                             INT64 int64Value;
                             if (_connected_device->GetIntegerNodeValue("SourceControlCount", int64Value))
                             {
-                                printf("Broj streamoa %d\n", int64Value);
+                                //printf("Broj streamoa %d\n", int64Value);
                                 _number_of_streams = int64Value;
                                 _threads = std::vector<std::unique_ptr <std::thread>>(_number_of_streams);
                                 _is_capturing = std::vector<std::atomic<bool>>(_number_of_streams);
@@ -81,7 +83,7 @@ namespace librealsense {
             }
 
             ~cs_device() {
-                printf("Ubijam cs device\n");
+                //printf("Ubijam cs device\n");
                 if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
             }
 
@@ -101,11 +103,16 @@ namespace librealsense {
 
             bool set_pu(rs2_option opt, int32_t value, cs_stream stream);
 
+            bool get_auto_exposure_roi(region_of_interest roi, cs_stream stream);
+            bool set_auto_exposure_roi(const region_of_interest &roi, cs_stream stream);
+
             control_range get_pu_range(rs2_option option, cs_stream stream);
 
             std::vector <stream_profile> get_profiles();
 
             bool reset(void);
+
+            std::vector<byte> send_hwm(std::vector<byte>& buffer);
 
         protected:
             void prepare_capture_buffers();
@@ -178,6 +185,173 @@ namespace librealsense {
 
     private:
         platform::cs_device_info _hwm;
+    };
+
+    class cs_sensor : public sensor_base
+    {
+    public:
+        explicit cs_sensor(std::string name, std::shared_ptr<platform::cs_device> cs_device,
+                           std::unique_ptr<frame_timestamp_reader> timestamp_reader, device* dev, cs_stream stream)
+                : sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
+                  _timestamp_reader(std::move(timestamp_reader)),
+                  _device(std::move(cs_device)),
+                  _cs_stream_id(cs_stream_to_id(stream)),
+                  _cs_stream(stream),
+                  _user_count(0)
+        {
+            register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
+        }
+
+        rs2_extension stream_to_frame_types(rs2_stream stream);
+
+        virtual stream_profiles init_stream_profiles() override
+        {
+            auto lock = environment::get_instance().get_extrinsics_graph().lock();
+
+            std::unordered_set<std::shared_ptr<video_stream_profile>> results;
+            std::set<uint32_t> unregistered_formats;
+            std::set<uint32_t> supported_formats;
+            std::set<uint32_t> registered_formats;
+
+            power on(std::dynamic_pointer_cast<cs_sensor>(shared_from_this()));
+
+            if (_uvc_profiles.empty()){}
+            _uvc_profiles = _device->get_profiles();
+
+            for (auto&& p : _uvc_profiles)
+            {
+                supported_formats.insert(p.format);
+                native_pixel_format pf{};
+                if (try_get_pf(p, pf))
+                {
+                    for (auto&& unpacker : pf.unpackers)
+                    {
+                        for (auto&& output : unpacker.outputs)
+                        {
+                            auto profile = std::make_shared<video_stream_profile>(p);
+                            auto res = output.stream_resolution({ p.width, p.height });
+                            profile->set_dims(res.width, res.height);
+                            profile->set_stream_type(output.stream_desc.type);
+                            profile->set_stream_index(output.stream_desc.index);
+                            profile->set_format(output.format);
+                            profile->set_framerate(p.fps);
+                            results.insert(profile);
+                        }
+                    }
+                }
+                else
+                {
+                    unregistered_formats.insert(p.format);
+                }
+            }
+
+            if (unregistered_formats.size())
+            {
+                std::stringstream ss;
+                ss << "Unregistered Media formats : [ ";
+                for (auto& elem : unregistered_formats)
+                {
+                    uint32_t device_fourcc = reinterpret_cast<const big_endian<uint32_t>&>(elem);
+                    char fourcc[sizeof(device_fourcc) + 1];
+                    librealsense::copy(fourcc, &device_fourcc, sizeof(device_fourcc));
+                    fourcc[sizeof(device_fourcc)] = 0;
+                    ss << fourcc << " ";
+                }
+
+                ss << "]; Supported: [ ";
+                for (auto& elem : registered_formats)
+                {
+                    uint32_t device_fourcc = reinterpret_cast<const big_endian<uint32_t>&>(elem);
+                    char fourcc[sizeof(device_fourcc) + 1];
+                    librealsense::copy(fourcc, &device_fourcc, sizeof(device_fourcc));
+                    fourcc[sizeof(device_fourcc)] = 0;
+                    ss << fourcc << " ";
+                }
+                ss << "]";
+                LOG_WARNING(ss.str());
+            }
+
+            // Sort the results to make sure that the user will receive predictable deterministic output from the API
+            stream_profiles res{ begin(results), end(results) };
+            std::sort(res.begin(), res.end(), [](const std::shared_ptr<stream_profile_interface>& ap,
+                                                 const std::shared_ptr<stream_profile_interface>& bp)
+            {
+                auto a = to_profile(ap.get());
+                auto b = to_profile(bp.get());
+
+                // stream == RS2_STREAM_COLOR && format == RS2_FORMAT_BGR8 element works around the fact that Y16 gets priority over BGR8 when both
+                // are available for pipeline stream resolution
+                auto at = std::make_tuple(a.stream, a.width, a.height, a.fps, a.stream == RS2_STREAM_COLOR && a.format == RS2_FORMAT_BGR8, a.format);
+                auto bt = std::make_tuple(b.stream, b.width, b.height, b.fps, b.stream == RS2_STREAM_COLOR && b.format == RS2_FORMAT_BGR8, b.format);
+
+                return at > bt;
+            });
+
+            return res;
+        }
+
+        void open(const stream_profiles& requests) override;
+
+        void close() override;
+
+        void start(frame_callback_ptr callback) override;
+
+        void stop() override;
+
+        template<class T>
+        auto invoke_powered(T action)
+        -> decltype(action(*static_cast<platform::cs_device*>(nullptr)))
+        {
+            power on(std::dynamic_pointer_cast<cs_sensor>(shared_from_this()));
+            return action(*_device);
+        }
+
+        void register_pu(rs2_option id);
+
+        void try_register_pu(rs2_option id);
+
+    private:
+        void acquire_power();
+
+        void release_power();
+
+        void reset_streaming();
+
+        struct power
+        {
+            explicit power(std::weak_ptr<cs_sensor> owner)
+                    : _owner(owner)
+            {
+                auto strong = _owner.lock();
+                if (strong)
+                {
+                    strong->acquire_power();
+                }
+            }
+
+            ~power()
+            {
+                if (auto strong = _owner.lock())
+                {
+                    try
+                    {
+                        strong->release_power();
+                    }
+                    catch (...) {}
+                }
+            }
+        private:
+            std::weak_ptr<cs_sensor> _owner;
+        };
+
+        std::unique_ptr<frame_timestamp_reader> _timestamp_reader;
+        std::atomic<int> _user_count;
+        std::mutex _power_lock;
+        std::mutex _configure_lock;
+        cs_stream _cs_stream;
+        cs_stream_id _cs_stream_id;
+        std::unique_ptr<power> _power;
+        std::shared_ptr<platform::cs_device> _device;
     };
 }
 
