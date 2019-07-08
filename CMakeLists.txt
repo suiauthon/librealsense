@@ -68,6 +68,7 @@ endif()
 
 include(CMake/install_config.cmake)
 
+set(CPACK_PACKAGE_NAME "FRAMOS-librealsense2")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "FRAMOS GmbH")
 set(CPACK_SYSTEM_NAME "Linux64_x64")
 set(CPACK_PACKAGE_VERSION_MAJOR 2)
