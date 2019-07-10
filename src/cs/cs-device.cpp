@@ -399,9 +399,9 @@ namespace librealsense
                                const platform::backend_device_group& group,
                                bool register_device_notifications)
             : device(ctx, group, register_device_notifications),
-              //cs_camera(ctx, hwm_device, group, register_device_notifications),
               cs_color(ctx, group, register_device_notifications),
-              cs_depth(ctx, group, register_device_notifications)
+              cs_depth(ctx, group, register_device_notifications),
+              cs_advanced_mode_base()
     {
         _cs_device = ctx->get_backend().create_cs_device(hwm_device);
 
@@ -411,9 +411,12 @@ namespace librealsense
         depth_init(ctx, group);
         color_init(ctx, group);
 
+        cs_advanced_mode_init(cs_depth::_hw_monitor, &get_depth_sensor());
+
         register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
         register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
         register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
+        register_info(RS2_CAMERA_INFO_FIRMWARE_VERSION, cs_depth::_fw_version);
     }
 
     std::shared_ptr<matcher> CSMono_camera::create_matcher(const frame_holder& frame) const

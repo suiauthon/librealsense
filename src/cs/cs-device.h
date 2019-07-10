@@ -9,6 +9,7 @@
 #include "device.h"
 #include "core/debug.h"
 #include "ds5/ds5-private.h"
+#include "cs/advanced_mode/cs-advanced-mode.h"
 
 namespace librealsense
 {
@@ -137,7 +138,6 @@ namespace librealsense
         std::shared_ptr<stream_interface> _depth_stream;
         uint8_t _depth_device_idx;
 
-    private:
         friend class cs_depth_sensor;
 
         std::shared_ptr<cs_hw_monitor> _hw_monitor;
@@ -207,7 +207,8 @@ namespace librealsense
     };
 
     class D435e_camera : public cs_color,
-                         public cs_depth
+                         public cs_depth,
+                         public cs_advanced_mode_base
     {
     public:
         D435e_camera(std::shared_ptr<context> ctx,

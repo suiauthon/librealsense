@@ -306,6 +306,8 @@ namespace librealsense {
             return action(*_device);
         }
 
+        std::vector<platform::stream_profile> get_configuration() const { return _internal_config; }
+
         void register_pu(rs2_option id);
 
         void try_register_pu(rs2_option id);
