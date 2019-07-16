@@ -5,11 +5,9 @@
 #pragma once
 
 #include "cs/cs-factory.h"
-#include "cs/cs-hw-monitor.h"
 #include "device.h"
-#include "core/debug.h"
 #include "ds5/ds5-private.h"
-#include "cs/advanced_mode/cs-advanced-mode.h"
+#include "core/advanced_mode.h"
 
 namespace librealsense
 {
@@ -61,20 +59,20 @@ namespace librealsense
     class cs_auto_exposure_roi_method : public region_of_interest_method
     {
     public:
-        explicit cs_auto_exposure_roi_method(const cs_hw_monitor& hwm,
+        explicit cs_auto_exposure_roi_method(const hw_monitor& hwm,
                                              ds::fw_cmd cmd = ds::fw_cmd::SETAEROI);
 
         void set(const region_of_interest& roi) override;
         region_of_interest get() const override;
     private:
         const ds::fw_cmd _cmd;
-        const cs_hw_monitor& _hw_monitor;
+        const hw_monitor& _hw_monitor;
     };
 
     class cs_depth_scale_option : public option, public observable_option
     {
     public:
-        cs_depth_scale_option(cs_hw_monitor& hwm);
+        cs_depth_scale_option(hw_monitor& hwm);
         virtual ~cs_depth_scale_option() = default;
         virtual void set(float value) override;
         virtual float query() const override;
@@ -94,7 +92,7 @@ namespace librealsense
         ds::depth_table_control get_depth_table(ds::advanced_query_mode mode) const;
         std::function<void(const option &)> _record_action = [](const option&) {};
         lazy<option_range> _range;
-        cs_hw_monitor& _hwm;
+        hw_monitor& _hwm;
     };
 
     class cs_color : public virtual device
@@ -122,7 +120,7 @@ namespace librealsense
     private:
         friend class cs_color_sensor;
 
-        std::shared_ptr<cs_hw_monitor> _hw_monitor;
+        std::shared_ptr<hw_monitor> _hw_monitor;
 
         lazy<std::vector<uint8_t>> _color_calib_table_raw;
         std::shared_ptr<lazy<rs2_extrinsics>> _color_extrinsic;
@@ -164,7 +162,7 @@ namespace librealsense
 
         friend class cs_depth_sensor;
 
-        std::shared_ptr<cs_hw_monitor> _hw_monitor;
+        std::shared_ptr<hw_monitor> _hw_monitor;
         firmware_version            _fw_version;
         firmware_version            _recommended_fw_version;
         ds::d400_caps _device_capabilities;

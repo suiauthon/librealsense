@@ -3,7 +3,7 @@
 #pragma once
 
 #include "ds5/ds5-private.h"
-#include "cs/cs-hw-monitor.h"
+//#include "cs/cs-hw-monitor.h"
 #include "core/streaming.h"
 #include "option.h"
 #define RS400_ADVANCED_MODE_HPP
@@ -104,7 +104,7 @@ namespace librealsense
     public:
         explicit cs_advanced_mode_base();
 
-        void cs_advanced_mode_init(std::shared_ptr<cs_hw_monitor> hwm, cs_sensor* depth_sensor);
+        void cs_advanced_mode_init(std::shared_ptr<hw_monitor> hwm, cs_sensor* depth_sensor);
 
         void create_snapshot(std::shared_ptr<cs_advanced_mode_interface>& snapshot) const override {};
         void enable_recording(std::function<void(const cs_advanced_mode_interface&)> recording_function) override {};

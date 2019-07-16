@@ -1,15 +1,16 @@
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2017 Intel Corporation. All Rights Reserved.
 
-#include "cs-advanced-mode.h"
+#include "core/advanced_mode.h"
 #include "cs/cs-device.h"
+//#include "ds5/advanced_mode/json_loader.hpp"
 
 namespace librealsense
 {
     cs_advanced_mode_base::cs_advanced_mode_base()
     {}
 
-    void cs_advanced_mode_base::cs_advanced_mode_init(std::shared_ptr<cs_hw_monitor> hwm, cs_sensor* depth_sensor)
+    void cs_advanced_mode_base::cs_advanced_mode_init(std::shared_ptr<hw_monitor> hwm, cs_sensor* depth_sensor)
     {
         _hw_monitor = hwm;
         _depth_sensor = depth_sensor;
@@ -83,8 +84,8 @@ namespace librealsense
                         break;
                     default:
                         default_430(p);
-                        //throw invalid_value_exception(to_string() << "apply_preset(...) failed! Given device doesn't support Default Preset (pid=0x" <<
-                        //                              std::hex << device_pid << ")");
+                        throw invalid_value_exception(to_string() << "apply_preset(...) failed! Given device doesn't support Default Preset (pid=0x" <<
+                                                      std::hex << device_pid << ")");
                         break;
                 }
                 break;
@@ -165,62 +166,62 @@ namespace librealsense
 
     void cs_advanced_mode_base::get_depth_control_group(STDepthControlGroup* ptr, int mode) const
     {
-        *ptr = get<STDepthControlGroup>(cs_advanced_mode_traits<STDepthControlGroup>::group, nullptr, mode);
+        *ptr = get<STDepthControlGroup>(advanced_mode_traits<STDepthControlGroup>::group, nullptr, mode);
     }
 
     void cs_advanced_mode_base::get_rsm(STRsm* ptr, int mode) const
     {
-        *ptr = get<STRsm>(cs_advanced_mode_traits<STRsm>::group, nullptr, mode);
+        *ptr = get<STRsm>(advanced_mode_traits<STRsm>::group, nullptr, mode);
     }
 
     void cs_advanced_mode_base::get_rau_support_vector_control(STRauSupportVectorControl* ptr, int mode) const
     {
-        *ptr = get<STRauSupportVectorControl>(cs_advanced_mode_traits<STRauSupportVectorControl>::group, nullptr, mode);
+        *ptr = get<STRauSupportVectorControl>(advanced_mode_traits<STRauSupportVectorControl>::group, nullptr, mode);
     }
 
     void cs_advanced_mode_base::get_color_control(STColorControl* ptr, int mode) const
     {
-        *ptr = get<STColorControl>(cs_advanced_mode_traits<STColorControl>::group, nullptr, mode);
+        *ptr = get<STColorControl>(advanced_mode_traits<STColorControl>::group, nullptr, mode);
     }
 
     void cs_advanced_mode_base::get_rau_color_thresholds_control(STRauColorThresholdsControl* ptr, int mode) const
     {
-        *ptr = get<STRauColorThresholdsControl>(cs_advanced_mode_traits<STRauColorThresholdsControl>::group, nullptr, mode);
+        *ptr = get<STRauColorThresholdsControl>(advanced_mode_traits<STRauColorThresholdsControl>::group, nullptr, mode);
     }
 
     void cs_advanced_mode_base::get_slo_color_thresholds_control(STSloColorThresholdsControl* ptr, int mode) const
     {
-        *ptr = get<STSloColorThresholdsControl>(cs_advanced_mode_traits<STSloColorThresholdsControl>::group, nullptr, mode);
+        *ptr = get<STSloColorThresholdsControl>(advanced_mode_traits<STSloColorThresholdsControl>::group, nullptr, mode);
     }
 
     void cs_advanced_mode_base::get_slo_penalty_control(STSloPenaltyControl* ptr, int mode) const
     {
-        *ptr = get<STSloPenaltyControl>(cs_advanced_mode_traits<STSloPenaltyControl>::group, nullptr, mode);
+        *ptr = get<STSloPenaltyControl>(advanced_mode_traits<STSloPenaltyControl>::group, nullptr, mode);
     }
 
     void cs_advanced_mode_base::get_hdad(STHdad* ptr, int mode) const
     {
-        *ptr = get<STHdad>(cs_advanced_mode_traits<STHdad>::group, nullptr, mode);
+        *ptr = get<STHdad>(advanced_mode_traits<STHdad>::group, nullptr, mode);
     }
 
     void cs_advanced_mode_base::get_color_correction(STColorCorrection* ptr, int mode) const
     {
-        *ptr = get<STColorCorrection>(cs_advanced_mode_traits<STColorCorrection>::group, nullptr, mode);
+        *ptr = get<STColorCorrection>(advanced_mode_traits<STColorCorrection>::group, nullptr, mode);
     }
 
     void cs_advanced_mode_base::get_depth_table_control(STDepthTableControl* ptr, int mode) const
     {
-        *ptr = get<STDepthTableControl>(cs_advanced_mode_traits<STDepthTableControl>::group, nullptr, mode);
+        *ptr = get<STDepthTableControl>(advanced_mode_traits<STDepthTableControl>::group, nullptr, mode);
     }
 
     void cs_advanced_mode_base::get_ae_control(STAEControl* ptr, int mode) const
     {
-        *ptr = get<STAEControl>(cs_advanced_mode_traits<STAEControl>::group, nullptr, mode);
+        *ptr = get<STAEControl>(advanced_mode_traits<STAEControl>::group, nullptr, mode);
     }
 
     void cs_advanced_mode_base::get_census_radius(STCensusRadius* ptr, int mode) const
     {
-        *ptr = get<STCensusRadius>(cs_advanced_mode_traits<STCensusRadius>::group, nullptr, mode);
+        *ptr = get<STCensusRadius>(advanced_mode_traits<STCensusRadius>::group, nullptr, mode);
     }
 
     bool cs_advanced_mode_base::supports_option(const cs_sensor& sensor, rs2_option opt) const
@@ -409,73 +410,73 @@ namespace librealsense
 
     void cs_advanced_mode_base::set_depth_control_group(const STDepthControlGroup& val)
     {
-        set(val, cs_advanced_mode_traits<STDepthControlGroup>::group);
+        set(val, advanced_mode_traits<STDepthControlGroup>::group);
         _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
     }
 
     void cs_advanced_mode_base::set_rsm(const STRsm& val)
     {
-        set(val, cs_advanced_mode_traits<STRsm>::group);
+        set(val, advanced_mode_traits<STRsm>::group);
         _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
     }
 
     void cs_advanced_mode_base::set_rau_support_vector_control(const STRauSupportVectorControl& val)
     {
-        set(val, cs_advanced_mode_traits<STRauSupportVectorControl>::group);
+        set(val, advanced_mode_traits<STRauSupportVectorControl>::group);
         _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
     }
 
     void cs_advanced_mode_base::set_color_control(const STColorControl& val)
     {
-        set(val, cs_advanced_mode_traits<STColorControl>::group);
+        set(val, advanced_mode_traits<STColorControl>::group);
         _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
     }
 
     void cs_advanced_mode_base::set_rau_color_thresholds_control(const STRauColorThresholdsControl& val)
     {
-        set(val, cs_advanced_mode_traits<STRauColorThresholdsControl>::group);
+        set(val, advanced_mode_traits<STRauColorThresholdsControl>::group);
         _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
     }
 
     void cs_advanced_mode_base::set_slo_color_thresholds_control(const STSloColorThresholdsControl& val)
     {
-        set(val, cs_advanced_mode_traits<STSloColorThresholdsControl>::group);
+        set(val, advanced_mode_traits<STSloColorThresholdsControl>::group);
         _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
     }
 
     void cs_advanced_mode_base::set_slo_penalty_control(const STSloPenaltyControl& val)
     {
-        set(val, cs_advanced_mode_traits<STSloPenaltyControl>::group);
+        set(val, advanced_mode_traits<STSloPenaltyControl>::group);
         _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
     }
 
     void cs_advanced_mode_base::set_hdad(const STHdad& val)
     {
-        set(val, cs_advanced_mode_traits<STHdad>::group);
+        set(val, advanced_mode_traits<STHdad>::group);
         _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
     }
 
     void cs_advanced_mode_base::set_color_correction(const STColorCorrection& val)
     {
-        set(val, cs_advanced_mode_traits<STColorCorrection>::group);
+        set(val, advanced_mode_traits<STColorCorrection>::group);
         _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
     }
 
     void cs_advanced_mode_base::set_depth_table_control(const STDepthTableControl& val)
     {
-        set(val, cs_advanced_mode_traits<STDepthTableControl>::group);
+        set(val, advanced_mode_traits<STDepthTableControl>::group);
         _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
     }
 
     void cs_advanced_mode_base::set_ae_control(const STAEControl& val)
     {
-        set(val, cs_advanced_mode_traits<STAEControl>::group);
+        set(val, advanced_mode_traits<STAEControl>::group);
         _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
     }
 
     void cs_advanced_mode_base::set_census_radius(const STCensusRadius& val)
     {
-        set(val, cs_advanced_mode_traits<STCensusRadius>::group);
+        set(val, advanced_mode_traits<STCensusRadius>::group);
         _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
     }
 
@@ -642,6 +643,26 @@ namespace librealsense
             (*_color_sensor)->get_option(RS2_OPTION_POWER_LINE_FREQUENCY).set((float)val.power_line_frequency);
     }
 
+    std::vector<uint8_t> cs_advanced_mode_base::serialize_json() const
+    {
+        if (!is_enabled())
+            throw wrong_api_call_sequence_exception(to_string() << "serialize_json() failed! Device is not in Advanced-Mode.");
+
+        auto p = get_all();
+        return generate_json(p);
+    }
+
+    void cs_advanced_mode_base::load_json(const std::string& json_content)
+    {
+        if (!is_enabled())
+            throw wrong_api_call_sequence_exception(to_string() << "load_json(...) failed! Device is not in Advanced-Mode.");
+
+        auto p = get_all();
+        update_structs(json_content, p);
+        set_all(p);
+        _preset_opt->set(RS2_RS400_VISUAL_PRESET_CUSTOM);
+    }
+
     preset cs_advanced_mode_base::get_all() const
     {
         preset p;
@@ -681,22 +702,22 @@ namespace librealsense
 
     void cs_advanced_mode_base::set_all(const preset& p)
     {
-        set(p.depth_controls, cs_advanced_mode_traits<STDepthControlGroup>::group);
-        set(p.rsm           , cs_advanced_mode_traits<STRsm>::group);
-        set(p.rsvc          , cs_advanced_mode_traits<STRauSupportVectorControl>::group);
-        set(p.color_control , cs_advanced_mode_traits<STColorControl>::group);
-        set(p.rctc          , cs_advanced_mode_traits<STRauColorThresholdsControl>::group);
-        set(p.sctc          , cs_advanced_mode_traits<STSloColorThresholdsControl>::group);
-        set(p.spc           , cs_advanced_mode_traits<STSloPenaltyControl>::group);
-        set(p.hdad          , cs_advanced_mode_traits<STHdad>::group);
+        set(p.depth_controls, advanced_mode_traits<STDepthControlGroup>::group);
+        set(p.rsm           , advanced_mode_traits<STRsm>::group);
+        set(p.rsvc          , advanced_mode_traits<STRauSupportVectorControl>::group);
+        set(p.color_control , advanced_mode_traits<STColorControl>::group);
+        set(p.rctc          , advanced_mode_traits<STRauColorThresholdsControl>::group);
+        set(p.sctc          , advanced_mode_traits<STSloColorThresholdsControl>::group);
+        set(p.spc           , advanced_mode_traits<STSloPenaltyControl>::group);
+        set(p.hdad          , advanced_mode_traits<STHdad>::group);
 
         // Setting auto-white-balance control before colorCorrection parameters
         set_depth_auto_white_balance(p.depth_auto_white_balance);
-        set(p.cc            , cs_advanced_mode_traits<STColorCorrection>::group);
+        set(p.cc            , advanced_mode_traits<STColorCorrection>::group);
 
-        set(p.depth_table   , cs_advanced_mode_traits<STDepthTableControl>::group);
-        set(p.ae            , cs_advanced_mode_traits<STAEControl>::group);
-        set(p.census        , cs_advanced_mode_traits<STCensusRadius>::group);
+        set(p.depth_table   , advanced_mode_traits<STDepthTableControl>::group);
+        set(p.ae            , advanced_mode_traits<STAEControl>::group);
+        set(p.census        , advanced_mode_traits<STCensusRadius>::group);
 
         set_laser_state(p.laser_state);
         if (p.laser_state.was_set && p.laser_state.laser_state == 1) // 1 - on
@@ -803,7 +824,7 @@ namespace librealsense
     }
 
     cs_advanced_mode_preset_option::cs_advanced_mode_preset_option(cs_advanced_mode_base& advanced,
-                                                                   cs_sensor& ep, const option_range& opt_range)
+                                                             cs_sensor& ep, const option_range& opt_range)
             : option_base(opt_range),
               _ep(ep),
               _advanced(advanced),
@@ -825,10 +846,10 @@ namespace librealsense
     {
         std::lock_guard<std::mutex> lock(_mtx);
         if (!is_valid(value))
-            throw invalid_value_exception(to_string() << "set(cs_advanced_mode_preset_option) failed! Given value " << value << " is out of range.");
+            throw invalid_value_exception(to_string() << "set(advanced_mode_preset_option) failed! Given value " << value << " is out of range.");
 
         if (!_advanced.is_enabled())
-            throw wrong_api_call_sequence_exception(to_string() << "set(cs_advanced_mode_preset_option) failed! Device is not in Advanced-Mode.");
+            throw wrong_api_call_sequence_exception(to_string() << "set(advanced_mode_preset_option) failed! Device is not in Advanced-Mode.");
 
         auto preset = to_preset(value);
         if (preset == RS2_RS400_VISUAL_PRESET_CUSTOM || !_ep.is_streaming())
@@ -837,8 +858,8 @@ namespace librealsense
             return;
         }
 
-        auto cs_sensor = dynamic_cast<librealsense::cs_sensor*>(&_ep);
-        auto configurations = cs_sensor->get_configuration();
+        auto uvc_sensor = dynamic_cast<librealsense::uvc_sensor*>(&_ep);
+        auto configurations = uvc_sensor->get_configuration();
         _advanced.apply_preset(configurations, preset, get_device_pid(_ep), get_firmware_version(_ep));
         _last_preset = preset;
         _recording_function(*this);
@@ -877,7 +898,6 @@ namespace librealsense
         std::stringstream ss;
         ss << std::hex << str_pid;
         ss >> device_pid;
-
         return device_pid;
     }
 

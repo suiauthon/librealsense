@@ -14,7 +14,7 @@
 
 namespace librealsense
 {
-    cs_auto_exposure_roi_method::cs_auto_exposure_roi_method(const cs_hw_monitor& hwm,
+    cs_auto_exposure_roi_method::cs_auto_exposure_roi_method(const hw_monitor& hwm,
                                                              ds::fw_cmd cmd)
             : _hw_monitor(hwm), _cmd(cmd) {}
 
@@ -63,7 +63,7 @@ namespace librealsense
         return *table;
     }
 
-    cs_depth_scale_option::cs_depth_scale_option(cs_hw_monitor& hwm)
+    cs_depth_scale_option::cs_depth_scale_option(hw_monitor& hwm)
             : _hwm(hwm)
     {
         _range = [this]()
@@ -106,7 +106,7 @@ namespace librealsense
     {
         using namespace ds;
 
-        _hw_monitor = std::make_shared<cs_hw_monitor>(get_color_sensor());
+        _hw_monitor = std::make_shared<hw_monitor>(std::shared_ptr<cs_sensor>(&get_color_sensor()));
 
         _color_calib_table_raw = [this]() { return get_raw_calibration_table(rgb_calibration_id); };
         _color_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]() { return from_pose(get_color_stream_extrinsic(*_color_calib_table_raw)); });
@@ -122,7 +122,7 @@ namespace librealsense
     {
         using namespace ds;
 
-        _hw_monitor = std::make_shared<cs_hw_monitor>(get_depth_sensor());
+        _hw_monitor = std::make_shared<hw_monitor>(std::shared_ptr<cs_sensor>(&get_depth_sensor()));
 
         _depth_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]()
                 {

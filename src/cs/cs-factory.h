@@ -7,8 +7,6 @@
 
 #include "smcs_cpp/CameraSDK.h"
 #include "smcs_cpp/IImageBitmap.h"
-#include "context.h"
-#include "environment.h"
 #include "stream.h"
 #include "cs-option.h"
 
@@ -112,7 +110,7 @@ namespace librealsense {
 
             bool reset(void);
 
-            std::vector<byte> send_hwm(const std::vector<byte>& buffer_);
+            std::vector<byte> send_hwm(std::vector<byte>& buffer);
 
         protected:
             void prepare_capture_buffers();
