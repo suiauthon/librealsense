@@ -822,7 +822,7 @@ namespace librealsense {
                 if (_is_capturing[stream])
                 {
                     _is_capturing[stream] = false;
-                    stop__acquisition();
+                    stop_acquisition(stream);
                     _threads[stream]->join();
                     _threads[stream].reset();
                 }
@@ -831,36 +831,40 @@ namespace librealsense {
             else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
         }
 
-        void cs_device::start_acquisition()
+        void cs_device::start_acquisition(cs_stream_id stream)
         {
-            if (_is_acquisition_active == 0)
-            {
-                // disable trigger mode
-                _connected_device->SetStringNodeValue("TriggerMode", "Off");
-                // set continuous acquisition mode
-                _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
-                // start acquisition
-                // optimal settings for D435e
-                _connected_device->SetIntegerNodeValue("GevSCPSPacketSize", 1500);
-                _connected_device->SetIntegerNodeValue("GevSCPD", 10);
-                _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
-                _connected_device->CommandNodeExecute("AcquisitionStart");
+            // NOTE: selectors and controls for starting and stopping acquisition will change in future fw versions
+
+            // select the appropriate source (TriggerMode, AcquisitionMode, TLParamsLocked, AcquisitionStart)
+            _connected_device->SetIntegerNodeValue("SourceControlSelector", stream);
+
+            // select the appropriate channel (GevSCPSPacketSize, GevSCPD)
+            INT64 streamChannel;
+            if (_connected_device->GetIntegerNodeValue("SourceStreamChannel", streamChannel)) {
+                _connected_device->SetIntegerNodeValue("GevStreamChannelSelector", streamChannel);
             }
 
-            _is_acquisition_active++;
+            // disable trigger mode
+            _connected_device->SetStringNodeValue("TriggerMode", "Off");
+            // set continuous acquisition mode
+            _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
+                
+            // optimal settings for D435e
+            _connected_device->SetIntegerNodeValue("GevSCPSPacketSize", 1500);
+            _connected_device->SetIntegerNodeValue("GevSCPD", 10);
 
+            // start acquisition
+            _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
+            _connected_device->CommandNodeExecute("AcquisitionStart");
         }
 
-        void cs_device::stop__acquisition()
+        void cs_device::stop_acquisition(cs_stream_id stream)
         {
-            if (_is_acquisition_active == 1)
-            {
-                _connected_device->CommandNodeExecute("AcquisitionStop");
-                _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
-            }
+            // select the appropriate source (TLParamsLocked, AcquisitionStart)
+            _connected_device->SetIntegerNodeValue("SourceControlSelector", stream);
 
-            _is_acquisition_active--;
-            if (_is_acquisition_active < 0) _is_acquisition_active = 0;
+            _connected_device->CommandNodeExecute("AcquisitionStop");
+            _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
         }
 
         void cs_device::stream_on(std::function<void(const notification& n)> error_handler, cs_stream_id stream)
@@ -871,7 +875,7 @@ namespace librealsense {
                 {
                     _error_handler[stream] = error_handler;
                     _is_capturing[stream] = true;
-                    start_acquisition();
+                    start_acquisition(stream);
                     _threads[stream] = std::unique_ptr<std::thread>(new std::thread([this, stream](){ capture_loop(stream); }));
                 }
             }
