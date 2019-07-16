@@ -901,7 +901,7 @@ namespace librealsense {
             return _connected_device->CommandNodeExecute("DeviceReset");
         }
 
-        std::vector<byte> cs_device::send_hwm(std::vector<byte>& buffer)
+        std::vector<byte> cs_device::send_hwm(const std::vector<byte>& buffer)
         {
             UINT64 address, regLength;
             UINT32 restSize;
@@ -912,11 +912,13 @@ namespace librealsense {
             GEV_STATUS gevStatus;
             bool status;
 
+            auto data = (UINT8*)buffer.data();
+
             std::vector<byte> out_vec;
 
             _connected_device->GetNode("STR_HWmTxBuffer")->GetRegisterNodeLength(regLength);
             _connected_device->GetNode("STR_HWmTxBuffer")->GetRegisterNodeAddress(address);
-            _connected_device->SetMemory(address, buffer.size(), buffer.data(), &gevStatus, maxWaitTime);
+            _connected_device->SetMemory(address, buffer.size(), data, &gevStatus, maxWaitTime);
             _connected_device->CommandNodeExecute("STR_HWmTxBufferSend");
 
             _connected_device->GetNode("STR_HWmRxBuffer")->GetRegisterNodeLength(regLength);

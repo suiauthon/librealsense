@@ -112,7 +112,7 @@ namespace librealsense {
 
             bool reset(void);
 
-            std::vector<byte> send_hwm(std::vector<byte>& buffer);
+            std::vector<byte> send_hwm(const std::vector<byte>& buffer_);
 
         protected:
             void prepare_capture_buffers();

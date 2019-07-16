@@ -13,8 +13,6 @@
 
 namespace librealsense
 {
-    class cs_camera;
-
     class cs_pu_option : public option
     {
     public:
@@ -71,6 +69,32 @@ namespace librealsense
     private:
         const ds::fw_cmd _cmd;
         const cs_hw_monitor& _hw_monitor;
+    };
+
+    class cs_depth_scale_option : public option, public observable_option
+    {
+    public:
+        cs_depth_scale_option(cs_hw_monitor& hwm);
+        virtual ~cs_depth_scale_option() = default;
+        virtual void set(float value) override;
+        virtual float query() const override;
+        virtual option_range get_range() const override;
+        virtual bool is_enabled() const override { return true; }
+
+        const char* get_description() const override
+        {
+            return "Number of meters represented by a single depth unit";
+        }
+        void enable_recording(std::function<void(const option &)> record_action)
+        {
+            _record_action = record_action;
+        }
+
+    private:
+        ds::depth_table_control get_depth_table(ds::advanced_query_mode mode) const;
+        std::function<void(const option &)> _record_action = [](const option&) {};
+        lazy<option_range> _range;
+        cs_hw_monitor& _hwm;
     };
 
     class cs_color : public virtual device
@@ -170,22 +194,6 @@ namespace librealsense
 
         //lazy<std::vector<uint8_t>> _depth_calib_table_raw;
         //std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
-    };
-
-    class cs_camera: public virtual device,
-                     public debug_interface
-    {
-    public:
-        cs_camera(std::shared_ptr<context> ctx,
-                  const platform::cs_device_info &hwm_device,
-                  const platform::backend_device_group& group,
-                  bool register_device_notifications);
-
-        std::vector<uint8_t> send_receive_raw_data(const std::vector<uint8_t>& input) override;
-        void create_snapshot(std::shared_ptr<debug_interface>& snapshot) const override;
-        void enable_recording(std::function<void(const debug_interface&)> record_action) override;
-
-    private:
     };
 
     class CSMono_camera: public cs_mono
