@@ -106,12 +106,12 @@ namespace librealsense
     {
         using namespace ds;
 
-        _hw_monitor = std::make_shared<hw_monitor>(std::shared_ptr<cs_sensor>(&get_color_sensor()));
+        _hw_monitor = std::make_shared<hw_monitor>(&get_color_sensor());
 
         _color_calib_table_raw = [this]() { return get_raw_calibration_table(rgb_calibration_id); };
         _color_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]() { return from_pose(get_color_stream_extrinsic(*_color_calib_table_raw)); });
 
-        auto& color_ep = get_color_sensor();
+        //auto& color_ep = get_color_sensor();
 
         /*roi_sensor_interface* roi_sensor;
         if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&color_ep))
@@ -122,7 +122,7 @@ namespace librealsense
     {
         using namespace ds;
 
-        _hw_monitor = std::make_shared<hw_monitor>(std::shared_ptr<cs_sensor>(&get_depth_sensor()));
+        _hw_monitor = std::make_shared<hw_monitor>(&get_depth_sensor());
 
         _depth_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]()
                 {
