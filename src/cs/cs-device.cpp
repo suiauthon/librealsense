@@ -14,7 +14,7 @@
 
 namespace librealsense
 {
-    cs_auto_exposure_roi_method::cs_auto_exposure_roi_method(const cs_hw_monitor& hwm,
+    cs_auto_exposure_roi_method::cs_auto_exposure_roi_method(const hw_monitor& hwm,
                                                              ds::fw_cmd cmd)
             : _hw_monitor(hwm), _cmd(cmd) {}
 
@@ -49,11 +49,64 @@ namespace librealsense
         return roi;
     }
 
+    ds::depth_table_control cs_depth_scale_option::get_depth_table(ds::advanced_query_mode mode) const
+    {
+        command cmd(ds::GET_ADV);
+        cmd.param1 = ds::etDepthTableControl;
+        cmd.param2 = mode;
+        auto res = _hwm.send(cmd);
+
+        if (res.size() < sizeof(ds::depth_table_control))
+            throw std::runtime_error("Not enough bytes returned from the firmware!");
+
+        auto table = (const ds::depth_table_control*)res.data();
+        return *table;
+    }
+
+    cs_depth_scale_option::cs_depth_scale_option(hw_monitor& hwm)
+            : _hwm(hwm)
+    {
+        _range = [this]()
+        {
+            auto min = get_depth_table(ds::GET_MIN);
+            auto max = get_depth_table(ds::GET_MAX);
+            return option_range{ (float)(0.000001 * min.depth_units),
+                                 (float)(0.000001 * max.depth_units),
+                                 0.000001f, 0.001f };
+        };
+    }
+
+    void cs_depth_scale_option::set(float value)
+    {
+        command cmd(ds::SET_ADV);
+        cmd.param1 = ds::etDepthTableControl;
+
+        auto depth_table = get_depth_table(ds::GET_VAL);
+        depth_table.depth_units = static_cast<uint32_t>(1000000 * value);
+        auto ptr = (uint8_t*)(&depth_table);
+        cmd.data = std::vector<uint8_t>(ptr, ptr + sizeof(ds::depth_table_control));
+
+        _hwm.send(cmd);
+        _record_action(*this);
+        notify(value);
+    }
+
+    float cs_depth_scale_option::query() const
+    {
+        auto table = get_depth_table(ds::GET_VAL);
+        return (float)(0.000001 * (float)table.depth_units);
+    }
+
+    option_range cs_depth_scale_option::get_range() const
+    {
+        return *_range;
+    }
+
     void cs_color::color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
     {
         using namespace ds;
 
-        _hw_monitor = std::make_shared<cs_hw_monitor>(get_color_sensor());
+        _hw_monitor = std::make_shared<hw_monitor>(std::shared_ptr<cs_sensor>(&get_color_sensor()));
 
         _color_calib_table_raw = [this]() { return get_raw_calibration_table(rgb_calibration_id); };
         _color_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]() { return from_pose(get_color_stream_extrinsic(*_color_calib_table_raw)); });
@@ -69,7 +122,7 @@ namespace librealsense
     {
         using namespace ds;
 
-        _hw_monitor = std::make_shared<cs_hw_monitor>(get_depth_sensor());
+        _hw_monitor = std::make_shared<hw_monitor>(std::shared_ptr<cs_sensor>(&get_depth_sensor()));
 
         _depth_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]()
                 {
@@ -107,11 +160,10 @@ namespace librealsense
         depth_ep.register_option(RS2_OPTION_STEREO_BASELINE, std::make_shared<const_value_option>("Distance in mm between the stereo imagers",
                                                                                                   lazy<float>([this]() { return get_stereo_baseline_mm(); })));
 
-
-        /*if (advanced_mode && _fw_version >= firmware_version("5.6.3.0"))
+        if (advanced_mode && _fw_version >= firmware_version("5.6.3.0"))
         {
-            auto depth_scale = std::make_shared<depth_scale_option>(*_hw_monitor);
-            auto depth_sensor = As<ds5_depth_sensor, uvc_sensor>(&depth_ep);
+            auto depth_scale = std::make_shared<cs_depth_scale_option>(*_hw_monitor);
+            auto depth_sensor = As<cs_depth_sensor, cs_sensor>(&depth_ep);
             assert(depth_sensor);
 
             depth_scale->add_observer([depth_sensor](float val)
@@ -121,9 +173,11 @@ namespace librealsense
 
             depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, depth_scale);
         }
-        else*/
+        else
             depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
                                                                                                   lazy<float>([]() { return 0.001f; })));
+
+        register_info(RS2_CAMERA_INFO_ADVANCED_MODE, ((advanced_mode) ? "YES" : "NO"));
     }
 
     std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
@@ -363,27 +417,11 @@ namespace librealsense
         //TODO: Implement
     }
 
-    cs_camera::cs_camera(std::shared_ptr<context> ctx,
-                         const platform::cs_device_info &hwm_device,
-                         const platform::backend_device_group& group,
-                         bool register_device_notifications)
-            : device(ctx, group, register_device_notifications)
-    {
-        register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
-        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
-        register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
-        //TODO ovo treba dodati ako se hoce koristiti fw loger, ali tu fali puno stvari od dohvacanja podataka s kamere koje
-        //TODO ja u ovom trenutku ne mogu napraviti
-        //TODO isto tako bi trebalo registrirati info RS2_CAMERA_INFO_PHYSICAL_PORT
-        //register_info(RS2_CAMERA_INFO_DEBUG_OP_CODE, std::to_string(static_cast<int>(fw_cmd::GLD)));
-    }
-
     CSMono_camera::CSMono_camera(std::shared_ptr<context> ctx,
                                  const platform::cs_device_info &hwm_device,
                                  const platform::backend_device_group& group,
                                  bool register_device_notifications)
             : device(ctx, group, register_device_notifications),
-              //cs_camera(ctx, hwm_device, group, register_device_notifications),
               cs_mono(ctx, group, register_device_notifications)
     {
         _cs_device = ctx->get_backend().create_cs_device(hwm_device);
@@ -399,21 +437,24 @@ namespace librealsense
                                const platform::backend_device_group& group,
                                bool register_device_notifications)
             : device(ctx, group, register_device_notifications),
-              //cs_camera(ctx, hwm_device, group, register_device_notifications),
               cs_color(ctx, group, register_device_notifications),
-              cs_depth(ctx, group, register_device_notifications)
+              cs_depth(ctx, group, register_device_notifications),
+              cs_advanced_mode_base()
     {
         _cs_device = ctx->get_backend().create_cs_device(hwm_device);
 
-        _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
         _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
+        _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
 
         depth_init(ctx, group);
         color_init(ctx, group);
 
+        cs_advanced_mode_init(cs_depth::_hw_monitor, &get_depth_sensor());
+
         register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
         register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
         register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
+        register_info(RS2_CAMERA_INFO_FIRMWARE_VERSION, cs_depth::_fw_version);
     }
 
     std::shared_ptr<matcher> CSMono_camera::create_matcher(const frame_holder& frame) const
@@ -448,23 +489,6 @@ namespace librealsense
         std::vector<tagged_profile> markers;
         markers.push_back({ RS2_STREAM_ANY, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
         return markers;
-    }
-
-    std::vector<uint8_t> cs_camera::send_receive_raw_data(const std::vector<uint8_t>& input)
-    {
-        std::vector<uint8_t> a;
-        return a;
-        //TODO implement
-    }
-
-    void cs_camera::create_snapshot(std::shared_ptr<debug_interface>& snapshot) const
-    {
-        //TODO implement
-    }
-
-    void cs_camera::enable_recording(std::function<void(const debug_interface&)> record_action)
-    {
-        //TODO implement
     }
 
     void cs_pu_option::set(float value)

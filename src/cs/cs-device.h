@@ -5,15 +5,12 @@
 #pragma once
 
 #include "cs/cs-factory.h"
-#include "cs/cs-hw-monitor.h"
 #include "device.h"
-#include "core/debug.h"
 #include "ds5/ds5-private.h"
+#include "core/advanced_mode.h"
 
 namespace librealsense
 {
-    class cs_camera;
-
     class cs_pu_option : public option
     {
     public:
@@ -62,14 +59,40 @@ namespace librealsense
     class cs_auto_exposure_roi_method : public region_of_interest_method
     {
     public:
-        explicit cs_auto_exposure_roi_method(const cs_hw_monitor& hwm,
+        explicit cs_auto_exposure_roi_method(const hw_monitor& hwm,
                                              ds::fw_cmd cmd = ds::fw_cmd::SETAEROI);
 
         void set(const region_of_interest& roi) override;
         region_of_interest get() const override;
     private:
         const ds::fw_cmd _cmd;
-        const cs_hw_monitor& _hw_monitor;
+        const hw_monitor& _hw_monitor;
+    };
+
+    class cs_depth_scale_option : public option, public observable_option
+    {
+    public:
+        cs_depth_scale_option(hw_monitor& hwm);
+        virtual ~cs_depth_scale_option() = default;
+        virtual void set(float value) override;
+        virtual float query() const override;
+        virtual option_range get_range() const override;
+        virtual bool is_enabled() const override { return true; }
+
+        const char* get_description() const override
+        {
+            return "Number of meters represented by a single depth unit";
+        }
+        void enable_recording(std::function<void(const option &)> record_action)
+        {
+            _record_action = record_action;
+        }
+
+    private:
+        ds::depth_table_control get_depth_table(ds::advanced_query_mode mode) const;
+        std::function<void(const option &)> _record_action = [](const option&) {};
+        lazy<option_range> _range;
+        hw_monitor& _hwm;
     };
 
     class cs_color : public virtual device
@@ -97,7 +120,7 @@ namespace librealsense
     private:
         friend class cs_color_sensor;
 
-        std::shared_ptr<cs_hw_monitor> _hw_monitor;
+        std::shared_ptr<hw_monitor> _hw_monitor;
 
         lazy<std::vector<uint8_t>> _color_calib_table_raw;
         std::shared_ptr<lazy<rs2_extrinsics>> _color_extrinsic;
@@ -137,10 +160,9 @@ namespace librealsense
         std::shared_ptr<stream_interface> _depth_stream;
         uint8_t _depth_device_idx;
 
-    private:
         friend class cs_depth_sensor;
 
-        std::shared_ptr<cs_hw_monitor> _hw_monitor;
+        std::shared_ptr<hw_monitor> _hw_monitor;
         firmware_version            _fw_version;
         firmware_version            _recommended_fw_version;
         ds::d400_caps _device_capabilities;
@@ -172,22 +194,6 @@ namespace librealsense
         //std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
     };
 
-    class cs_camera: public virtual device,
-                     public debug_interface
-    {
-    public:
-        cs_camera(std::shared_ptr<context> ctx,
-                  const platform::cs_device_info &hwm_device,
-                  const platform::backend_device_group& group,
-                  bool register_device_notifications);
-
-        std::vector<uint8_t> send_receive_raw_data(const std::vector<uint8_t>& input) override;
-        void create_snapshot(std::shared_ptr<debug_interface>& snapshot) const override;
-        void enable_recording(std::function<void(const debug_interface&)> record_action) override;
-
-    private:
-    };
-
     class CSMono_camera: public cs_mono
     {
     public:
@@ -207,7 +213,8 @@ namespace librealsense
     };
 
     class D435e_camera : public cs_color,
-                         public cs_depth
+                         public cs_depth,
+                         public cs_advanced_mode_base
     {
     public:
         D435e_camera(std::shared_ptr<context> ctx,

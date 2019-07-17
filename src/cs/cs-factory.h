@@ -7,8 +7,6 @@
 
 #include "smcs_cpp/CameraSDK.h"
 #include "smcs_cpp/IImageBitmap.h"
-#include "context.h"
-#include "environment.h"
 #include "stream.h"
 #include "cs-option.h"
 
@@ -304,6 +302,8 @@ namespace librealsense {
             power on(std::dynamic_pointer_cast<cs_sensor>(shared_from_this()));
             return action(*_device);
         }
+
+        std::vector<platform::stream_profile> get_configuration() const { return _internal_config; }
 
         void register_pu(rs2_option id);
 
