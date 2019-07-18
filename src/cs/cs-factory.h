@@ -137,7 +137,7 @@ namespace librealsense {
 
             void start_acquisition();
 
-            void stop__acquisition();
+            void stop_acquisition();
 
             uint32_t cs_pixel_format_to_native_pixel_format(std::string cs_format);
 
