@@ -907,6 +907,8 @@ namespace librealsense {
 
         std::vector<byte> cs_device::send_hwm(std::vector<byte>& buffer)
         {
+            std::lock_guard<std::mutex> lock(_hwm_lock);
+            
             UINT64 address, regLength;
             UINT32 restSize;
             UINT8 readBuffer[GVCP_WRITEMEM_MAX_COUNT];
@@ -986,7 +988,6 @@ namespace librealsense {
 
             UINT32 src_pixel_type;
             double timestamp;
-
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
                 //if (!_connected_device->IsBufferEmpty()) {
                 if (_connected_device->GetImageInfo(&image_info_, stream))
@@ -1016,7 +1017,7 @@ namespace librealsense {
         {
             if (stream < _number_of_streams)
             {
-                if (!_is_capturing[stream] && !_callbacks[stream])
+                if (!_is_capturing[stream]/* && !_callbacks[stream]*/)
                 {
                     set_format(profile);
                     _profiles[stream] = profile;

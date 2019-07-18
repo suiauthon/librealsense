@@ -981,6 +981,9 @@ namespace librealsense
                     case ds::RS420_PID:
                         default_420(p);
                         break;
+                    case 65535:
+                        default_430(p);
+                        break;
                     default:
                         default_430(p);
                         throw invalid_value_exception(to_string() << "apply_preset(...) failed! Given device doesn't support Default Preset (pid=0x" <<
@@ -1757,8 +1760,8 @@ namespace librealsense
             return;
         }
 
-        auto uvc_sensor = dynamic_cast<librealsense::uvc_sensor*>(&_ep);
-        auto configurations = uvc_sensor->get_configuration();
+        auto cs_sensor = dynamic_cast<librealsense::cs_sensor*>(&_ep);
+        auto configurations = cs_sensor->get_configuration();
         _advanced.apply_preset(configurations, preset, get_device_pid(_ep), get_firmware_version(_ep));
         _last_preset = preset;
         _recording_function(*this);
@@ -1797,6 +1800,8 @@ namespace librealsense
         std::stringstream ss;
         ss << std::hex << str_pid;
         ss >> device_pid;
+
+        printf("Device pid %d\n", device_pid);
         return device_pid;
     }
 

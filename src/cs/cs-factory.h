@@ -145,7 +145,7 @@ namespace librealsense {
             platform::cs_device_info _device_info;
             power_state _power_state;
             std::vector<std::atomic<bool>> _is_capturing;
-            std::mutex _power_lock, _stream_lock;
+            std::mutex _power_lock, _stream_lock, _hwm_lock;
             uint8_t _number_of_streams;
             smcs::ICameraAPI _smcs_api;
             smcs::IDevice _connected_device;
