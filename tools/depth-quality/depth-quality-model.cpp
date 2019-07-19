@@ -57,9 +57,17 @@ namespace rs2
 
             {
                 rs2::config cfg_default;
-                // Preferred configuration Depth + Synthetic Color
-                cfg_default.enable_stream(RS2_STREAM_DEPTH, -1, 0, 0, RS2_FORMAT_Z16, requested_fps);
-                cfg_default.enable_stream(RS2_STREAM_INFRARED, -1, 0, 0, RS2_FORMAT_RGB8, requested_fps);
+                std::string id = devices[0].get_info(RS2_CAMERA_INFO_NAME);
+                if (devices.size() && std::string(devices[0].get_info(RS2_CAMERA_INFO_NAME)) == "FRAMOS D435e") {
+                    cfg_default.enable_stream(RS2_STREAM_DEPTH);
+                    cfg_default.enable_stream(RS2_STREAM_COLOR, RS2_FORMAT_BGR8);
+                }
+                else {
+                    // Preferred configuration Depth + Synthetic Color
+                    cfg_default.enable_stream(RS2_STREAM_DEPTH, -1, 0, 0, RS2_FORMAT_Z16, requested_fps);
+                    cfg_default.enable_stream(RS2_STREAM_INFRARED, -1, 0, 0, RS2_FORMAT_RGB8, requested_fps);
+                }
+               
                 cfgs.emplace_back(cfg_default);
             }
             // Use Infrared luminocity as a secondary video in case synthetic chroma is not supported
