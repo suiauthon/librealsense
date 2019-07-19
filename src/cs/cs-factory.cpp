@@ -109,7 +109,6 @@ namespace librealsense {
 
     void cs_sensor::open(const stream_profiles& requests)
     {
-        //printf("Cs sensor OPEN\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("open(...) failed. CS device is streaming!");
@@ -240,7 +239,6 @@ namespace librealsense {
                                                       auto stream_type = pref->get_stream()->get_stream_type();
                                                       _on_before_frame_callback(stream_type, pref, std::move(callback));
                                                   }
-
                                                   if (pref->get_stream().get())
                                                   {
                                                       //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
@@ -305,7 +303,6 @@ namespace librealsense {
 
     void cs_sensor::close()
     {
-        //printf("Cs sensor CLOSE\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("close() failed. CS device is streaming!");
