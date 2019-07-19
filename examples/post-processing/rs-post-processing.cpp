@@ -79,8 +79,7 @@ int main(int argc, char * argv[]) try
         width = 1280;
         height = 720;
     }
-    cfg.enable_stream(RS2_STREAM_DEPTH, 640, 480, RS2_FORMAT_Z16, 30);
-    cfg.enable_stream(RS2_STREAM_DEPTH, 1280, 720, RS2_FORMAT_Z16, 30);
+    cfg.enable_stream(RS2_STREAM_DEPTH, width, height, RS2_FORMAT_Z16, 30);
     // Start streaming with the above configuration
     pipe.start(cfg);
 
