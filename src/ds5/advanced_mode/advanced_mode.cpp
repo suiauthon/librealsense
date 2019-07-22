@@ -1800,7 +1800,6 @@ namespace librealsense
         ss << std::hex << str_pid;
         ss >> device_pid;
 
-        printf("Device pid %d\n", device_pid);
         return device_pid;
     }
 
