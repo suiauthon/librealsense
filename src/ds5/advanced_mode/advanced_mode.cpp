@@ -1743,31 +1743,27 @@ namespace librealsense
 
     void cs_advanced_mode_preset_option::set(float value)
     {
-        //TODO
-        // remove this after resolving issue
-        if (!_ep.is_streaming()) {
-            std::lock_guard<std::mutex> lock(_mtx);
-            if (!is_valid(value))
-                throw invalid_value_exception(
-                        to_string() << "set(advanced_mode_preset_option) failed! Given value " << value
-                                    << " is out of range.");
+        std::lock_guard<std::mutex> lock(_mtx);
+        if (!is_valid(value))
+            throw invalid_value_exception(
+                    to_string() << "set(advanced_mode_preset_option) failed! Given value " << value
+                                << " is out of range.");
 
-            if (!_advanced.is_enabled())
-                throw wrong_api_call_sequence_exception(
-                        to_string() << "set(advanced_mode_preset_option) failed! Device is not in Advanced-Mode.");
+        if (!_advanced.is_enabled())
+            throw wrong_api_call_sequence_exception(
+                    to_string() << "set(advanced_mode_preset_option) failed! Device is not in Advanced-Mode.");
 
-            auto preset = to_preset(value);
-            if (preset == RS2_RS400_VISUAL_PRESET_CUSTOM || !_ep.is_streaming()) {
-                _last_preset = preset;
-                return;
-            }
-
-            auto cs_sensor = dynamic_cast<librealsense::cs_sensor *>(&_ep);
-            auto configurations = cs_sensor->get_configuration();
-            _advanced.apply_preset(configurations, preset, get_device_pid(_ep), get_firmware_version(_ep));
+        auto preset = to_preset(value);
+        if (preset == RS2_RS400_VISUAL_PRESET_CUSTOM || !_ep.is_streaming()) {
             _last_preset = preset;
-            _recording_function(*this);
+            return;
         }
+
+        auto cs_sensor = dynamic_cast<librealsense::cs_sensor *>(&_ep);
+        auto configurations = cs_sensor->get_configuration();
+        _advanced.apply_preset(configurations, preset, get_device_pid(_ep), get_firmware_version(_ep));
+        _last_preset = preset;
+        _recording_function(*this);
     }
 
     float cs_advanced_mode_preset_option::query() const
