@@ -111,6 +111,8 @@ namespace librealsense
         _color_calib_table_raw = [this]() { return get_raw_calibration_table(rgb_calibration_id); };
         _color_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]() { return from_pose(get_color_stream_extrinsic(*_color_calib_table_raw)); });
 
+        register_stream_to_extrinsic_group(*_color_stream, 0);
+
         //auto& color_ep = get_color_sensor();
 
         /*roi_sensor_interface* roi_sensor;
@@ -448,6 +450,8 @@ namespace librealsense
 
         depth_init(ctx, group);
         color_init(ctx, group);
+
+        environment::get_instance().get_extrinsics_graph().register_extrinsics(*_color_stream, *_depth_stream, _color_extrinsic);
 
         cs_advanced_mode_init(cs_depth::_hw_monitor, &get_depth_sensor());
 

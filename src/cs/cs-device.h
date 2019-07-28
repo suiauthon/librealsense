@@ -117,7 +117,6 @@ namespace librealsense
         std::shared_ptr<stream_interface> _color_stream;
         uint8_t _color_device_idx;
 
-    private:
         friend class cs_color_sensor;
 
         std::shared_ptr<hw_monitor> _hw_monitor;
@@ -286,10 +285,6 @@ namespace librealsense
                                           else
                                               return rs2_intrinsics{};
                                       });
-
-                //TODO
-                //provjeriti
-                //environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_owner->_color_stream, *p);
             }
 
             return results;
@@ -345,10 +340,6 @@ namespace librealsense
                                                         return rs2_intrinsics{};
                                                 });
                 }
-
-                //TODO
-                //provjeriti
-                environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_owner->_depth_stream, *p);
             }
 
             return results;
