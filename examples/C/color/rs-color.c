@@ -19,6 +19,8 @@
 #define FORMAT          RS2_FORMAT_RGB8   // rs2_format is identifies how binary data is encoded within a frame   //
 #define WIDTH           640               // Defines the number of columns for each frame                         //
 #define HEIGHT          480               // Defines the number of lines for each frame                           //
+#define D435E_WIDTH     1280              // Width used for D435e camera                                          //
+#define D435E_HEIGHT    720               // Height used for D435e camera                                         //
 #define FPS             30                // Defines the rate of frames per second                                //
 #define STREAM_INDEX    0                 // Defines the stream index, used for multiple streams of the same type //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,7 +64,14 @@ int main()
     check_error(e);
 
     // Request a specific configuration
-    rs2_config_enable_stream(config, STREAM, STREAM_INDEX, WIDTH, HEIGHT, FORMAT, FPS, &e);
+    int width = WIDTH;
+    int height = HEIGHT;
+    const char* id = rs2_get_device_info(dev, RS2_CAMERA_INFO_NAME, &e);
+    if (!e && strcmp(id, "FRAMOS D435e") == 0) {
+        width = D435E_WIDTH;
+        height = D435E_HEIGHT;
+    }
+    rs2_config_enable_stream(config, STREAM, STREAM_INDEX, width, height, FORMAT, FPS, &e);
     check_error(e);
 
     // Start the pipeline streaming

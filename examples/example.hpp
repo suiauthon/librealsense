@@ -403,6 +403,7 @@ public:
         switch (format)
         {
         case RS2_FORMAT_RGB8:
+        case RS2_FORMAT_BGR8:
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, frame.get_data());
             break;
         case RS2_FORMAT_RGBA8:
@@ -665,6 +666,7 @@ private:
         case RS2_FORMAT_RGBA8:
         case RS2_FORMAT_Y8:
         case RS2_FORMAT_MOTION_XYZ32F:
+        case RS2_FORMAT_BGR8:
             return true;
         default:
             return false;

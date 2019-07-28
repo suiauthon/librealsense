@@ -40,7 +40,6 @@ namespace librealsense {
             explicit cs_device(platform::cs_device_info hwm)
                     : _device_info(std::move(hwm)),
                       _power_state(D3),
-                      _is_acquisition_active(0),
                       _connected_device(NULL) {
                 //printf("Stvaram cs device\n");
                 _smcs_api = smcs::GetCameraAPI();
@@ -135,9 +134,9 @@ namespace librealsense {
 
             bool set_cs_param(rs2_option option, int32_t value, cs_stream stream);
 
-            void start_acquisition();
+            void start_acquisition(cs_stream_id stream);
 
-            void stop_acquisition();
+            void stop_acquisition(cs_stream_id stream);
 
             uint32_t cs_pixel_format_to_native_pixel_format(std::string cs_format);
 
@@ -146,8 +145,8 @@ namespace librealsense {
             platform::cs_device_info _device_info;
             power_state _power_state;
             std::vector<std::atomic<bool>> _is_capturing;
-            std::mutex _power_lock, _stream_lock, _hwm_lock;;
-            uint8_t _is_acquisition_active, _number_of_streams;
+            std::mutex _power_lock, _stream_lock, _hwm_lock;
+            uint8_t _number_of_streams;
             smcs::ICameraAPI _smcs_api;
             smcs::IDevice _connected_device;
             std::vector<frame_callback> _callbacks;

@@ -65,7 +65,21 @@ int main(int argc, char * argv[]) try
     rs2::pipeline pipe;
     rs2::config cfg;
     // Use a configuration object to request only depth from the pipeline
-    cfg.enable_stream(RS2_STREAM_DEPTH, 640, 480, RS2_FORMAT_Z16, 30);
+    int width = 640;
+    int height = 480;
+
+    rs2::context ctx;
+    auto list = ctx.query_devices();
+    rs2::device dev = list.front();
+    if (list.size() == 0)
+        throw std::runtime_error("No device detected.");
+    std::string id = dev.get_info(RS2_CAMERA_INFO_NAME);
+    
+    if (id == "FRAMOS D435e") {
+        width = 1280;
+        height = 720;
+    }
+    cfg.enable_stream(RS2_STREAM_DEPTH, width, height, RS2_FORMAT_Z16, 30);
     // Start streaming with the above configuration
     pipe.start(cfg);
 

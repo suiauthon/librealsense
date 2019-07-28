@@ -23,8 +23,24 @@ int main(int argc, char * argv[]) try
 
     // Declare RealSense pipeline, encapsulating the actual device and sensors
     rs2::pipeline pipe;
-    // Start streaming with default recommended configuration
-    pipe.start();
+
+    rs2::context ctx;
+    auto list = ctx.query_devices();
+    rs2::device dev = list.front();
+    if (list.size() == 0)
+        throw std::runtime_error("No device detected.");
+    std::string id = dev.get_info(RS2_CAMERA_INFO_NAME);
+
+    if (id == "FRAMOS D435e") {
+        rs2::config cfg;
+        cfg.enable_stream(RS2_STREAM_COLOR, RS2_FORMAT_BGR8);
+        cfg.enable_stream(RS2_STREAM_DEPTH);
+        pipe.start(cfg);
+    }
+    else {
+        // Start streaming with default recommended configuration
+        pipe.start();
+    }
 
     // Capture 30 frames to give autoexposure, etc. a chance to settle
     for (auto i = 0; i < 30; ++i) pipe.wait_for_frames();
