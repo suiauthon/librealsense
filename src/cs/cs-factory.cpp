@@ -403,18 +403,29 @@ namespace librealsense {
             std::vector<stream_profile> all_stream_profiles;
             stream_profile profile;
             INT64 int64Value;
-            smcs::StringList node_value_list;
             bool is_successful = true;
+
+            std::string sourceSelectorValue;
+            is_successful = is_successful &_connected_device->GetStringNodeValue("SourceControlSelector", sourceSelectorValue);
 
             for (int i = 0; i < _number_of_streams; i++)
             {
-                is_successful = is_successful & _connected_device->GetIntegerNodeValue("SensorWidth", int64Value);
+                is_successful = is_successful & _connected_device->SetStringNodeValue("SourceControlSelector", "Source" + std::to_string(i));
+                is_successful = is_successful & _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
+                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
+                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "On");
+                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region1");
+                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "Off");
+                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
+                
+                is_successful = is_successful & _connected_device->GetIntegerNodeValue("Width", int64Value);
                 profile.width = (uint32_t)int64Value;
 
-                is_successful = is_successful & _connected_device->GetIntegerNodeValue("SensorHeight", int64Value);
+                is_successful = is_successful & _connected_device->GetIntegerNodeValue("Height", int64Value);
                 profile.height = (uint32_t)int64Value;
 
-                is_successful = is_successful & _connected_device->GetEnumNodeValuesList("PixelFormat", node_value_list);
+                std::string pixelFormat;
+                is_successful = is_successful & _connected_device->GetStringNodeValue("PixelFormat", pixelFormat);
 
                 if (_connected_device->GetIntegerNodeValue("FPS", int64Value)) {
                     profile.fps = (uint32_t)int64Value;
@@ -423,10 +434,12 @@ namespace librealsense {
 
                 if (is_successful)
                 {
-                    profile.format = cs_pixel_format_to_native_pixel_format(node_value_list[i]);
+                    profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
                     all_stream_profiles.push_back(profile);
                 }
             }
+
+            _connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
 
             return all_stream_profiles;
         }
