@@ -45,6 +45,13 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/common
     DESTINATION src/librealsense2    
 )
 
+install(FILES 
+    ${PROJECT_SOURCE_DIR}/src/types.h
+    ${PROJECT_SOURCE_DIR}/src/backend.h
+    ${PROJECT_SOURCE_DIR}/src/concurrency.h
+    DESTINATION src/librealsense2/common
+)
+
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/CMake
     DESTINATION src/librealsense2    
 )
