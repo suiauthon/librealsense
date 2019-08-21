@@ -25,6 +25,14 @@ install(TARGETS ${LRS_TARGET}
     PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_PREFIX}/include/librealsense2"
 )
 
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/examples
+    DESTINATION src/librealsense2
+)
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/tools
+    DESTINATION src/librealsense2    
+)
+
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/librealsense2
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
