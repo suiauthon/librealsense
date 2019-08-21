@@ -33,6 +33,18 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/tools
     DESTINATION src/librealsense2    
 )
 
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include
+    DESTINATION src/librealsense2    
+)
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/third-party
+    DESTINATION src/librealsense2    
+)
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/common
+    DESTINATION src/librealsense2    
+)
+
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/CMake
     DESTINATION src/librealsense2    
 )

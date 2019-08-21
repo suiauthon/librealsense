@@ -8,6 +8,10 @@ include(CMake/global_config.cmake)
 
 config_cxx_flags()
 
+#include third-party stuff for examples only
+include(third-party/realsense-file/config.cmake)
+add_subdirectory(third-party/glfw)
+
 # include os specific macros
 # macro definition located at "CMake/global_config.cmake"
 include(CMake/include_os.cmake)
@@ -20,16 +24,7 @@ os_set_flags()
 # macro definition located at "CMake/global_config.cmake"
 global_set_flags()
 
-# configure the project according to OS specific requirments
-# macro definition located at "CMake/<OS>_config.cmake"
-os_target_config()
-
-# global project configuration
-# macro definition located at "CMake/global_config.cmake"
-global_target_config()
-option(BUILD_CV_KINFU_EXAMPLE "Build OpenCV KinectFusion example" OFF)
+find_package(realsense2 REQUIRED)
 
 add_subdirectory(examples)
 add_subdirectory(tools)
-
-include(CMake/install_config.cmake)
