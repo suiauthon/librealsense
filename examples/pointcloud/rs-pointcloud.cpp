@@ -25,8 +25,27 @@ int main(int argc, char * argv[]) try
 
     // Declare RealSense pipeline, encapsulating the actual device and sensors
     rs2::pipeline pipe;
-    // Start streaming with default recommended configuration
-    pipe.start();
+
+	//D435e only
+	rs2::context ctx;
+	auto list = ctx.query_devices();
+	rs2::device dev = list.front();
+	if (list.size() == 0)
+		throw std::runtime_error("No device detected.");
+	std::string id = dev.get_info(RS2_CAMERA_INFO_NAME);
+
+	// Start streaming with default recommended configuration
+	// The default video configuration contains Depth and Color streams
+	// If a device is capable to stream IMU data, both Gyro and Accelerometer are enabled by default
+	if (id == "FRAMOS D435e") {
+		rs2::config cfg;
+		cfg.enable_stream(RS2_STREAM_COLOR, rs2_format::RS2_FORMAT_BGR8);
+		cfg.enable_stream(RS2_STREAM_DEPTH);
+		pipe.start(cfg);
+	}
+	else {
+		pipe.start();
+	}
 
     while (app) // Application still alive?
     {
