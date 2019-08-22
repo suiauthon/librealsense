@@ -971,6 +971,11 @@ namespace librealsense {
             return out_vec;
         }
 
+        std::string cs_device::get_device_version()
+        {
+            return _device_version;
+        }
+
         void cs_device::capture_loop(cs_stream_id stream)
         {
             try

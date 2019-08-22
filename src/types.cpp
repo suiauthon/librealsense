@@ -342,6 +342,7 @@ namespace librealsense
             CASE(NAME)
             CASE(SERIAL_NUMBER)
             CASE(FIRMWARE_VERSION)
+            CASE(DEVICE_VERSION)
             CASE(RECOMMENDED_FIRMWARE_VERSION)
             CASE(PHYSICAL_PORT)
             CASE(DEBUG_OP_CODE)

@@ -455,10 +455,13 @@ namespace librealsense
 
         cs_advanced_mode_init(cs_depth::_hw_monitor, &get_depth_sensor());
 
+        this->
+
         register_info(RS2_CAMERA_INFO_NAME, "FRAMOS D435e"/*hwm_device.info*/);
         register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
         register_info(RS2_CAMERA_INFO_PRODUCT_ID, "0B07"/*hwm_device.id*/);
         register_info(RS2_CAMERA_INFO_FIRMWARE_VERSION, cs_depth::_fw_version);
+        register_info(RS2_CAMERA_INFO_DEVICE_VERSION, _cs_device->get_device_version());
     }
 
     std::shared_ptr<matcher> CSMono_camera::create_matcher(const frame_holder& frame) const

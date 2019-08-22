@@ -64,6 +64,7 @@ namespace librealsense {
                                 _callbacks = std::vector<frame_callback>(_number_of_streams);
                                 _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
                                 _profiles = std::vector<stream_profile>(_number_of_streams);
+                                _device_version = _connected_device->GetDeviceVersion();
 
                                 for (int i = 0; i < _number_of_streams; i++)
                                 {
@@ -111,9 +112,9 @@ namespace librealsense {
 
             std::vector<byte> send_hwm(std::vector<byte>& buffer);
 
-        protected:
-            void prepare_capture_buffers();
+            std::string get_device_version();
 
+        protected:
             void capture_loop(cs_stream_id stream);
 
             void set_format(stream_profile profile);
@@ -140,7 +141,6 @@ namespace librealsense {
 
             uint32_t cs_pixel_format_to_native_pixel_format(std::string cs_format);
 
-            //std::vector<std::shared_ptr<buffer>> _buffers;
             std::vector<std::unique_ptr <std::thread>> _threads;
             platform::cs_device_info _device_info;
             power_state _power_state;
@@ -150,6 +150,7 @@ namespace librealsense {
             smcs::ICameraAPI _smcs_api;
             smcs::IDevice _connected_device;
             std::vector<frame_callback> _callbacks;
+            std::string _device_version;
         };
     }
 
