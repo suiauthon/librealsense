@@ -25,6 +25,42 @@ install(TARGETS ${LRS_TARGET}
     PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_PREFIX}/include/librealsense2"
 )
 
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/examples
+    DESTINATION src/librealsense2
+)
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/tools
+    DESTINATION src/librealsense2    
+)
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include
+    DESTINATION src/librealsense2    
+)
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/third-party
+    DESTINATION src/librealsense2    
+)
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/common
+    DESTINATION src/librealsense2    
+)
+
+install(FILES 
+    ${PROJECT_SOURCE_DIR}/src/types.h
+    ${PROJECT_SOURCE_DIR}/src/backend.h
+    ${PROJECT_SOURCE_DIR}/src/concurrency.h
+    DESTINATION src/librealsense2/common
+)
+
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/CMake
+    DESTINATION src/librealsense2    
+)
+
+install(FILES ${PROJECT_SOURCE_DIR}/CMakeListsTarget.txt
+    RENAME CMakeLists.txt
+    DESTINATION src/librealsense2
+)
+
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/librealsense2
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
@@ -49,3 +85,10 @@ install(CODE "execute_process(COMMAND ldconfig)")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/config/realsense2.pc"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
 )
+
+set(CPACK_PACKAGE_NAME "FRAMOS-librealsense2")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "FRAMOS GmbH")
+set(CPACK_PACKAGE_VERSION_MAJOR 2)
+set(CPACK_PACKAGE_VERSION_MINOR 20)
+set(CPACK_PACKAGE_VERSION_PATCH 2)
+include(CPack)
