@@ -887,7 +887,7 @@ namespace librealsense {
 
                 auto capturing = std::find_if(
                     _is_capturing.begin(), _is_capturing.end(), 
-                    [](std::atomic<bool> capturing) { 
+                    [](std::atomic<bool> &capturing) { 
                         return capturing == true; 
                     }
                 );
