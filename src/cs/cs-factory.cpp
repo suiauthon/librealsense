@@ -846,7 +846,17 @@ namespace librealsense {
 
         void cs_device::start_acquisition(cs_stream_id stream)
         {
-            // NOTE: selectors and controls for starting and stopping acquisition will change in future fw versions
+            if (_cs_firmware_version <= cs_firmware_version(1, 2, 0, 0)) {
+
+                auto capturing = std::count_if(
+                    _is_capturing.begin(), _is_capturing.end(), 
+                    [](std::atomic<bool> &capturing) {
+                        return capturing == true;
+                    }
+                );
+                if (capturing != 1)
+                    return;
+            }
 
             // select the appropriate source (TriggerMode, AcquisitionMode, TLParamsLocked, AcquisitionStart)
             _connected_device->SetIntegerNodeValue("SourceControlSelector", stream);
@@ -873,6 +883,18 @@ namespace librealsense {
 
         void cs_device::stop_acquisition(cs_stream_id stream)
         {
+            if (_cs_firmware_version <= cs_firmware_version(1, 2, 0, 0)) {
+
+                auto capturing = std::find_if(
+                    _is_capturing.begin(), _is_capturing.end(), 
+                    [](std::atomic<bool> capturing) { 
+                        return capturing == true; 
+                    }
+                );
+                if (capturing != _is_capturing.end())
+                    return;
+            }
+
             // select the appropriate source (TLParamsLocked, AcquisitionStart)
             _connected_device->SetIntegerNodeValue("SourceControlSelector", stream);
 
@@ -1041,7 +1063,9 @@ namespace librealsense {
                     _profiles[stream] = profile;
                     _callbacks[stream] = callback;
                 }
-                else throw wrong_api_call_sequence_exception("Device already streaming!");
+                else {
+                    throw wrong_api_call_sequence_exception("Device already streaming!");
+                }
             }
             else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
         }

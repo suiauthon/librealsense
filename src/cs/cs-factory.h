@@ -91,6 +91,11 @@ namespace librealsense {
             return false;
         }
 
+        bool operator < (const cs_firmware_version &other)
+        {
+            return !(*this >= other);
+        }
+
         bool operator == (const cs_firmware_version &other)
         {
             return
@@ -103,6 +108,11 @@ namespace librealsense {
         bool operator >= (const cs_firmware_version &other)
         {
             return (*this > other) || (*this == other);
+        }
+
+        bool operator <= (const cs_firmware_version &other)
+        {
+            return (*this < other) || (*this == other);
         }
 
     private:
@@ -145,7 +155,7 @@ namespace librealsense {
                                 for (int i = 0; i < _number_of_streams; i++)
                                 {
                                     _threads[i] = nullptr;
-                                    _is_capturing[i] = 0;
+                                    _is_capturing[i] = false;
                                     _callbacks[i] = nullptr;
                                 }
                             }
