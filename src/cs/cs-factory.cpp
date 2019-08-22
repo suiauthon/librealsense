@@ -411,12 +411,15 @@ namespace librealsense {
             for (int i = 0; i < _number_of_streams; i++)
             {
                 is_successful = is_successful & _connected_device->SetStringNodeValue("SourceControlSelector", "Source" + std::to_string(i));
-                is_successful = is_successful & _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
-                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
-                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "On");
-                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region1");
-                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "Off");
-                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
+                
+                if (_cs_firmware_version >= cs_firmware_version(1, 3)) {
+                    is_successful = is_successful & _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
+                    is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
+                    is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "On");
+                    is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region1");
+                    is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "Off");
+                    is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
+                }
                 
                 is_successful = is_successful & _connected_device->GetIntegerNodeValue("Width", int64Value);
                 profile.width = (uint32_t)int64Value;

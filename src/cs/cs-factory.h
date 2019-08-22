@@ -5,6 +5,7 @@
 #ifndef LIBREALSENSE2_CS_FACTORY_H
 #define LIBREALSENSE2_CS_FACTORY_H
 
+#include <regex>
 #include "smcs_cpp/CameraSDK.h"
 #include "smcs_cpp/IImageBitmap.h"
 #include "stream.h"
@@ -33,6 +34,80 @@ namespace librealsense {
     };
 
     cs_stream_id cs_stream_to_id(cs_stream stream);
+
+    class cs_firmware_version
+    {
+    public:
+        explicit cs_firmware_version(UINT32 major = 0, UINT32 minor = 0, UINT32 patch = 0, UINT32 build = 0)
+            : _major(major)
+            , _minor(minor)
+            , _patch(patch)
+            , _build(build)
+        {}
+
+        explicit cs_firmware_version(smcs::IDevice &device)
+        {
+            auto device_version = device->GetDeviceVersion();
+            std::smatch match;
+            if (std::regex_search(device_version, match, std::regex("FW:([0-9])\.([0-9])\.([0-9])\.([0-9])"))) {
+                try {
+                    _major = std::stoi(match[1]);
+                    _minor = std::stoi(match[2]);
+                    _patch = std::stoi(match[3]);
+                    _build = std::stoi(match[4]);
+                }
+                catch (...) {
+                    _major = 0;
+                    _minor = 0;
+                    _patch = 0;
+                    _build = 0;
+                }
+            }
+
+        }
+
+        bool operator > (const cs_firmware_version &other)
+        {
+            if (_major > other._major)
+                return true;
+            else if (_major < other._major)
+                return false;
+
+            if (_minor > other._minor)
+                return true;
+            else if (_minor < other._minor)
+                return false;
+
+            if (_patch > other._patch)
+                return true;
+            else if (_patch < other._patch)
+                return false;
+
+            if (_build > other._build)
+                return true;
+            else if (_build < other._build)
+                return false;
+
+            return false;
+        }
+
+        bool operator == (const cs_firmware_version &other)
+        {
+            return
+                (_major == other._major) &&
+                (_minor == other._minor) &&
+                (_patch == other._patch) &&
+                (_build == other._build);
+        }
+
+        bool operator >= (const cs_firmware_version &other)
+        {
+            return (*this > other) || (*this == other);
+        }
+
+    private:
+        UINT32 _major, _minor, _patch, _build;
+    };
 
     namespace platform {
         class cs_device {
@@ -65,6 +140,7 @@ namespace librealsense {
                                 _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
                                 _profiles = std::vector<stream_profile>(_number_of_streams);
                                 _device_version = _connected_device->GetDeviceVersion();
+                                _cs_firmware_version = cs_firmware_version(_connected_device);
 
                                 for (int i = 0; i < _number_of_streams; i++)
                                 {
@@ -151,6 +227,7 @@ namespace librealsense {
             smcs::IDevice _connected_device;
             std::vector<frame_callback> _callbacks;
             std::string _device_version;
+            cs_firmware_version _cs_firmware_version;
         };
     }
 
