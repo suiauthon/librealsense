@@ -24,7 +24,14 @@ os_set_flags()
 # macro definition located at "CMake/global_config.cmake"
 global_set_flags()
 
-find_package(realsense2 REQUIRED)
+if(UNIX)
+    find_package(realsense2 REQUIRED)
+endif()
 
+if(WIN32)
+    include_directories("C:/Program Files/FRAMOS-librealsense2 2.20.2/include")
+    link_directories("C:/Program Files/FRAMOS-librealsense2 2.20.2/lib")
+endif()
+    
 add_subdirectory(examples)
 add_subdirectory(tools)
