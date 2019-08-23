@@ -13,7 +13,7 @@ CALL:INIT
 MKDIR build\%TARGET_SYSTEM% 2> nul
 CD build\%TARGET_SYSTEM%
 
-cmake -G "Visual Studio 14 2015 Win64" -DCMAKE_BUILD_TYPE=Release -DCPACK_SYSTEM_NAME=Linux64_x66 ../../
+cmake -G "Visual Studio 14 2015 Win64" -DCMAKE_BUILD_TYPE=Release -DCPACK_SYSTEM_NAME=Linux64_x64 ../../
 
 CALL "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86
 
