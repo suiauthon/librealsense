@@ -479,7 +479,7 @@ namespace librealsense
 
     std::shared_ptr<matcher> D435e_camera::create_matcher(const frame_holder& frame) const
     {
-        std::vector<stream_interface*> streams = {_color_stream.get(), _depth_stream.get(), _left_ir_stream.get() , _right_ir_stream.get()};
+        std::vector<stream_interface*> streams = {_color_stream.get(), _depth_stream.get()/*, _left_ir_stream.get() , _right_ir_stream.get()*/};
         if (frame.frame->supports_frame_metadata(RS2_FRAME_METADATA_FRAME_COUNTER))
         {
             return matcher_factory::create(RS2_MATCHER_DLR_C, streams);

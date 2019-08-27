@@ -277,7 +277,6 @@ namespace librealsense
                     assign_stream(_owner->_color_stream, p);
                 }
 
-
                 auto video = dynamic_cast<video_stream_profile_interface*>(p.get());
                 auto profile = to_profile(p.get());
 
@@ -332,12 +331,10 @@ namespace librealsense
                 else if (p->get_stream_type() == RS2_STREAM_INFRARED && p->get_stream_index() < 2)
                 {
                     assign_stream(_owner->_left_ir_stream, p);
-                    printf("Naaaaa\n");
                 }
                 else if (p->get_stream_type() == RS2_STREAM_INFRARED  && p->get_stream_index() == 2)
                 {
                     assign_stream(_owner->_right_ir_stream, p);
-                    printf("Naaaaa2\n");
                 }
                 auto vid_profile = dynamic_cast<video_stream_profile_interface*>(p.get());
 
