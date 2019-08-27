@@ -994,34 +994,48 @@ namespace rs2
             rs2_format def_format{ RS2_FORMAT_ANY };
             for (auto&& profile : sensor_profiles)
             {
-                std::stringstream res;
-                if (auto vid_prof = profile.as<video_stream_profile>())
-                {
-                    res << vid_prof.width() << " x " << vid_prof.height();
-                    push_back_if_not_exists(res_values, std::pair<int, int>(vid_prof.width(), vid_prof.height()));
-                    push_back_if_not_exists(resolutions, res.str());
+                //TODO remove
+                bool infrared_flag = true;
+                auto info_name = dev.get_info(RS2_CAMERA_INFO_NAME);
+                if (strcmp(info_name, "FRAMOS D435e") == 0) {
+                    if (profile.stream_name().compare("Infrared 1") == 0 || profile.stream_name().compare("Infrared 2") == 0)
+                    {
+                        infrared_flag = false;
+                        if (profile.is_default()) {
+                            stream_enabled[profile.unique_id()] = false;
+                            def_format = profile.format();
+                        }
+                    }
                 }
 
-                std::stringstream fps;
-                fps << profile.fps();
-                push_back_if_not_exists(fps_values_per_stream[profile.unique_id()], profile.fps());
-                push_back_if_not_exists(shared_fps_values, profile.fps());
-                push_back_if_not_exists(fpses_per_stream[profile.unique_id()], fps.str());
-                push_back_if_not_exists(shared_fpses, fps.str());
-                stream_display_names[profile.unique_id()] = profile.stream_name();
+                if (infrared_flag) {
+                    std::stringstream res;
+                    if (auto vid_prof = profile.as<video_stream_profile>()) {
+                        res << vid_prof.width() << " x " << vid_prof.height();
+                        push_back_if_not_exists(res_values, std::pair<int, int>(vid_prof.width(), vid_prof.height()));
+                        push_back_if_not_exists(resolutions, res.str());
+                    }
 
-                std::string format = rs2_format_to_string(profile.format());
+                    std::stringstream fps;
+                    fps << profile.fps();
+                    push_back_if_not_exists(fps_values_per_stream[profile.unique_id()], profile.fps());
+                    push_back_if_not_exists(shared_fps_values, profile.fps());
+                    push_back_if_not_exists(fpses_per_stream[profile.unique_id()], fps.str());
+                    push_back_if_not_exists(shared_fpses, fps.str());
+                    stream_display_names[profile.unique_id()] = profile.stream_name();
 
-                push_back_if_not_exists(formats[profile.unique_id()], format);
-                push_back_if_not_exists(format_values[profile.unique_id()], profile.format());
+                    std::string format = rs2_format_to_string(profile.format());
 
-                if (profile.is_default())
-                {
-                    stream_enabled[profile.unique_id()] = true;
-                    def_format = profile.format();
+                    push_back_if_not_exists(formats[profile.unique_id()], format);
+                    push_back_if_not_exists(format_values[profile.unique_id()], profile.format());
+
+                    if (profile.is_default()) {
+                        stream_enabled[profile.unique_id()] = true;
+                        def_format = profile.format();
+                    }
+
+                    profiles.push_back(profile);
                 }
-
-                profiles.push_back(profile);
             }
             auto any_stream_enabled = std::any_of(std::begin(stream_enabled), std::end(stream_enabled), [](const std::pair<int, bool>& p) { return p.second; });
             if (!any_stream_enabled)
