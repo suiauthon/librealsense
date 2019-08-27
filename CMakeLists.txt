@@ -18,7 +18,7 @@ os_set_flags()
 
 # set global configuration flags
 # macro definition located at "CMake/global_config.cmake"
-global_set_flags()
+global_set_flags(BUILD_WITH_TM2=false)
 
 if(BUILD_SHARED_LIBS)
     add_library(${LRS_TARGET} SHARED "")

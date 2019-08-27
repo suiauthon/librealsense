@@ -803,6 +803,8 @@ namespace rs2
                 }
             }
 
+            std::cout<<"Baseline mm "<<baseline_mm<<std::endl;
+
             _metrics_model.reset();
             _metrics_model.update_device_data(capture_description());
 

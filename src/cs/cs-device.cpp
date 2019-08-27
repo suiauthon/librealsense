@@ -134,7 +134,12 @@ namespace librealsense
                     return ext;
                 });
 
+        environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_depth_stream, *_left_ir_stream);
+        environment::get_instance().get_extrinsics_graph().register_extrinsics(*_depth_stream, *_right_ir_stream, _depth_extrinsic);
+
         register_stream_to_extrinsic_group(*_depth_stream, 0);
+        register_stream_to_extrinsic_group(*_left_ir_stream, 0);
+        register_stream_to_extrinsic_group(*_right_ir_stream, 0);
 
         _depth_calib_table_raw = [this]() { return get_raw_calibration_table(coefficients_table_id); };
 
@@ -455,8 +460,6 @@ namespace librealsense
 
         cs_advanced_mode_init(cs_depth::_hw_monitor, &get_depth_sensor());
 
-        this->
-
         register_info(RS2_CAMERA_INFO_NAME, "FRAMOS D435e"/*hwm_device.info*/);
         register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
         register_info(RS2_CAMERA_INFO_PRODUCT_ID, "0B07"/*hwm_device.id*/);
@@ -476,7 +479,7 @@ namespace librealsense
 
     std::shared_ptr<matcher> D435e_camera::create_matcher(const frame_holder& frame) const
     {
-        std::vector<stream_interface*> streams = {_color_stream.get(), _depth_stream.get()};
+        std::vector<stream_interface*> streams = {_color_stream.get(), _depth_stream.get(), _left_ir_stream.get() , _right_ir_stream.get()};
         if (frame.frame->supports_frame_metadata(RS2_FRAME_METADATA_FRAME_COUNTER))
         {
             return matcher_factory::create(RS2_MATCHER_DLR_C, streams);
