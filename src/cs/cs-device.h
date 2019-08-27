@@ -347,7 +347,7 @@ namespace librealsense
 
         rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
         processing_blocks get_recommended_processing_blocks() const override;
-        float get_depth_scale() const override { return 0.001; }
+        float get_depth_scale() const override { if (_depth_units < 0) _depth_units = get_option(RS2_OPTION_DEPTH_UNITS).query(); return _depth_units; }
         void set_depth_scale(float val){ _depth_units = val; }
         float get_stereo_baseline_mm() const override { return _owner->get_stereo_baseline_mm(); }
         void enable_recording(std::function<void(const depth_stereo_sensor&)> recording_function) override;
