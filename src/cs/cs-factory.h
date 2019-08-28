@@ -169,6 +169,9 @@ namespace librealsense {
             ~cs_device() {
                 //printf("Ubijam cs device\n");
                 if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
+
+                stop_stream(CS_STREAM_ID_DEPTH);
+                stop_stream(CS_STREAM_ID_COLOR);
             }
 
             power_state set_power_state(power_state state);
@@ -222,6 +225,8 @@ namespace librealsense {
             bool set_cs_param(rs2_option option, int32_t value, cs_stream stream);
 
             void start_acquisition(cs_stream_id stream);
+
+            void stop_stream(cs_stream_id stream);
 
             void stop_acquisition(cs_stream_id stream);
 

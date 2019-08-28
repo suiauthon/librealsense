@@ -834,13 +834,7 @@ namespace librealsense {
         {
             if (stream < _number_of_streams)
             {
-                if (_is_capturing[stream])
-                {
-                    _is_capturing[stream] = false;
-                    stop_acquisition(stream);
-                    _threads[stream]->join();
-                    _threads[stream].reset();
-                }
+                stop_stream(stream);
                 if (_callbacks[stream]) _callbacks[stream] = nullptr;
             }
             else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
@@ -881,6 +875,17 @@ namespace librealsense {
             // start acquisition
             _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
             _connected_device->CommandNodeExecute("AcquisitionStart");
+        }
+
+        void cs_device::stop_stream(cs_stream_id stream)
+        {
+            if (_is_capturing[stream])
+            {
+                _is_capturing[stream] = false;
+                stop_acquisition(stream);
+                _threads[stream]->join();
+                _threads[stream].reset();
+            }
         }
 
         void cs_device::stop_acquisition(cs_stream_id stream)
