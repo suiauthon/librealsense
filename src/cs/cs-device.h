@@ -133,6 +133,8 @@ namespace librealsense
                  bool register_device_notifications)
                 : device(ctx, group, register_device_notifications),
                   _depth_stream(new stream(RS2_STREAM_DEPTH)),
+                  _left_ir_stream(new stream(RS2_STREAM_INFRARED, 1)),
+                  _right_ir_stream(new stream(RS2_STREAM_INFRARED, 2)),
                   _device_capabilities(ds::d400_caps::CAP_UNDEFINED)
         {}
 
@@ -157,6 +159,9 @@ namespace librealsense
         ds::d400_caps  parse_device_capabilities() const;
 
         std::shared_ptr<stream_interface> _depth_stream;
+        std::shared_ptr<stream_interface> _left_ir_stream;
+        std::shared_ptr<stream_interface> _right_ir_stream;
+
         uint8_t _depth_device_idx;
 
         friend class cs_depth_sensor;
@@ -322,6 +327,14 @@ namespace librealsense
                 if (p->get_stream_type() == RS2_STREAM_DEPTH)
                 {
                     assign_stream(_owner->_depth_stream, p);
+                }
+                else if (p->get_stream_type() == RS2_STREAM_INFRARED && p->get_stream_index() < 2)
+                {
+                    assign_stream(_owner->_left_ir_stream, p);
+                }
+                else if (p->get_stream_type() == RS2_STREAM_INFRARED  && p->get_stream_index() == 2)
+                {
+                    assign_stream(_owner->_right_ir_stream, p);
                 }
                 auto vid_profile = dynamic_cast<video_stream_profile_interface*>(p.get());
 
