@@ -22,6 +22,8 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/CMake)
 # include librealsense general configuration
 include(CMake/global_config.cmake)
 
+# include librealsense camerasuite configuration
+include(CMake/camera_suite.cmake)
 
 config_cxx_flags()
 
@@ -57,6 +59,10 @@ os_target_config()
 # global project configuration
 # macro definition located at "CMake/global_config.cmake"
 global_target_config()
+
+# add camera suite configuration flags
+# macro definition located at "CMake/camera_suite.cmake"
+add_camerasuite()
 
 include(CMake/install_config.cmake)
 
