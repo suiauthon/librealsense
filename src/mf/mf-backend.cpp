@@ -15,6 +15,7 @@
 #include <Windows.h>
 #include <dbt.h>
 #include <cctype> // std::tolower
+#include "cs/cs-factory.h"
 
 namespace librealsense
 {
@@ -115,6 +116,16 @@ namespace librealsense
             return devices;
         }
 
+        std::shared_ptr<cs_device> wmf_backend::create_cs_device(cs_device_info info) const
+        {
+            return std::make_shared<platform::cs_device>(info);
+        }
+
+        std::vector<cs_device_info> wmf_backend::query_cs_devices() const
+        {
+            return cs_info::query_cs_devices();
+        }
+
         std::shared_ptr<time_service> wmf_backend::create_time_service() const
         {
             return std::make_shared<os_time_service>();
@@ -127,7 +138,7 @@ namespace librealsense
             {
                 _data._backend = backend;
                 _data._stopped = false;
-                _data._last = backend_device_group(backend->query_uvc_devices(), backend->query_usb_devices(), backend->query_hid_devices());
+                _data._last = backend_device_group(backend->query_uvc_devices(), backend->query_usb_devices(), backend->query_hid_devices(), backend->query_cs_devices());
             }
             ~win_event_device_watcher() { stop(); }
 
@@ -179,9 +190,20 @@ namespace librealsense
                     throw winapi_error("CreateWindow failed");
 
                 MSG msg;
+                int counter = 0;
 
                 while (!_data._stopped)
                 {
+                    counter++;
+                    if (counter == 100)
+                    {
+                        counter = 0;
+                        auto next = _data._last;
+                        next.cs_devices = _data._backend->query_cs_devices();
+
+                        _data._callback(_data._last, next);
+                        _data._last = next;
+                    }
                     if (PeekMessage(&msg, _data.hWnd, 0, 0, PM_REMOVE))
                     {
                             TranslateMessage(&msg);
@@ -221,7 +243,7 @@ namespace librealsense
                     case DBT_DEVICEARRIVAL:
                     {
                         auto data = reinterpret_cast<extra_data*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-                        backend_device_group next(data->_backend->query_uvc_devices(), data->_backend->query_usb_devices(), data->_backend->query_hid_devices());
+                        backend_device_group next(data->_backend->query_uvc_devices(), data->_backend->query_usb_devices(), data->_backend->query_hid_devices(), data->_backend->query_cs_devices());
                         /*if (data->_last != next)*/ data->_callback(data->_last, next);
                         data->_last = next;
                     }
@@ -251,7 +273,7 @@ namespace librealsense
                             return sub == path;
                             
                         }), next.hid_devices.end());
-
+                        next.cs_devices = data->_backend->query_cs_devices();
                         /*if (data->_last != next)*/ data->_callback(data->_last, next);
                         data->_last = next;
                     }
