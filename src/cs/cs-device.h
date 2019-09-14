@@ -4,60 +4,16 @@
 
 #pragma once
 
-#include "cs/cs-factory.h"
+#include "cs/cs-sensor.h"
 #include "device.h"
 #include "ds5/ds5-private.h"
 #include "global_timestamp_reader.h"
 #include "core/advanced_mode.h"
+#include "stream.h"
 #include "fw-update/fw-update-device-interface.h"
 
 namespace librealsense
 {
-    class cs_pu_option : public option
-    {
-    public:
-        void set(float value) override;
-
-        float query() const override;
-
-        option_range get_range() const override;
-
-        bool is_enabled() const override
-        {
-            return true;
-        }
-
-        cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-                : _ep(ep), _id(id), _stream(stream)
-        {
-        }
-
-        cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
-                : _ep(ep), _id(id), _stream(stream), _description_per_value(description_per_value)
-        {
-        }
-
-        const char* get_description() const override;
-
-        const char* get_value_description(float val) const override
-        {
-            if (_description_per_value.find(val) != _description_per_value.end())
-                return _description_per_value.at(val).c_str();
-            return nullptr;
-        }
-        void enable_recording(std::function<void(const option &)> record_action) override
-        {
-            _record = record_action;
-        }
-
-    private:
-        cs_sensor& _ep;
-        cs_stream _stream;
-        rs2_option _id;
-        const std::map<float, std::string> _description_per_value;
-        std::function<void(const option &)> _record = [](const option &) {};
-    };
-
     class cs_auto_exposure_roi_method : public region_of_interest_method
     {
     public:
@@ -127,14 +83,14 @@ namespace librealsense
         std::shared_ptr<lazy<rs2_extrinsics>> _color_extrinsic;
     };
 
-    class cs_depth : public virtual device, public debug_interface//, public global_time_interface, public updatable
+    class cs_depth : public virtual device, public debug_interface, public global_time_interface, public updatable
     {
     public:
         cs_depth(std::shared_ptr<context> ctx,
                  const platform::backend_device_group& group,
                  bool register_device_notifications)
                 : device(ctx, group, register_device_notifications),
-                  //global_time_interface(),
+                  global_time_interface(),
                   _depth_stream(new stream(RS2_STREAM_DEPTH)),
                   _left_ir_stream(new stream(RS2_STREAM_INFRARED, 1)),
                   _right_ir_stream(new stream(RS2_STREAM_INFRARED, 2)),
@@ -153,10 +109,10 @@ namespace librealsense
 
         void depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group);
 
-        //virtual double get_device_time_ms() override;
-        //void enter_update_state() const override;
-        //std::vector<uint8_t> backup_flash(update_progress_callback_ptr callback) override;
-        //void update_flash(const std::vector<uint8_t>& image, update_progress_callback_ptr callback, int update_mode) override;
+        virtual double get_device_time_ms() override;
+        void enter_update_state() const override;
+        std::vector<uint8_t> backup_flash(update_progress_callback_ptr callback) override;
+        void update_flash(const std::vector<uint8_t>& image, update_progress_callback_ptr callback, int update_mode) override;
 
     protected:
         float get_stereo_baseline_mm() const;
@@ -207,59 +163,6 @@ namespace librealsense
 
         //lazy<std::vector<uint8_t>> _depth_calib_table_raw;
         //std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
-    };
-
-    class CSMono_camera: public cs_mono
-    {
-    public:
-        CSMono_camera(std::shared_ptr<context> ctx,
-                      const platform::cs_device_info &hwm_device,
-                      const platform::backend_device_group& group,
-                      bool register_device_notifications);
-
-        std::shared_ptr<matcher> create_matcher(const frame_holder& frame) const override;
-
-        std::vector<tagged_profile> get_profiles_tags() const override;
-
-        cs_sensor& get_cs_sensor(size_t subdevice) { return dynamic_cast<cs_sensor&>(get_sensor(subdevice)); }
-
-    private:
-        std::shared_ptr<platform::cs_device> _cs_device;
-    };
-
-    class D435e_camera : public cs_color,
-                         public cs_depth,
-                         public cs_advanced_mode_base
-    {
-    public:
-        D435e_camera(std::shared_ptr<context> ctx,
-                     const platform::cs_device_info &hwm_device,
-                     const platform::backend_device_group& group,
-                     bool register_device_notifications);
-
-        std::shared_ptr<matcher> create_matcher(const frame_holder& frame) const override;
-
-        std::vector<tagged_profile> get_profiles_tags() const override;
-
-        cs_sensor& get_cs_sensor(size_t subdevice) { return dynamic_cast<cs_sensor&>(get_sensor(subdevice)); }
-
-        void hardware_reset() override
-        {
-            if (get_cs_sensor(_color_device_idx).is_streaming()) {
-                get_cs_sensor(_color_device_idx).stop();
-                get_cs_sensor(_color_device_idx).close();
-            }
-
-            if (get_cs_sensor(_depth_device_idx).is_streaming()) {
-                get_cs_sensor(_depth_device_idx).stop();
-                get_cs_sensor(_depth_device_idx).close();
-            }
-
-            _cs_device->reset();
-        }
-
-    private:
-        std::shared_ptr<platform::cs_device> _cs_device;
     };
 
     class cs_color_sensor : public cs_sensor,

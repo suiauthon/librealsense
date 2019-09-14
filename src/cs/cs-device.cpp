@@ -361,7 +361,7 @@ namespace librealsense
         return fabs(table->baseline);
     }
 
-   /* void cs_depth::enter_update_state() const
+    void cs_depth::enter_update_state() const
     {
         try {
             LOG_INFO("entering to update state, device disconnect is expected");
@@ -406,7 +406,7 @@ namespace librealsense
         uint32_t dt = *(uint32_t*)res.data();
         double ts = dt * TIMESTAMP_USEC_TO_MSEC;
         return ts;
-    }*/
+    }
 
     std::vector<uint8_t> cs_color::get_raw_calibration_table(ds::calibration_table_id table_id) const
     {
@@ -503,150 +503,6 @@ namespace librealsense
     void cs_depth::enable_recording(std::function<void(const debug_interface&)> record_action)
     {
         //TODO: Implement
-    }
-
-    CSMono_camera::CSMono_camera(std::shared_ptr<context> ctx,
-                                 const platform::cs_device_info &hwm_device,
-                                 const platform::backend_device_group& group,
-                                 bool register_device_notifications)
-            : device(ctx, group, register_device_notifications),
-              cs_mono(ctx, group, register_device_notifications)
-    {
-        _cs_device = ctx->get_backend().create_cs_device(hwm_device);
-        _mono_device_idx = add_sensor(create_mono_device(ctx, _cs_device));
-
-        register_info(RS2_CAMERA_INFO_NAME, hwm_device.info);
-        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
-        register_info(RS2_CAMERA_INFO_PRODUCT_ID, hwm_device.id);
-    }
-
-    D435e_camera::D435e_camera(std::shared_ptr<context> ctx,
-                               const platform::cs_device_info &hwm_device,
-                               const platform::backend_device_group& group,
-                               bool register_device_notifications)
-            : device(ctx, group, register_device_notifications),
-              cs_color(ctx, group, register_device_notifications),
-              cs_depth(ctx, group, register_device_notifications),
-              cs_advanced_mode_base()
-    {
-        _cs_device = ctx->get_backend().create_cs_device(hwm_device);
-
-        _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
-        _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
-
-        depth_init(ctx, group);
-        color_init(ctx, group);
-
-        environment::get_instance().get_extrinsics_graph().register_extrinsics(*_color_stream, *_depth_stream, _color_extrinsic);
-
-        cs_advanced_mode_init(cs_depth::_hw_monitor, &get_depth_sensor());
-
-        register_info(RS2_CAMERA_INFO_NAME, "FRAMOS D435e"/*hwm_device.info*/);
-        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
-        register_info(RS2_CAMERA_INFO_PRODUCT_ID, "0B07"/*hwm_device.id*/);
-        register_info(RS2_CAMERA_INFO_FIRMWARE_VERSION, cs_depth::_fw_version);
-        //register_info(RS2_CAMERA_INFO_DEVICE_VERSION, _cs_device->get_device_version());
-    }
-
-    std::shared_ptr<matcher> CSMono_camera::create_matcher(const frame_holder& frame) const
-    {
-        std::vector<stream_interface*> streams = { _fisheye_stream.get()};
-        if (frame.frame->supports_frame_metadata(RS2_FRAME_METADATA_FRAME_COUNTER))
-        {
-            return matcher_factory::create(RS2_MATCHER_DLR_C, streams);
-        }
-        return matcher_factory::create(RS2_MATCHER_DEFAULT, streams);
-    }
-
-    std::shared_ptr<matcher> D435e_camera::create_matcher(const frame_holder& frame) const
-    {
-        std::vector<stream_interface*> streams = {_color_stream.get(), _depth_stream.get()/*, _left_ir_stream.get() , _right_ir_stream.get()*/};
-        if (frame.frame->supports_frame_metadata(RS2_FRAME_METADATA_FRAME_COUNTER))
-        {
-            return matcher_factory::create(RS2_MATCHER_DLR_C, streams);
-        }
-        return matcher_factory::create(RS2_MATCHER_DEFAULT, streams);
-    }
-
-    std::vector<tagged_profile> CSMono_camera::get_profiles_tags() const
-    {
-        std::vector<tagged_profile> markers;
-        markers.push_back({ RS2_STREAM_ANY, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
-        return markers;
-    }
-
-    std::vector<tagged_profile> D435e_camera::get_profiles_tags() const
-    {
-        std::vector<tagged_profile> markers;
-        markers.push_back({ RS2_STREAM_DEPTH, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
-        markers.push_back({ RS2_STREAM_COLOR, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
-        return markers;
-    }
-
-    void cs_pu_option::set(float value)
-    {
-        _ep.invoke_powered(
-            [this, value](platform::cs_device& dev)
-            {
-                if (!dev.set_pu(_id, static_cast<int32_t>(value), _stream))
-                    throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
-
-                _record(*this);
-            });
-    }
-
-    float cs_pu_option::query() const
-    {
-        return static_cast<float>(_ep.invoke_powered(
-            [this](platform::cs_device& dev)
-            {
-                int32_t value = 0;
-                if (!dev.get_pu(_id, value, _stream))
-                    throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
-                return static_cast<float>(value);
-            }));
-    }
-
-    option_range cs_pu_option::get_range() const
-    {
-        auto cs_range = _ep.invoke_powered(
-            [this](platform::cs_device& dev)
-            {
-                return dev.get_pu_range(_id, _stream);
-            });
-
-        if (cs_range.min.size() < sizeof(int32_t)) return option_range{0,0,1,0};
-
-        auto min = *(reinterpret_cast<int32_t*>(cs_range.min.data()));
-        auto max = *(reinterpret_cast<int32_t*>(cs_range.max.data()));
-        auto step = *(reinterpret_cast<int32_t*>(cs_range.step.data()));
-        auto def = *(reinterpret_cast<int32_t*>(cs_range.def.data()));
-        return option_range{static_cast<float>(min),
-                            static_cast<float>(max),
-                            static_cast<float>(step),
-                            static_cast<float>(def)};
-    }
-
-    const char* cs_pu_option::get_description() const
-    {
-        switch(_id)
-        {
-            case RS2_OPTION_BACKLIGHT_COMPENSATION: return "Enable / disable backlight compensation";
-            case RS2_OPTION_BRIGHTNESS: return "CS image brightness";
-            case RS2_OPTION_CONTRAST: return "CS image contrast";
-            case RS2_OPTION_EXPOSURE: return "Controls exposure time of color camera. Setting any value will disable auto exposure";
-            case RS2_OPTION_GAIN: return "CS image gain";
-            case RS2_OPTION_GAMMA: return "CS image gamma setting";
-            case RS2_OPTION_HUE: return "CS image hue";
-            case RS2_OPTION_SATURATION: return "CS image saturation setting";
-            case RS2_OPTION_SHARPNESS: return "CS image sharpness setting";
-            case RS2_OPTION_WHITE_BALANCE: return "Controls white balance of color image. Setting any value will disable auto white balance";
-            case RS2_OPTION_ENABLE_AUTO_EXPOSURE: return "Enable / disable auto-exposure";
-            case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE: return "Enable / disable auto-white-balance";
-            case RS2_OPTION_POWER_LINE_FREQUENCY: return "Power Line Frequency";
-            case RS2_OPTION_AUTO_EXPOSURE_PRIORITY: return "Limit exposure time when auto-exposure is ON to preserve constant fps rate";
-            default: return _ep.get_option_name(_id);
-        }
     }
 
     processing_blocks cs_color_sensor::get_recommended_processing_blocks() const

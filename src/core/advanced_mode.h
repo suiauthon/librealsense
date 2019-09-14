@@ -6,6 +6,7 @@
 #include "hw-monitor.h"
 #include "streaming.h"
 #include "option.h"
+#include "cs/cs-device.h"
 #define RS400_ADVANCED_MODE_HPP
 #include "ds5/advanced_mode/presets.h"
 #include "../../include/librealsense2/h/rs_advanced_mode_command.h"

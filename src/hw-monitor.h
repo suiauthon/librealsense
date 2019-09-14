@@ -4,7 +4,7 @@
 #pragma once
 
 #include "sensor.h"
-#include "cs/cs-factory.h"
+#include "cs/cs-sensor.h"
 #include <mutex>
 #include "command_transfer.h"
 
