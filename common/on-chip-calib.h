@@ -4,6 +4,7 @@
 #pragma once
 
 #include "notifications.h"
+#include "../src/concurrency.h"
 
 #include <random>
 
@@ -38,7 +39,7 @@ namespace rs2
         void keep();
 
         // Restore Viewer UI to how it was before auto-calib
-        void restore_workspace();
+        void restore_workspace(invoker invoke);
         
         // Ask the firmware to use one of the before/after calibration tables
         void apply_calib(bool old);
@@ -49,9 +50,9 @@ namespace rs2
         void update_last_used();
 
         uint32_t ground_truth = 2500;
-        int average_step_count = 1;
-        int step_count = 1;
-        int accuracy = 1;
+        int average_step_count = 20;
+        int step_count = 20;
+        int accuracy = 2;
         bool tare = false;
 
         void calibrate();
@@ -60,11 +61,11 @@ namespace rs2
 
         std::vector<uint8_t> safe_send_command(const std::vector<uint8_t>& cmd, const std::string& name);
 
-        rs2::depth_frame fetch_depth_frame();
+        rs2::depth_frame fetch_depth_frame(invoker invoke);
 
-        std::pair<float, float> get_depth_metrics();
+        std::pair<float, float> get_depth_metrics(invoker invoke);
 
-        void process_flow(std::function<void()> cleanup) override;
+        void process_flow(std::function<void()> cleanup, invoker invoke) override;
 
         float _health = 0.f;
         int _speed = 4;
@@ -84,8 +85,8 @@ namespace rs2
 
         bool _restored = true;
 
-        void stop_viewer();
-        void start_viewer(int w, int h, int fps);
+        void stop_viewer(invoker invoke);
+        void start_viewer(int w, int h, int fps, invoker invoke);
     };
 
     // Auto-calib notification model is managing the UI state-machine

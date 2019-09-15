@@ -821,7 +821,8 @@ namespace rs2
         bool* options_invalidated,
         std::string& error_message)
     {
-        for (auto i = 0; i < RS2_OPTION_COUNT; i++)
+
+        for (auto&& i:options->get_supported_options())
         {
             auto opt = static_cast<rs2_option>(i);
 
@@ -967,9 +968,15 @@ namespace rs2
                     model->enabled = false;
             }
 
-
             if (shared_filter->is<hole_filling_filter>())
                 model->enabled = false;
+
+            if (shared_filter->is<decimation_filter>())
+            {
+                std::string sn_name(s->get_info(RS2_CAMERA_INFO_NAME));
+                if (sn_name == "RGB Camera")
+                    model->enabled = false;
+            }
 
             post_processing.push_back(model);
         }
@@ -1579,43 +1586,46 @@ namespace rs2
 
             for (auto&& pbm : post_processing) pbm->save_to_config_file();
         }
-        if (next_option < RS2_OPTION_COUNT)
+        if (next_option < s->get_supported_options().size())
         {
-            auto& opt_md = options_metadata[static_cast<rs2_option>(next_option)];
-            opt_md.update_all_fields(error_message, notifications);
-
-            if (next_option == RS2_OPTION_ENABLE_AUTO_EXPOSURE)
+            if (options_metadata.find(static_cast<rs2_option>(next_option)) != options_metadata.end())
             {
-                auto old_ae_enabled = auto_exposure_enabled;
-                auto_exposure_enabled = opt_md.value > 0;
+                auto& opt_md = options_metadata[static_cast<rs2_option>(next_option)];
+                opt_md.update_all_fields(error_message, notifications);
 
-                if (!old_ae_enabled && auto_exposure_enabled)
+                if (next_option == RS2_OPTION_ENABLE_AUTO_EXPOSURE)
                 {
-                    try
+                    auto old_ae_enabled = auto_exposure_enabled;
+                    auto_exposure_enabled = opt_md.value > 0;
+
+                    if (!old_ae_enabled && auto_exposure_enabled)
                     {
-                        if (s->is<roi_sensor>())
+                        try
                         {
-                            auto r = s->as<roi_sensor>().get_region_of_interest();
-                            roi_rect.x = static_cast<float>(r.min_x);
-                            roi_rect.y = static_cast<float>(r.min_y);
-                            roi_rect.w = static_cast<float>(r.max_x - r.min_x);
-                            roi_rect.h = static_cast<float>(r.max_y - r.min_y);
+                            if (s->is<roi_sensor>())
+                            {
+                                auto r = s->as<roi_sensor>().get_region_of_interest();
+                                roi_rect.x = static_cast<float>(r.min_x);
+                                roi_rect.y = static_cast<float>(r.min_y);
+                                roi_rect.w = static_cast<float>(r.max_x - r.min_x);
+                                roi_rect.h = static_cast<float>(r.max_y - r.min_y);
+                            }
+                        }
+                        catch (...)
+                        {
+                            auto_exposure_enabled = false;
                         }
                     }
-                    catch (...)
-                    {
-                        auto_exposure_enabled = false;
-                    }
                 }
-            }
 
-            if (next_option == RS2_OPTION_DEPTH_UNITS)
-            {
-                opt_md.dev->depth_units = opt_md.value;
-            }
+                if (next_option == RS2_OPTION_DEPTH_UNITS)
+                {
+                    opt_md.dev->depth_units = opt_md.value;
+                }
 
-            if (next_option == RS2_OPTION_STEREO_BASELINE)
-                opt_md.dev->stereo_baseline = opt_md.value;
+                if (next_option == RS2_OPTION_STEREO_BASELINE)
+                    opt_md.dev->stereo_baseline = opt_md.value;
+            }
 
             next_option++;
         }
@@ -2408,7 +2418,7 @@ namespace rs2
                             ImColor(alpha(sensor_bg, 0.1f)));
 
                         ImGui::PushStyleColor(ImGuiCol_Text, redish);
-                        ImGui::Text(text);
+                        ImGui::Text("%s", text);
                         ImGui::PopStyleColor();
 
                         line_y += ImGui::GetTextLineHeight() + 3;
@@ -2425,13 +2435,13 @@ namespace rs2
                             ImColor(alpha(sensor_bg, 0.1f)));
 
                         ImGui::PushStyleColor(ImGuiCol_Text, white);
-                        ImGui::Text(text.c_str()); ImGui::SameLine();
+                        ImGui::Text("%s", text.c_str()); ImGui::SameLine();
 
                         if (at.description != "")
                         {
                             if (ImGui::IsItemHovered())
                             {
-                                ImGui::SetTooltip(at.description.c_str());
+                                ImGui::SetTooltip("%s", at.description.c_str());
                             }
                         }
 
@@ -2935,6 +2945,98 @@ namespace rs2
         for (auto&& n : related_notifications) n->dismiss(false);
     }
 
+    void device_model::refresh_notifications(viewer_model& viewer)
+    {
+        for (auto&& n : related_notifications) n->dismiss(false);
+
+        auto name = get_device_name(dev);
+
+        if ((bool)config_file::instance().get(configurations::update::recommend_updates))
+        {
+            bool fw_update_required = false;
+            for (auto&& sub : dev.query_sensors())
+            {
+                if (sub.supports(RS2_CAMERA_INFO_FIRMWARE_VERSION) &&
+                    sub.supports(RS2_CAMERA_INFO_RECOMMENDED_FIRMWARE_VERSION) &&
+                    sub.supports(RS2_CAMERA_INFO_PRODUCT_LINE))
+                {
+                    std::string fw = sub.get_info(RS2_CAMERA_INFO_FIRMWARE_VERSION);
+                    std::string recommended = sub.get_info(RS2_CAMERA_INFO_RECOMMENDED_FIRMWARE_VERSION);
+
+                    int product_line = parse_product_line(sub.get_info(RS2_CAMERA_INFO_PRODUCT_LINE));
+
+                    bool allow_rc_firmware = config_file::instance().get_or_default(configurations::update::allow_rc_firmware, false);
+                    bool is_rc = (product_line == RS2_PRODUCT_LINE_D400) && allow_rc_firmware;
+                    std::string available = get_available_firmware_version(product_line);
+
+                    std::shared_ptr<firmware_update_manager> manager = nullptr;
+
+                    if (is_upgradeable(fw, available))
+                    {
+                        recommended = available;
+
+                        static auto table = create_default_fw_table();
+
+                        manager = std::make_shared<firmware_update_manager>(*this, dev, viewer.ctx, table[product_line], true);
+                    }
+
+                    if (is_upgradeable(fw, recommended))
+                    {
+                        std::stringstream msg;
+                        msg << name.first << " (S/N " << name.second << ")\n"
+                            << "Current Version: " << fw << "\n";
+
+                        if (is_rc)
+                            msg << "Release Candidate: " << recommended << " Pre-Release";
+                        else
+                            msg << "Recommended Version: " << recommended;
+
+                        if (!fw_update_required)
+                        {
+                            auto n = std::make_shared<fw_update_notification_model>(
+                                msg.str(), manager, false);
+                            viewer.not_model.add_notification(n);
+
+                            fw_update_required = true;
+
+                            related_notifications.push_back(n);
+                        }
+                    }
+                }
+            }
+        }
+
+        if ((bool)config_file::instance().get(configurations::update::recommend_calibration))
+        {
+            for (auto&& model : subdevices)
+            {
+                if (model->supports_on_chip_calib())
+                {
+                    // Make sure we don't spam calibration remainders too often:
+                    time_t rawtime;
+                    time(&rawtime);
+                    std::string id = to_string() << configurations::viewer::last_calib_notice << "." << name.second;
+                    long long last_time = config_file::instance().get_or_default(id.c_str(), (long long)0);
+
+                    std::string msg = to_string()
+                        << name.first << " (S/N " << name.second << ")";
+                    auto manager = std::make_shared<on_chip_calib_manager>(viewer, model, *this, dev);
+                    auto n = std::make_shared<autocalib_notification_model>(
+                        msg, manager, false);
+
+                    // Recommend calibration once a week per device
+                    if (rawtime - last_time < 60)
+                    {
+                        n->snoozed = true;
+                    }
+
+                    viewer.not_model.add_notification(n);
+                    related_notifications.push_back(n);
+                }
+            }
+        }
+    }
+
     device_model::device_model(device& dev, std::string& error_message, viewer_model& viewer)
         : dev(dev),
           syncer(viewer.syncer),
@@ -2943,75 +3045,10 @@ namespace rs2
         auto name = get_device_name(dev);
         id = to_string() << name.first << ", " << name.second;
 
-        bool fw_update_required = false;   
         for (auto&& sub : dev.query_sensors())
         {
-            if (sub.supports(RS2_CAMERA_INFO_FIRMWARE_VERSION) && 
-                sub.supports(RS2_CAMERA_INFO_RECOMMENDED_FIRMWARE_VERSION) &&
-                sub.supports(RS2_CAMERA_INFO_PRODUCT_LINE))
-            {
-                std::string fw = sub.get_info(RS2_CAMERA_INFO_FIRMWARE_VERSION);
-                std::string recommended = sub.get_info(RS2_CAMERA_INFO_RECOMMENDED_FIRMWARE_VERSION);
-
-                int product_line = parse_product_line(sub.get_info(RS2_CAMERA_INFO_PRODUCT_LINE)); 
-
-                std::string available = get_available_firmware_version(product_line);
-
-                std::shared_ptr<firmware_update_manager> manager = nullptr;
-
-                if (is_upgradeable(fw, available))
-                {
-                    recommended = available;
-
-                    static auto table = create_default_fw_table();
-
-                    manager = std::make_shared<firmware_update_manager>(*this, dev, viewer.ctx, table[product_line], true);
-                }
-
-                if (is_upgradeable(fw, recommended))
-                {
-                    std::string msg = to_string()
-                        << name.first << " (S/N " << name.second << ")\n"
-                        << "Current Version: " + fw + "\nRecommended Version: " + recommended;
-                    if (!fw_update_required)
-                    {
-                        auto n = std::make_shared<fw_update_notification_model>(
-                            msg, manager, false);
-                        viewer.not_model.add_notification(n);
-
-                        fw_update_required = true;
-
-                        related_notifications.push_back(n);
-                    }
-                }                
-            }
-
             auto model = std::make_shared<subdevice_model>(dev, std::make_shared<sensor>(sub), error_message, viewer);
             subdevices.push_back(model);
-
-            if (model->supports_on_chip_calib())
-            {
-                // Make sure we don't spam calibration remainders too often:
-                time_t rawtime;
-                time(&rawtime);
-                std::string id = to_string() << configurations::viewer::last_calib_notice << "." << name.second;
-                long long last_time = config_file::instance().get_or_default(id.c_str(), (long long)0);
-                
-                std::string msg = to_string()
-                    << name.first << " (S/N " << name.second << ")";
-                auto manager = std::make_shared<on_chip_calib_manager>(viewer, model, *this, dev);
-                auto n = std::make_shared<autocalib_notification_model>(
-                    msg, manager, false);
-
-                // Recommend calibration once a week per device
-                if (rawtime - last_time < 60)
-                {
-                    n->snoozed = true;
-                }
-                
-                viewer.not_model.add_notification(n);
-                related_notifications.push_back(n);
-            }
         }
 
         // Initialize static camera info:
@@ -3046,6 +3083,8 @@ namespace rs2
             }
             play_defaults(viewer);
         }
+
+        refresh_notifications(viewer);
     }
     void device_model::play_defaults(viewer_model& viewer)
     {
@@ -3282,7 +3321,6 @@ namespace rs2
         std::vector<frame> results;
 
         auto res = handle_frame(f, source);
-
         auto frame = source.allocate_composite_frame(res);
 
         if(frame)
@@ -3314,7 +3352,7 @@ namespace rs2
         {
             try
             {
-                if(viewer.synchronization_enable || viewer.zo_sensors.load() >0)
+                if(viewer.synchronization_enable)
                 {
                     auto frames = viewer.syncer->try_wait_for_frames();
                     for(auto f:frames)
@@ -3422,25 +3460,19 @@ namespace rs2
 
         //////////////////// Step Backwards Button ////////////////////
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + space_width);
-
-        std::string label = to_string() << textual_icons::step_backward << "##Step Backwards " << id;
-
-        if (pause_required) 
+        std::string label = to_string() << textual_icons::step_backward << "##Step Backward " << id;
+        if (ImGui::ButtonEx(label.c_str(), button_dim, supports_playback_step ? 0 : ImGuiButtonFlags_Disabled))
         {
-            p.pause();
-            for (auto&& s : subdevices)
+            int fps = 0;
+            for (auto&& s : viewer.streams)
             {
-                if (s->streaming)
-                    s->pause();
-                s->on_frame = []{};
+                if (s.second.profile.fps() > fps)
+                    fps = s.second.profile.fps();
             }
-            syncer->on_frame = []{};
-            pause_required = false;
+            auto curr_frame = p.get_position();
+            uint64_t step = 1000.0 / (float)fps * 1e6;
+            p.seek(std::chrono::nanoseconds(curr_frame - step));
         }
-
-        // TODO: Figure out how to properly step-back
-        ImGui::ButtonEx(label.c_str(), button_dim, ImGuiButtonFlags_Disabled);
-
         if (ImGui::IsItemHovered())
         {
             std::string tooltip = to_string() << "Step Backwards" << (supports_playback_step ? "" : "(Not available)");
@@ -3531,23 +3563,15 @@ namespace rs2
         label = to_string() << textual_icons::step_forward << "##Step Forward " << id;
         if (ImGui::ButtonEx(label.c_str(), button_dim, supports_playback_step ? 0 : ImGuiButtonFlags_Disabled))
         {
-            pause_required = false;
-            auto action = [this]() {
-                    pause_required = true;
-                };
-            for (auto& s : subdevices)
+            int fps = 0;
+            for (auto&& s : viewer.streams)
             {
-                s->on_frame = action;
+                if (s.second.profile.fps() > fps)
+                    fps = s.second.profile.fps();
             }
-            syncer->on_frame = action;
-
-            p.resume();
-            for (auto&& s : subdevices)
-            {
-                if (s->streaming)
-                    s->resume();
-            }
-            viewer.paused = false;
+            auto curr_frame = p.get_position();
+            uint64_t step = 1000.0 / (float)fps * 1e6;
+            p.seek(std::chrono::nanoseconds(curr_frame + step));
         }
         if (ImGui::IsItemHovered())
         {
@@ -4316,7 +4340,7 @@ namespace rs2
                                 product_line_str = sensors.front().get_info(RS2_CAMERA_INFO_PRODUCT_LINE);
                             int product_line = parse_product_line(product_line_str);
 
-                            static auto table = create_default_fw_table();
+                            auto table = create_default_fw_table();
 
                             begin_update(table[product_line], viewer, error_message);
                         }
@@ -5294,8 +5318,9 @@ namespace rs2
                                         dev_syncer = viewer.syncer->create_syncer();
 
                                     std::string friendly_name = sub->s->get_info(RS2_CAMERA_INFO_NAME);
-                                    if ((friendly_name.find("Tracking") != std::string::npos) ||
-                                        (friendly_name.find("Motion") != std::string::npos))
+                                    if (!viewer.zo_sensors.load() &&
+                                            ((friendly_name.find("Tracking") != std::string::npos) ||
+                                            (friendly_name.find("Motion") != std::string::npos)))
                                     {
                                         viewer.synchronization_enable = false;
                                     }
@@ -5427,7 +5452,7 @@ namespace rs2
                     label = to_string() << "Controls ##" << sub->s->get_info(RS2_CAMERA_INFO_NAME) << "," << id;
                     if (ImGui::TreeNode(label.c_str()))
                     {
-                        for (auto i = 0; i < RS2_OPTION_COUNT; i++)
+                        for (auto&& i:sub->s->get_supported_options())
                         {
                             auto opt = static_cast<rs2_option>(i);
                             if (skip_option(opt)) continue;
