@@ -1077,8 +1077,8 @@ namespace librealsense {
                     auto image_id = image_info_->GetImageID();
 
                     //if (cs_info::is_timestamp_supported(_device_info.id))
-                    //    timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
-                    timestamp = -1;
+                        timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
+                    //timestamp = -1;
 
                     auto im = image_info_->GetRawData();
                     image_info_->GetPixelType(src_pixel_type);
