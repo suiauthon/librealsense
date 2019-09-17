@@ -356,7 +356,6 @@ namespace librealsense {
 
     void cs_sensor::start(frame_callback_ptr callback)
     {
-        //printf("Cs sensor START\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("start_streaming(...) failed. CS device is already streaming!");
@@ -1077,8 +1076,8 @@ namespace librealsense {
                     auto image_id = image_info_->GetImageID();
 
                     //if (cs_info::is_timestamp_supported(_device_info.id))
-                        timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
-                    //timestamp = -1;
+                    //    timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
+                    timestamp = -1;
 
                     auto im = image_info_->GetRawData();
                     image_info_->GetPixelType(src_pixel_type);
