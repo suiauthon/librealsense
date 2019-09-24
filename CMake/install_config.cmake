@@ -50,7 +50,6 @@ install(FILES
     ${PROJECT_SOURCE_DIR}/.gitignore 
     ${PROJECT_SOURCE_DIR}/.travis.yml 
     ${PROJECT_SOURCE_DIR}/appveyor.yml
-    ${PROJECT_SOURCE_DIR}/AUTHORS
     ${PROJECT_SOURCE_DIR}/cmake_uninstall.cmake
     ${PROJECT_SOURCE_DIR}/CMakeLists.txt
     ${PROJECT_SOURCE_DIR}/code-of-conduct.md
