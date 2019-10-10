@@ -186,7 +186,7 @@ namespace librealsense {
         protected:
             void capture_loop(cs_stream_id stream);
 
-            void set_format(stream_profile profile);
+            void set_format(stream_profile profile, cs_stream_id stream);
 
             std::vector<std::function<void(const notification &n)>> _error_handler;
             std::vector<stream_profile> _profiles;

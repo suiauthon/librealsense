@@ -442,10 +442,20 @@ namespace librealsense {
             std::string sourceSelectorValue;
             is_successful = is_successful &_connected_device->GetStringNodeValue("SourceControlSelector", sourceSelectorValue);
 
-            for (int i = 0; i < _number_of_streams; i++)
-            {
-                is_successful = is_successful & _connected_device->SetStringNodeValue("SourceControlSelector", "Source" + std::to_string(i));
-                
+            std::string resolutionValue;
+            is_successful = is_successful &_connected_device->GetStringNodeValue("Resolution", resolutionValue);
+
+            std::string frameRateValue;
+            is_successful = is_successful &_connected_device->GetStringNodeValue("FrameRate", frameRateValue);
+
+            for (int i = 0; i < _number_of_streams; i++) {
+                is_successful = is_successful & _connected_device->SetStringNodeValue("SourceControlSelector",
+                                                                                      "Source" + std::to_string(i));
+
+                smcs::StringList resolutionList;
+                is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolutionList);
+
+
                 if (_cs_firmware_version >= cs_firmware_version(1, 3)) {
                     is_successful = is_successful & _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
                     is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
@@ -454,32 +464,47 @@ namespace librealsense {
                     is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "Off");
                     is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
                 }
-                
-                is_successful = is_successful & _connected_device->GetIntegerNodeValue("Width", int64Value);
-                profile.width = (uint32_t)int64Value;
 
-                is_successful = is_successful & _connected_device->GetIntegerNodeValue("Height", int64Value);
-                profile.height = (uint32_t)int64Value;
+                for (int j = 0; j < resolutionList.capacity(); j++) {
+                    is_successful =
+                            is_successful & _connected_device->SetStringNodeValue("Resolution", resolutionList[j]);
+                    is_successful = is_successful & _connected_device->GetIntegerNodeValue("Width", int64Value);
+                    profile.width = (uint32_t) int64Value;
 
-                std::string pixelFormat;
-                is_successful = is_successful & _connected_device->GetStringNodeValue("PixelFormat", pixelFormat);
+                    is_successful = is_successful & _connected_device->GetIntegerNodeValue("Height", int64Value);
+                    profile.height = (uint32_t) int64Value;
 
-                if (_connected_device->GetIntegerNodeValue("FPS", int64Value)) {
-                    profile.fps = (uint32_t)int64Value;
-                }
-                else profile.fps = 30;
-
-                if (is_successful)
-                {
+                    std::string pixelFormat;
+                    is_successful = is_successful & _connected_device->GetStringNodeValue("PixelFormat", pixelFormat);
                     profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
-                    all_stream_profiles.push_back(profile);
+
+                    smcs::StringList frameRateList;
+                    is_successful =
+                            is_successful & _connected_device->GetEnumNodeValuesList("FrameRate", frameRateList);
+
+                    for (int k = 0; k < frameRateList.capacity(); k++) {
+                        is_successful =
+                                is_successful & _connected_device->SetStringNodeValue("FrameRate", frameRateList[k]);
+
+                        double frameRate;
+                        is_successful =
+                                is_successful & _connected_device->GetFloatNodeValue("AcquisitionFrameRate", frameRate);
+                        profile.fps = (uint32_t) frameRate;
+
+                        if (is_successful) {
+                            profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
+                            all_stream_profiles.push_back(profile);
+                        }
+                    }
                 }
             }
 
-            profile.format = 'Y8I ';
-            all_stream_profiles.push_back(profile);
+            //profile.format = 'Y8I ';
+            //all_stream_profiles.push_back(profile);
 
             _connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
+            _connected_device->SetStringNodeValue("Resolution", resolutionValue);
+            _connected_device->SetStringNodeValue("FrameRate", frameRateValue);
             return all_stream_profiles;
         }
 
@@ -1097,7 +1122,7 @@ namespace librealsense {
             {
                 if (!_is_capturing[stream]/* && !_callbacks[stream]*/)
                 {
-                    set_format(profile);
+                    set_format(profile, stream);
                     _profiles[stream] = profile;
                     _callbacks[stream] = callback;
                 }
@@ -1108,10 +1133,16 @@ namespace librealsense {
             else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
         }
 
-        void cs_device::set_format(stream_profile profile)
+        void cs_device::set_format(stream_profile profile, cs_stream_id stream)
         {
-            //TODO
-            //tu se odabire profil na kameri
+            std::string sourceSelectorValue;
+            _connected_device->GetStringNodeValue("SourceControlSelector", sourceSelectorValue);
+            _connected_device->SetIntegerNodeValue("SourceControlSelector", stream);
+
+            _connected_device->SetStringNodeValue("Resolution", "Res_" + std::to_string(profile.width) + "x" + std::to_string(profile.height));
+            _connected_device->SetStringNodeValue("FrameRate", "FPS_" + std::to_string(profile.fps));
+
+            _connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
         }
     }
 
