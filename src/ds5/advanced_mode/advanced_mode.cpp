@@ -984,7 +984,7 @@ namespace librealsense
     void cs_advanced_mode_base::toggle_advanced_mode(bool enable)
     {
         send_receive(encode_command(ds::fw_cmd::EN_ADV, enable));
-        send_receive(encode_command(ds::fw_cmd::HWRST));
+        _depth_sensor->get_device().hardware_reset();
     }
 
     void cs_advanced_mode_base::apply_preset(const std::vector<platform::stream_profile>& configuration,

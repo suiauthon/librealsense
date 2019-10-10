@@ -53,7 +53,7 @@ namespace librealsense
         hw_monitor& _hwm;
     };
 
-    class cs_color : public virtual device
+    class cs_color : public virtual device,  public global_time_interface
     {
     public:
         cs_color(std::shared_ptr<context> ctx,
@@ -69,6 +69,8 @@ namespace librealsense
         cs_sensor& get_color_sensor() { return dynamic_cast<cs_sensor&>(get_sensor(_color_device_idx)); }
 
         void color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group);
+
+        virtual double get_device_time_ms() override;
     protected:
         std::vector<uint8_t> get_raw_calibration_table(ds::calibration_table_id table_id) const;
 

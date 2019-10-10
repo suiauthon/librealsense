@@ -26,6 +26,8 @@ namespace librealsense {
                 return false;
             case CS_UCC1932C:
                 return true;
+            case CS_D435E:
+                return true;
             default:
                 return false;
         }

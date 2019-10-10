@@ -202,11 +202,19 @@ namespace librealsense
     std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
                                                              std::shared_ptr<platform::cs_device> cs_device)
     {
+        auto&& backend = ctx->get_backend();
+        std::unique_ptr<frame_timestamp_reader> cs_timestamp_reader_backup(new cs_timestamp_reader(backend.create_time_service()));
+        std::unique_ptr<frame_timestamp_reader> cs_timestamp_reader_metadata(new cs_timestamp_reader_from_metadata(std::move(cs_timestamp_reader_backup)));
+
+        auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
         auto color_ep = std::make_shared<cs_color_sensor>(this, cs_device,
-                                                          std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
+                                                           std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(cs_timestamp_reader_metadata),
+                                                                                                                               _tf_keeper, enable_global_time_option)),
                                                           ctx);
 
-        color_ep->register_pixel_format(pf_uyvyc);
+        color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
+
+        color_ep->register_pixel_format(pf_yuyv);
 
         color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
         color_ep->try_register_pu(RS2_OPTION_CONTRAST);
@@ -292,9 +300,15 @@ namespace librealsense
     std::shared_ptr<cs_sensor> cs_depth::create_depth_device(std::shared_ptr<context> ctx,
                                                              std::shared_ptr<platform::cs_device> cs_device)
     {
+        auto&& backend = ctx->get_backend();
+        std::unique_ptr<frame_timestamp_reader> timestamp_reader_backup(new cs_timestamp_reader(backend.create_time_service()));
+        std::unique_ptr<frame_timestamp_reader> timestamp_reader_metadata(new cs_timestamp_reader_from_metadata(std::move(timestamp_reader_backup)));
+        auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
         auto depth_ep = std::make_shared<cs_depth_sensor>(this, cs_device,
-                                                          std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
+                                                          std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata),
+                                                                                                                              _tf_keeper, enable_global_time_option)),
                                                           ctx);
+
 
         depth_ep->try_register_pu(RS2_OPTION_GAIN);
         /*depth_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
@@ -322,6 +336,9 @@ namespace librealsense
                                           laser_power_option,
                                           emitter_enabled_option,
                                           std::vector<float>{0.f}, 1.f));
+
+
+        depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
         /*auto gain_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_GAIN);
         depth_ep->register_option(RS2_OPTION_GAIN,
@@ -385,6 +402,30 @@ namespace librealsense
     }
 
     double cs_depth::get_device_time_ms()
+    {
+        // TODO: Refactor the following query with an extension.
+        if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
+        {
+            throw not_implemented_exception("device time not supported for backend.");
+        }
+
+        if (!_hw_monitor)
+            throw wrong_api_call_sequence_exception("_hw_monitor is not initialized yet");
+
+        command cmd(ds::MRD, ds::REGISTER_CLOCK_0, ds::REGISTER_CLOCK_0 + 4);
+        auto res = _hw_monitor->send(cmd);
+
+        if (res.size() < sizeof(uint32_t))
+        {
+            LOG_DEBUG("size(res):" << res.size());
+            throw std::runtime_error("Not enough bytes returned from the firmware!");
+        }
+        uint32_t dt = *(uint32_t*)res.data();
+        double ts = dt * TIMESTAMP_USEC_TO_MSEC;
+        return ts;
+    }
+
+    double cs_color::get_device_time_ms()
     {
         // TODO: Refactor the following query with an extension.
         if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)

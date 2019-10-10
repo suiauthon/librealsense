@@ -307,10 +307,10 @@ namespace librealsense {
             auto a = to_profile(ap.get());
             auto b = to_profile(bp.get());
 
-            // stream == RS2_STREAM_COLOR && format == RS2_FORMAT_BGR8 element works around the fact that Y16 gets priority over BGR8 when both
+            // stream == RS2_STREAM_COLOR && format == RS2_FORMAT_RGB8 element works around the fact that Y16 gets priority over RGB8 when both
             // are available for pipeline stream resolution
-            auto at = std::make_tuple(a.stream, a.width, a.height, a.fps, a.stream == RS2_STREAM_COLOR && a.format == RS2_FORMAT_BGR8, a.format);
-            auto bt = std::make_tuple(b.stream, b.width, b.height, b.fps, b.stream == RS2_STREAM_COLOR && b.format == RS2_FORMAT_BGR8, b.format);
+            auto at = std::make_tuple(a.stream, a.width, a.height, a.fps, a.stream == RS2_STREAM_COLOR && a.format == RS2_FORMAT_RGB8, a.format);
+            auto bt = std::make_tuple(b.stream, b.width, b.height, b.fps, b.stream == RS2_STREAM_COLOR && b.format == RS2_FORMAT_RGB8, b.format);
 
             return at > bt;
         });
@@ -486,10 +486,10 @@ namespace librealsense {
         uint32_t cs_device::cs_pixel_format_to_native_pixel_format(std::string cs_format)
         {
             uint32_t npf;
-            if (cs_format.compare("YUV422Packed") == 0)
-                npf = rs_fourcc('U','Y','V','Y');
+            if (cs_format.compare("YUV422") == 0)
+                npf = rs_fourcc('Y','U','Y','V');
             else if (cs_format.compare("Mono16") == 0)
-                npf = 'Z16 ';
+                npf = rs_fourcc('Z','1','6',' ');
             else throw wrong_api_call_sequence_exception("Unsuported image format!");
 
             return npf;
@@ -1070,7 +1070,6 @@ namespace librealsense {
             UINT32 src_pixel_type;
             double timestamp;
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
-                //if (!_connected_device->IsBufferEmpty()) {
                 if (_connected_device->GetImageInfo(&image_info_, stream))
                 {
                     auto image_id = image_info_->GetImageID();
@@ -1088,9 +1087,7 @@ namespace librealsense {
                     _callbacks[stream](_profiles[stream], fo, []() {});
 
                     _connected_device->PopImage(image_info_);
-                    //_connected_device->ClearImageBuffer();
                 }
-                //}
             }
         }
 
