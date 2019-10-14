@@ -148,7 +148,8 @@ namespace librealsense {
 
             ~cs_device() {
                 //printf("Ubijam cs device\n");
-                if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
+                //This causes only one camera to stream when using pipeline API with multiple devices (rs-multicam example)
+                //if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
 
                 stop_stream(CS_STREAM_ID_DEPTH);
                 stop_stream(CS_STREAM_ID_COLOR);
