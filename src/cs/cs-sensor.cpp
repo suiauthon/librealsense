@@ -1088,15 +1088,14 @@ namespace librealsense {
 
         void cs_device::image_poll(cs_stream_id stream)
         {
-            std::lock_guard<std::mutex> lock(_stream_lock);
-
             smcs::IImageInfo image_info_;
 
             UINT32 src_pixel_type;
             double timestamp;
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
-                if (_connected_device->GetImageInfo(&image_info_, stream))
+                if (_connected_device->WaitForImage(3, stream))
                 {
+                    _connected_device->GetImageInfo(&image_info_, stream);
                     auto image_id = image_info_->GetImageID();
 
                     //if (cs_info::is_timestamp_supported(_device_info.id))
@@ -1108,8 +1107,11 @@ namespace librealsense {
                     auto image_size = image_info_->GetRawDataSize();
 
                     frame_object fo {image_size, 0, im, NULL, timestamp};
-
-                    _callbacks[stream](_profiles[stream], fo, []() {});
+                    
+                    {
+                        std::lock_guard<std::mutex> lock(_stream_lock);
+                        _callbacks[stream](_profiles[stream], fo, []() {});
+                    }
 
                     _connected_device->PopImage(image_info_);
                 }
