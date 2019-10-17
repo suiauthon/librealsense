@@ -499,8 +499,8 @@ namespace librealsense {
                 }
             }
 
-            //profile.format = 'Y8I ';
-            //all_stream_profiles.push_back(profile);
+            profile.format = 'Y8I ';
+            all_stream_profiles.push_back(profile);
 
             _connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
             _connected_device->SetStringNodeValue("Resolution", resolutionValue);
