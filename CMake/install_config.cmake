@@ -93,7 +93,9 @@ set(CPACK_PACKAGE_VERSION_MINOR 29)
 set(CPACK_PACKAGE_VERSION_PATCH 1)
 
 # Workaround for path length limitation of NSIS (260 characters)
-set(CPACK_PACKAGE_DIRECTORY C:/temp)
-set(CPACK_OUTPUT_FILE_PREFIX ${PROJECT_BINARY_DIR})
+if (WIN32)
+    set(CPACK_PACKAGE_DIRECTORY C:/temp)
+    set(CPACK_OUTPUT_FILE_PREFIX ${PROJECT_BINARY_DIR})
+endif()
 
 include(CPack)
