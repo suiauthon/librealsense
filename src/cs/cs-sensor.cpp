@@ -494,13 +494,21 @@ namespace librealsense {
                         if (is_successful) {
                             profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
                             all_stream_profiles.push_back(profile);
+                            
+                            std::string source;
+                            is_successful = is_successful &_connected_device->GetStringNodeValue("SourceControlSelector", source);
+            
+                            if (is_successful && source == "Source0") {
+                                profile.format = 'Y8I ';
+                                all_stream_profiles.push_back(profile);
+                            }
                         }
                     }
                 }
             }
 
-            profile.format = 'Y8I ';
-            all_stream_profiles.push_back(profile);
+            //profile.format = 'Y8I ';
+            //all_stream_profiles.push_back(profile);
 
             _connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
             _connected_device->SetStringNodeValue("Resolution", resolutionValue);
