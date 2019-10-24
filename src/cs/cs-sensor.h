@@ -176,6 +176,8 @@ namespace librealsense {
 
             control_range get_pu_range(rs2_option option, cs_stream stream);
 
+            enum rs2_format get_rgb_format();
+
             std::vector <stream_profile> get_profiles();
 
             bool reset(void);

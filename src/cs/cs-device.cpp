@@ -215,6 +215,7 @@ namespace librealsense
         color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
         color_ep->register_pixel_format(pf_yuyv);
+        color_ep->register_pixel_format(pf_uyvyc);
 
         color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
         color_ep->try_register_pu(RS2_OPTION_CONTRAST);

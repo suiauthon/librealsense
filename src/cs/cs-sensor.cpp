@@ -299,18 +299,20 @@ namespace librealsense {
             LOG_INFO(ss.str());
         }
 
+        auto rgbFormat = _device->get_rgb_format();
+
         // Sort the results to make sure that the user will receive predictable deterministic output from the API
         stream_profiles res{ begin(results), end(results) };
-        std::sort(res.begin(), res.end(), [](const std::shared_ptr<stream_profile_interface>& ap,
+        std::sort(res.begin(), res.end(), [&rgbFormat](const std::shared_ptr<stream_profile_interface>& ap,
                                              const std::shared_ptr<stream_profile_interface>& bp)
         {
             auto a = to_profile(ap.get());
             auto b = to_profile(bp.get());
 
-            // stream == RS2_STREAM_COLOR && format == RS2_FORMAT_RGB8 element works around the fact that Y16 gets priority over RGB8 when both
+            // stream == RS2_STREAM_COLOR && format == rgbFormat element works around the fact that Y16 gets priority over RGB8 when both
             // are available for pipeline stream resolution
-            auto at = std::make_tuple(a.stream, a.width, a.height, a.fps, a.stream == RS2_STREAM_COLOR && a.format == RS2_FORMAT_RGB8, a.format);
-            auto bt = std::make_tuple(b.stream, b.width, b.height, b.fps, b.stream == RS2_STREAM_COLOR && b.format == RS2_FORMAT_RGB8, b.format);
+            auto at = std::make_tuple(a.stream, a.width, a.height, a.fps, a.stream == RS2_STREAM_COLOR && a.format == rgbFormat, a.format);
+            auto bt = std::make_tuple(b.stream, b.width, b.height, b.fps, b.stream == RS2_STREAM_COLOR && b.format == rgbFormat, b.format);
 
             return at > bt;
         });
@@ -432,6 +434,14 @@ namespace librealsense {
 
     namespace platform
     {
+        enum rs2_format cs_device::get_rgb_format()
+        {
+            if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
+                return RS2_FORMAT_RGB8;
+            else
+                return RS2_FORMAT_BGR8;
+        }
+
         std::vector<stream_profile> cs_device::get_profiles()
         {
             std::vector<stream_profile> all_stream_profiles;
@@ -445,16 +455,15 @@ namespace librealsense {
             std::string resolutionValue;
             is_successful = is_successful &_connected_device->GetStringNodeValue("Resolution", resolutionValue);
 
-            std::string frameRateValue;
-            if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
-                is_successful = is_successful &_connected_device->GetStringNodeValue("FrameRate", frameRateValue);
-
             for (int i = 0; i < _number_of_streams; i++) {
                 is_successful = is_successful & _connected_device->SetStringNodeValue("SourceControlSelector",
                                                                                       "Source" + std::to_string(i));
 
                 smcs::StringList resolutionList;
-                is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolutionList);
+                if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
+                    is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolutionList);
+                else
+                    resolutionList.push_back(resolutionValue);
 
                 if (_cs_firmware_version >= cs_firmware_version(1, 3)) {
                     is_successful = is_successful & _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
@@ -465,9 +474,12 @@ namespace librealsense {
                     is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
                 }
 
-                for (int j = 0; j < resolutionList.capacity(); j++) {
-                    is_successful =
-                            is_successful & _connected_device->SetStringNodeValue("Resolution", resolutionList[j]);
+                for (const auto& resolution : resolutionList) {
+
+                    if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
+                        is_successful =
+                            is_successful & _connected_device->SetStringNodeValue("Resolution", resolution);
+
                     is_successful = is_successful & _connected_device->GetIntegerNodeValue("Width", int64Value);
                     profile.width = (uint32_t) int64Value;
 
@@ -476,8 +488,9 @@ namespace librealsense {
 
                     std::string pixelFormat;
                     is_successful = is_successful & _connected_device->GetStringNodeValue("PixelFormat", pixelFormat);
+
                     profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
-                    
+
                     auto frameRates = get_frame_rates();
 
                     for (auto frameRate : frameRates) {
@@ -500,13 +513,9 @@ namespace librealsense {
                 }
             }
 
-            //profile.format = 'Y8I ';
-            //all_stream_profiles.push_back(profile);
-
             _connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
-            _connected_device->SetStringNodeValue("Resolution", resolutionValue);
             if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
-                _connected_device->SetStringNodeValue("FrameRate", frameRateValue);
+                _connected_device->SetStringNodeValue("Resolution", resolutionValue);
             return all_stream_profiles;
         }
 
@@ -520,11 +529,13 @@ namespace librealsense {
 
         std::vector<uint32_t> cs_device::get_frame_rates_from_control()
         {
-            std::vector<uint32_t> acquisitionFrameRates;
+            std::string frameRateValue;
+            _connected_device->GetStringNodeValue("FrameRate", frameRateValue);
 
             smcs::StringList frameRates;
             _connected_device->GetEnumNodeValuesList("FrameRate", frameRates);
 
+            std::vector<uint32_t> acquisitionFrameRates;
             for (const auto& frameRate : frameRates) {
                 _connected_device->SetStringNodeValue("FrameRate", frameRate);
 
@@ -533,6 +544,8 @@ namespace librealsense {
                     acquisitionFrameRates.push_back(static_cast<uint32_t>(acquisitionFrameRate));
             }
 
+            _connected_device->SetStringNodeValue("FrameRate", frameRateValue);
+
             return acquisitionFrameRates;
         }
 
@@ -540,10 +553,13 @@ namespace librealsense {
         {
             uint32_t npf;
             if (cs_format.compare("YUV422") == 0)
-                npf = rs_fourcc('Y','U','Y','V');
+                npf = rs_fourcc('Y', 'U', 'Y', 'V');
+            else if (cs_format.compare("YUV422Packed") == 0)
+                npf = rs_fourcc('U', 'Y', 'V', 'Y');
             else if (cs_format.compare("Mono16") == 0)
                 npf = rs_fourcc('Z','1','6',' ');
-            else throw wrong_api_call_sequence_exception("Unsuported image format!");
+            else 
+                throw wrong_api_call_sequence_exception("Unsuported image format!");
 
             return npf;
         }
