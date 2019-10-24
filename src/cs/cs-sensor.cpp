@@ -446,7 +446,8 @@ namespace librealsense {
             is_successful = is_successful &_connected_device->GetStringNodeValue("Resolution", resolutionValue);
 
             std::string frameRateValue;
-            is_successful = is_successful &_connected_device->GetStringNodeValue("FrameRate", frameRateValue);
+            if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
+                is_successful = is_successful &_connected_device->GetStringNodeValue("FrameRate", frameRateValue);
 
             for (int i = 0; i < _number_of_streams; i++) {
                 is_successful = is_successful & _connected_device->SetStringNodeValue("SourceControlSelector",
@@ -454,7 +455,6 @@ namespace librealsense {
 
                 smcs::StringList resolutionList;
                 is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolutionList);
-
 
                 if (_cs_firmware_version >= cs_firmware_version(1, 3)) {
                     is_successful = is_successful & _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
@@ -477,19 +477,12 @@ namespace librealsense {
                     std::string pixelFormat;
                     is_successful = is_successful & _connected_device->GetStringNodeValue("PixelFormat", pixelFormat);
                     profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
+                    
+                    auto frameRates = get_frame_rates();
 
-                    smcs::StringList frameRateList;
-                    is_successful =
-                            is_successful & _connected_device->GetEnumNodeValuesList("FrameRate", frameRateList);
+                    for (auto frameRate : frameRates) {
 
-                    for (int k = 0; k < frameRateList.capacity(); k++) {
-                        is_successful =
-                                is_successful & _connected_device->SetStringNodeValue("FrameRate", frameRateList[k]);
-
-                        double frameRate;
-                        is_successful =
-                                is_successful & _connected_device->GetFloatNodeValue("AcquisitionFrameRate", frameRate);
-                        profile.fps = (uint32_t) frameRate;
+                        profile.fps = frameRate;
 
                         if (is_successful) {
                             profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
@@ -512,8 +505,35 @@ namespace librealsense {
 
             _connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
             _connected_device->SetStringNodeValue("Resolution", resolutionValue);
-            _connected_device->SetStringNodeValue("FrameRate", frameRateValue);
+            if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
+                _connected_device->SetStringNodeValue("FrameRate", frameRateValue);
             return all_stream_profiles;
+        }
+
+        std::vector<uint32_t> cs_device::get_frame_rates()
+        {
+            if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
+                return get_frame_rates_from_control();
+            else
+                return std::vector<uint32_t> {30};
+        }
+
+        std::vector<uint32_t> cs_device::get_frame_rates_from_control()
+        {
+            std::vector<uint32_t> acquisitionFrameRates;
+
+            smcs::StringList frameRates;
+            _connected_device->GetEnumNodeValuesList("FrameRate", frameRates);
+
+            for (const auto& frameRate : frameRates) {
+                _connected_device->SetStringNodeValue("FrameRate", frameRate);
+
+                double acquisitionFrameRate;
+                if (_connected_device->GetFloatNodeValue("AcquisitionFrameRate", acquisitionFrameRate))
+                    acquisitionFrameRates.push_back(static_cast<uint32_t>(acquisitionFrameRate));
+            }
+
+            return acquisitionFrameRates;
         }
 
         uint32_t cs_device::cs_pixel_format_to_native_pixel_format(std::string cs_format)

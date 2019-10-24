@@ -211,6 +211,9 @@ namespace librealsense {
 
             void stop_acquisition(cs_stream_id stream);
 
+            std::vector<uint32_t> get_frame_rates(); 
+            std::vector<uint32_t> get_frame_rates_from_control();
+
             uint32_t cs_pixel_format_to_native_pixel_format(std::string cs_format);
 
             std::vector<std::unique_ptr <std::thread>> _threads;
