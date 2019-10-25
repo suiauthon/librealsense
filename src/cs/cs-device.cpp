@@ -114,11 +114,15 @@ namespace librealsense
 
         register_stream_to_extrinsic_group(*_color_stream, 0);
 
-        //auto& color_ep = get_color_sensor();
+        auto& color_ep = get_color_sensor();
 
         /*roi_sensor_interface* roi_sensor;
+        if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_ep))
+            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor));*/
+
+        roi_sensor_interface* roi_sensor;
         if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&color_ep))
-            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));*/
+            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
     }
 
     void cs_depth::depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)

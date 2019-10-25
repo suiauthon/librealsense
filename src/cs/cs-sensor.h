@@ -201,6 +201,7 @@ namespace librealsense {
             std::vector<stream_profile> _profiles;
 
         private:
+
             std::string get_cs_param_name(rs2_option option, cs_stream stream);
 
             bool get_cs_param_min(rs2_option option, int32_t &value, cs_stream stream);
@@ -220,6 +221,11 @@ namespace librealsense {
             void stop_acquisition(cs_stream_id stream);
 
             bool select_channel(cs_stream_id stream);
+
+            uint32_t read_from_buffer(std::vector<byte>& buffer, uint32_t index);
+
+            std::vector<byte> send_hwm_to_device(std::vector<byte>& buffer);
+            std::vector<byte> set_rgb_ae_roi(uint32_t top, uint32_t left, uint32_t bottom, uint32_t right);
 
             std::vector<uint32_t> get_frame_rates(); 
             std::vector<uint32_t> get_frame_rates_from_control();

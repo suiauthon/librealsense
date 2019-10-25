@@ -653,6 +653,7 @@ namespace librealsense {
 
                     return status;
                 case CS_STREAM_COLOR:
+                    //TODO implement ae roi
                     return false;
             }
         }
@@ -1109,7 +1110,48 @@ namespace librealsense {
         std::vector<byte> cs_device::send_hwm(std::vector<byte>& buffer)
         {
             std::lock_guard<std::mutex> lock(_hwm_lock);
+
+            if (buffer.size() < (sizeof(uint16_t) + 5 * sizeof(uint32_t)))
+                return send_hwm_to_device(buffer);
+
+            uint32_t index = 4;
             
+            uint32_t opcode = read_from_buffer(buffer, index);
+            index += 4;
+
+            uint32_t param1 = read_from_buffer(buffer, index);
+            index += 4;
+
+            uint32_t param2 = read_from_buffer(buffer, index);
+            index += 4;
+
+            uint32_t param3 = read_from_buffer(buffer, index);
+            index += 4;
+
+            uint32_t param4 = read_from_buffer(buffer, index);
+            index += 4;
+
+            //SETRGBAEROI, see enum fw_cmd ind5-private.h
+            const uint8_t setrgbaeroi = 0x75;
+            if (opcode == setrgbaeroi)
+                return set_rgb_ae_roi(param1, param2, param3, param4);
+            else
+                return send_hwm_to_device(buffer);
+        }
+
+        uint32_t cs_device::read_from_buffer(std::vector<byte>& buffer, uint32_t index)
+        {
+            uint32_t result = 0;
+
+            for (int i = 0; i < sizeof(uint32_t); ++i) {
+                result += buffer[index + i] << i;
+            }
+
+            return result;
+        }
+
+        std::vector<byte> cs_device::send_hwm_to_device(std::vector<byte>& buffer)
+        {
             UINT64 address, regLength;
             UINT32 restSize;
             UINT8 readBuffer[GVCP_WRITEMEM_MAX_COUNT];
@@ -1160,6 +1202,17 @@ namespace librealsense {
                 address += size;
             }
             return out_vec;
+        }
+
+        std::vector<byte> cs_device::set_rgb_ae_roi(uint32_t top, uint32_t bottom, uint32_t left, uint32_t right)
+        {
+            _connected_device->SetIntegerNodeValue("RGB_ExposureAutoROITop", top);
+            _connected_device->SetIntegerNodeValue("RGB_ExposureAutoROILeft", left);
+            _connected_device->SetIntegerNodeValue("RGB_ExposureAutoROIBottom", bottom);
+            _connected_device->SetIntegerNodeValue("RGB_ExposureAutoROIRight", right);
+            _connected_device->CommandNodeExecute("RGB_ExposureAutoROISet");
+
+            return std::vector<byte>();
         }
 
         std::string cs_device::get_device_version()
