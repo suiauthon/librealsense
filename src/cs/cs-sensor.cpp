@@ -453,7 +453,10 @@ namespace librealsense {
             is_successful = is_successful &_connected_device->GetStringNodeValue("SourceControlSelector", sourceSelectorValue);
 
             std::string resolutionValue;
-            is_successful = is_successful &_connected_device->GetStringNodeValue("Resolution", resolutionValue);
+            if (_cs_firmware_version >= cs_firmware_version(1, 3))
+                is_successful = is_successful &_connected_device->GetStringNodeValue("Resolution", resolutionValue);
+            else
+                resolutionValue = "Res_1280x720";
 
             for (int i = 0; i < _number_of_streams; i++) {
                 is_successful = is_successful & _connected_device->SetStringNodeValue("SourceControlSelector",
