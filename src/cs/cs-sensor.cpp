@@ -459,8 +459,8 @@ namespace librealsense {
                 resolutionValue = "Res_1280x720";
 
             for (int i = 0; i < _number_of_streams; i++) {
-                is_successful = is_successful & _connected_device->SetStringNodeValue("SourceControlSelector",
-                                                                                      "Source" + std::to_string(i));
+
+                is_successful = is_successful & select_channel(static_cast<cs_stream_id>(i));
 
                 smcs::StringList resolutionList;
                 if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
@@ -712,6 +712,15 @@ namespace librealsense {
                     if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option), "Continuous");
                     else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option), "Off");
                 }*/
+                case RS2_OPTION_INTER_PACKET_DELAY:
+                case RS2_OPTION_PACKET_SIZE:
+                {
+                    if (!select_channel((cs_stream_id)stream))
+                        return false;
+
+                    return _connected_device->SetIntegerNodeValue(get_cs_param_name(option, stream),
+                        (int)value);
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -753,6 +762,8 @@ namespace librealsense {
                     if (stream == CS_STREAM_DEPTH) return std::string("STR_LaserEnable");
                 case RS2_OPTION_LASER_POWER:
                     if (stream == CS_STREAM_DEPTH) return std::string("STR_LaserPower");
+                case RS2_OPTION_INTER_PACKET_DELAY: return std::string("GevSCPD");
+                case RS2_OPTION_PACKET_SIZE: return std::string("GevSCPSPacketSize");
                 //case RS2_OPTION_EXPOSURE: return std::string("ExposureTime");
                 //case RS2_OPTION_GAMMA: return std::string("Gamma");
                 //case RS2_OPTION_ENABLE_AUTO_EXPOSURE: return std::string("ExposureAuto");
@@ -801,6 +812,16 @@ namespace librealsense {
                     value = static_cast<int32_t>(double_value);
                     return status;
                 }*/
+                case RS2_OPTION_INTER_PACKET_DELAY:
+                case RS2_OPTION_PACKET_SIZE:
+                {
+                    if (!select_channel((cs_stream_id)stream))
+                        return false;
+
+                    status = _connected_device->GetIntegerNodeMin(get_cs_param_name(option, stream), int_value);
+                    value = static_cast<int32_t>(int_value);
+                    return status;
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -846,6 +867,16 @@ namespace librealsense {
                     value = static_cast<int32_t>(double_value);
                     return status;
                 }*/
+                case RS2_OPTION_INTER_PACKET_DELAY:
+                case RS2_OPTION_PACKET_SIZE:
+                {
+                    if (!select_channel((cs_stream_id)stream))
+                        return false;
+
+                    status = _connected_device->GetIntegerNodeMax(get_cs_param_name(option, stream), int_value);
+                    value = static_cast<int32_t>(int_value);
+                    return status;
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -874,6 +905,15 @@ namespace librealsense {
                     return 1;
                 //case RS2_OPTION_EXPOSURE: return 1;
                 //case RS2_OPTION_GAMMA: return 1;
+                case RS2_OPTION_INTER_PACKET_DELAY:
+                case RS2_OPTION_PACKET_SIZE:
+                {
+                    if (!select_channel((cs_stream_id)stream))
+                        return false;
+
+                    _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
+                    return static_cast<int32_t>(int_value);
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -932,6 +972,16 @@ namespace librealsense {
                     else if (string_value.compare(std::string("Continuous")) == 0) value = 1;
                     return true;
                 }*/
+                case RS2_OPTION_INTER_PACKET_DELAY:
+                case RS2_OPTION_PACKET_SIZE:
+                {
+                    if (!select_channel((cs_stream_id)stream))
+                        return false;
+
+                    status = _connected_device->GetIntegerNodeValue(get_cs_param_name(option, stream), int_value);
+                    value = static_cast<int32_t>(int_value);
+                    return status;
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -960,23 +1010,12 @@ namespace librealsense {
                     return;
             }
 
-            // select the appropriate source (TriggerMode, AcquisitionMode, TLParamsLocked, AcquisitionStart)
-            _connected_device->SetIntegerNodeValue("SourceControlSelector", stream);
-
-            // select the appropriate channel (GevSCPSPacketSize, GevSCPD)
-            INT64 streamChannel;
-            if (_connected_device->GetIntegerNodeValue("SourceStreamChannel", streamChannel)) {
-                _connected_device->SetIntegerNodeValue("GevStreamChannelSelector", streamChannel);
-            }
+            select_channel(stream);
 
             // disable trigger mode
             _connected_device->SetStringNodeValue("TriggerMode", "Off");
             // set continuous acquisition mode
             _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
-                
-            // optimal settings for D435e
-            _connected_device->SetIntegerNodeValue("GevSCPSPacketSize", 1500);
-            _connected_device->SetIntegerNodeValue("GevSCPD", 10);
 
             // start acquisition
             _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
@@ -1008,11 +1047,25 @@ namespace librealsense {
                     return;
             }
 
-            // select the appropriate source (TLParamsLocked, AcquisitionStart)
-            _connected_device->SetIntegerNodeValue("SourceControlSelector", stream);
+            select_channel(stream);
 
             _connected_device->CommandNodeExecute("AcquisitionStop");
             _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
+        }
+
+        bool cs_device::select_channel(cs_stream_id stream)
+        {
+            if (!_connected_device->SetIntegerNodeValue("SourceControlSelector", stream))
+                return false;
+
+            INT64 streamChannel;
+            if (!_connected_device->GetIntegerNodeValue("SourceStreamChannel", streamChannel))
+                return false;
+
+            if (!_connected_device->SetIntegerNodeValue("GevStreamChannelSelector", streamChannel))
+                return false;
+
+            return true;
         }
 
         void cs_device::stream_on(std::function<void(const notification& n)> error_handler, cs_stream_id stream)
@@ -1257,6 +1310,8 @@ namespace librealsense {
             case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE: return "Enable / disable auto-white-balance";
             case RS2_OPTION_POWER_LINE_FREQUENCY: return "Power Line Frequency";
             case RS2_OPTION_AUTO_EXPOSURE_PRIORITY: return "Limit exposure time when auto-exposure is ON to preserve constant fps rate";
+            case RS2_OPTION_INTER_PACKET_DELAY: return "Set inter-packet delay";
+            case RS2_OPTION_PACKET_SIZE: return "Set packet size";
             default: return _ep.get_option_name(_id);
         }
     }

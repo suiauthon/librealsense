@@ -252,6 +252,12 @@ namespace librealsense
                                           white_balance_option,
                                           auto_white_balance_option));
 
+        auto interPacketDelayOption = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_COLOR);
+        color_ep->register_option(RS2_OPTION_INTER_PACKET_DELAY, interPacketDelayOption);
+
+        auto packetSizeOption = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_COLOR);
+        color_ep->register_option(RS2_OPTION_PACKET_SIZE, packetSizeOption);
+
         return color_ep;
     }
 
@@ -356,6 +362,12 @@ namespace librealsense
                                           white_balance_option,
                                           auto_white_balance_option));*/
         depth_ep->register_pixel_format(pf_z16);
+
+        auto interPacketDelayOption = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_INTER_PACKET_DELAY, interPacketDelayOption);
+
+        auto packetSizeOption = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_PACKET_SIZE, packetSizeOption);
 
         return depth_ep;
     }

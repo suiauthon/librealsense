@@ -134,6 +134,12 @@ namespace librealsense {
 
                                 for (int i = 0; i < _number_of_streams; i++)
                                 {
+                                    select_channel((cs_stream_id)i);
+
+                                    // optimal settings for D435e
+                                    _connected_device->SetIntegerNodeValue("GevSCPSPacketSize", 1500);
+                                    _connected_device->SetIntegerNodeValue("GevSCPD", 10);
+
                                     _threads[i] = nullptr;
                                     _is_capturing[i] = false;
                                     _callbacks[i] = nullptr;
@@ -212,6 +218,8 @@ namespace librealsense {
             void stop_stream(cs_stream_id stream);
 
             void stop_acquisition(cs_stream_id stream);
+
+            bool select_channel(cs_stream_id stream);
 
             std::vector<uint32_t> get_frame_rates(); 
             std::vector<uint32_t> get_frame_rates_from_control();
