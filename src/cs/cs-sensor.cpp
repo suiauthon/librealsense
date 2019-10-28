@@ -1142,7 +1142,7 @@ namespace librealsense {
             uint32_t result = 0;
 
             for (int i = 0; i < sizeof(uint32_t); ++i) {
-                result += buffer[index + i] << i;
+                result += static_cast<uint32_t>(buffer[index + i]) << (i * 8);
             }
 
             return result;
