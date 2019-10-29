@@ -181,7 +181,7 @@ namespace librealsense {
 
             enum rs2_format get_rgb_format();
 
-            std::vector <stream_profile> get_profiles();
+            std::vector <stream_profile> get_profiles(cs_stream_id stream);
 
             bool reset(void);
 
