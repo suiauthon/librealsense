@@ -1031,29 +1031,22 @@ namespace librealsense {
         {
             std::lock_guard<std::mutex> lock(_hwm_lock);
 
-            if (buffer.size() < (sizeof(uint16_t) + 5 * sizeof(uint32_t)))
-                return send_hwm_to_device(buffer);
-
-            uint32_t index = 4;
-            uint32_t opcode = read_from_buffer(buffer, index);
-            index += 4;
-            uint32_t param1 = read_from_buffer(buffer, index);
-            index += 4;
-            uint32_t param2 = read_from_buffer(buffer, index);
-            index += 4;
-            uint32_t param3 = read_from_buffer(buffer, index);
-            index += 4;
-            uint32_t param4 = read_from_buffer(buffer, index);
-            index += 4;
-
             //SETRGBAEROI, see enum fw_cmd ind5-private.h
-            const uint8_t setrgbaeroi = 0x75;
-            if (opcode != setrgbaeroi) {
-                return send_hwm_to_device(buffer);
+            const uint8_t setrgbaeroi_opcode = 0x75;
+            const uint8_t unknown_opcode = 0x00;
+            const uint8_t opcode_index = 4;
+            const uint8_t opcode = buffer.size() > opcode_index ? buffer[opcode_index] : unknown_opcode;
+            if ((opcode == setrgbaeroi_opcode) && (buffer.size() >= (6 * sizeof(uint32_t)))) {
+                uint32_t param_index = 8;
+                uint32_t param1 = read_from_buffer(buffer, param_index);
+                uint32_t param2 = read_from_buffer(buffer, param_index + 4);
+                uint32_t param3 = read_from_buffer(buffer, param_index + 8);
+                uint32_t param4 = read_from_buffer(buffer, param_index + 12);
+                set_rgb_ae_roi(param1, param2, param3, param4);
+                return std::vector<byte> {setrgbaeroi_opcode, 0, 0, 0};
             }
             else {
-                set_rgb_ae_roi(param1, param2, param3, param4);
-                return std::vector<byte> {setrgbaeroi, 0, 0, 0};
+                return send_hwm_to_device(buffer);
             }
         }
 
