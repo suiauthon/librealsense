@@ -244,7 +244,7 @@ namespace librealsense {
         power on(std::dynamic_pointer_cast<cs_sensor>(shared_from_this()));
 
         if (_uvc_profiles.empty()){}
-        _uvc_profiles = _device->get_profiles();
+        _uvc_profiles = _device->get_profiles(_cs_stream_id);
 
         for (auto&& p : _uvc_profiles)
         {
@@ -442,7 +442,7 @@ namespace librealsense {
                 return RS2_FORMAT_BGR8;
         }
 
-        std::vector<stream_profile> cs_device::get_profiles()
+        std::vector<stream_profile> cs_device::get_profiles(cs_stream_id stream)
         {
             std::vector<stream_profile> all_stream_profiles;
             stream_profile profile;
@@ -458,9 +458,9 @@ namespace librealsense {
             else
                 resolutionValue = "Res_1280x720";
 
-            for (int i = 0; i < _number_of_streams; i++) {
+            //for (int i = 0; i < _number_of_streams; i++) {
 
-                is_successful = is_successful & select_channel(static_cast<cs_stream_id>(i));
+                is_successful = is_successful & select_channel(stream);
 
                 smcs::StringList resolutionList;
                 if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
@@ -514,7 +514,7 @@ namespace librealsense {
                         }
                     }
                 }
-            }
+           // }
 
             _connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
             if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
