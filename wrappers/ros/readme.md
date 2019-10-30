@@ -86,7 +86,7 @@ source ~/.bashrc
 
 ## Usage Instructions
 
-Before starting the camera node, make sure to modify the launch file for the D435e camera:
+Before starting the camera node, make sure to modify the launch file used with the D435e camera:
 
 - set the `enable_infra1` argument to `false`
 - set the `enable_infra2` argument to `false`
