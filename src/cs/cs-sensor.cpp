@@ -592,7 +592,7 @@ namespace librealsense {
             }
 
             //range copied from asic_and_projector_temperature_options::get_range()
-            if (option == RS2_OPTION_ASIC_TEMPERATURE)
+            if (option == RS2_OPTION_ASIC_TEMPERATURE || option == RS2_OPTION_PROJECTOR_TEMPERATURE)
                 return control_range{ -40, 125, 0, 0 };
 
             if (!get_cs_param_value(option, value, stream)) value = 0;
@@ -689,6 +689,8 @@ namespace librealsense {
                     if (stream == CS_STREAM_DEPTH) return std::string("STR_LaserPower");
                 case RS2_OPTION_INTER_PACKET_DELAY: return std::string("GevSCPD");
                 case RS2_OPTION_PACKET_SIZE: return std::string("GevSCPSPacketSize");
+                case RS2_OPTION_ASIC_TEMPERATURE: return std::string("IntelASIC");
+                case RS2_OPTION_PROJECTOR_TEMPERATURE: return std::string("DepthModule");
                 //case RS2_OPTION_EXPOSURE: return std::string("ExposureTime");
                 //case RS2_OPTION_GAMMA: return std::string("Gamma");
                 //case RS2_OPTION_ENABLE_AUTO_EXPOSURE: return std::string("ExposureAuto");
@@ -908,8 +910,9 @@ namespace librealsense {
                     return status;
                 }
                 case RS2_OPTION_ASIC_TEMPERATURE:
+                case RS2_OPTION_PROJECTOR_TEMPERATURE:
                 {
-                    if (_connected_device->SetStringNodeValue("DeviceTemperatureSelector", "IntelASIC")) {
+                    if (_connected_device->SetStringNodeValue("DeviceTemperatureSelector", get_cs_param_name(option, stream))) {
                         double temperature;
                         if (_connected_device->GetFloatNodeValue("DeviceTemperature", temperature)) {
                             value = static_cast<int32_t> (temperature);

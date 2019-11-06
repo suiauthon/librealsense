@@ -375,6 +375,9 @@ namespace librealsense
         auto asic_temperature_option = std::make_shared<cs_readonly_option>(*depth_ep, RS2_OPTION_ASIC_TEMPERATURE, CS_STREAM_DEPTH);
         depth_ep->register_option(RS2_OPTION_ASIC_TEMPERATURE, asic_temperature_option);
 
+        auto projector_temperature_option = std::make_shared<cs_readonly_option>(*depth_ep, RS2_OPTION_PROJECTOR_TEMPERATURE, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_PROJECTOR_TEMPERATURE, projector_temperature_option);
+
         return depth_ep;
     }
 
