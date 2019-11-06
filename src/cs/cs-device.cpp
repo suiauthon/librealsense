@@ -199,7 +199,6 @@ namespace librealsense
         else
             depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
                                                                                                   lazy<float>([]() { return 0.001f; })));
-
         register_info(RS2_CAMERA_INFO_ADVANCED_MODE, ((advanced_mode) ? "YES" : "NO"));
     }
 
@@ -367,11 +366,14 @@ namespace librealsense
                                           auto_white_balance_option));*/
         depth_ep->register_pixel_format(pf_z16);
 
-        auto interPacketDelayOption = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_DEPTH);
-        depth_ep->register_option(RS2_OPTION_INTER_PACKET_DELAY, interPacketDelayOption);
+        auto inter_packet_delay_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_INTER_PACKET_DELAY, inter_packet_delay_option);
 
-        auto packetSizeOption = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_DEPTH);
-        depth_ep->register_option(RS2_OPTION_PACKET_SIZE, packetSizeOption);
+        auto packet_size_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_PACKET_SIZE, packet_size_option);
+
+        auto asic_temperature_option = std::make_shared<cs_readonly_option>(*depth_ep, RS2_OPTION_ASIC_TEMPERATURE, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_ASIC_TEMPERATURE, asic_temperature_option);
 
         return depth_ep;
     }

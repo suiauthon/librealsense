@@ -352,6 +352,8 @@ namespace librealsense {
         {
         }
 
+        virtual ~cs_pu_option() = default;
+
         const char* get_description() const override;
 
         const char* get_value_description(float val) const override
@@ -366,11 +368,37 @@ namespace librealsense {
         }
 
     private:
-        cs_sensor& _ep;
         cs_stream _stream;
         rs2_option _id;
         const std::map<float, std::string> _description_per_value;
         std::function<void(const option &)> _record = [](const option &) {};
+
+    protected:
+        cs_sensor& _ep;
+    };
+
+    class cs_readonly_option : public cs_pu_option
+    {
+    public:
+        bool is_read_only() const override { return true; }
+
+        void set(float) override
+        {
+            throw not_implemented_exception("This option is read-only!");
+        }
+
+        bool is_enabled() const override
+        {
+            return _ep.is_streaming();
+        }
+
+        void enable_recording(std::function<void(const option &)> record_action) override
+        {
+            //empty
+        }
+
+        explicit cs_readonly_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+            : cs_pu_option(ep, id, stream) {}
     };
 }
 

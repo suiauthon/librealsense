@@ -591,6 +591,10 @@ namespace librealsense {
                 return range;
             }
 
+            //range copied from asic_and_projector_temperature_options::get_range()
+            if (option == RS2_OPTION_ASIC_TEMPERATURE)
+                return control_range{ -40, 125, 0, 0 };
+
             if (!get_cs_param_value(option, value, stream)) value = 0;
             if (!get_cs_param_min(option, min, stream)) min = 0;
             if (!get_cs_param_max(option, max, stream)) max = 0;
@@ -830,7 +834,7 @@ namespace librealsense {
                 case RS2_OPTION_PACKET_SIZE:
                 {
                     if (!select_channel((cs_stream_id)stream))
-                        return false;
+                        return 1;
 
                     _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
                     return static_cast<int32_t>(int_value);
@@ -902,6 +906,17 @@ namespace librealsense {
                     status = _connected_device->GetIntegerNodeValue(get_cs_param_name(option, stream), int_value);
                     value = static_cast<int32_t>(int_value);
                     return status;
+                }
+                case RS2_OPTION_ASIC_TEMPERATURE:
+                {
+                    if (_connected_device->SetStringNodeValue("DeviceTemperatureSelector", "IntelASIC")) {
+                        double temperature;
+                        if (_connected_device->GetFloatNodeValue("DeviceTemperature", temperature)) {
+                            value = static_cast<int32_t> (temperature);
+                            return true;
+                        }
+                    }
+                    return false;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
@@ -1275,6 +1290,8 @@ namespace librealsense {
             case RS2_OPTION_AUTO_EXPOSURE_PRIORITY: return "Limit exposure time when auto-exposure is ON to preserve constant fps rate";
             case RS2_OPTION_INTER_PACKET_DELAY: return "Set inter-packet delay";
             case RS2_OPTION_PACKET_SIZE: return "Set packet size";
+            case RS2_OPTION_ASIC_TEMPERATURE: return "Current Asic Temperature (degree celsius)";
+            case RS2_OPTION_PROJECTOR_TEMPERATURE: return "Current Projector Temperature (degree celsius)";
             default: return _ep.get_option_name(_id);
         }
     }
