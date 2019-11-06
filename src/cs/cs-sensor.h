@@ -189,6 +189,8 @@ namespace librealsense {
 
             std::string get_device_version();
 
+            bool is_temperature_supported();
+
         protected:
             void capture_loop(cs_stream_id stream);
 

@@ -1148,6 +1148,11 @@ namespace librealsense {
             return _device_version;
         }
 
+        bool cs_device::is_temperature_supported()
+        {
+            return _cs_firmware_version >= cs_firmware_version(1, 4, 1, 0);
+        }
+
         void cs_device::capture_loop(cs_stream_id stream)
         {
             try
