@@ -115,7 +115,9 @@ namespace librealsense {
                     if (!serial.compare(_device_info.serial)) {
                         _connected_device = devices[i];
 
-                        if (_connected_device == NULL || !_connected_device->Connect())
+                        /*if (_connected_device == NULL || !_connected_device->Connect())
+                            throw wrong_api_call_sequence_exception("Could not create CS device!");*/
+                        if (!this->connect())
                             throw wrong_api_call_sequence_exception("Could not create CS device!");
                         else
                         {
@@ -148,7 +150,8 @@ namespace librealsense {
 
             ~cs_device() {
                 //printf("Ubijam cs device\n");
-                if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
+                this->disconnect();
+                //if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
 
                 stop_stream(CS_STREAM_ID_DEPTH);
                 stop_stream(CS_STREAM_ID_COLOR);
@@ -182,6 +185,10 @@ namespace librealsense {
             std::vector<byte> send_hwm(std::vector<byte>& buffer);
 
             std::string get_device_version();
+
+            bool connect(void);
+
+            void disconnect(void);
 
         protected:
             void capture_loop(cs_stream_id stream);

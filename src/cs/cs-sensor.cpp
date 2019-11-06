@@ -523,6 +523,7 @@ namespace librealsense {
 
         bool cs_device::get_pu(rs2_option opt, int32_t& value, cs_stream stream)
         {
+            std::cout<<"get_pu"<<std::endl;
             return get_cs_param_value(opt, value, stream);
         }
 
@@ -998,12 +999,26 @@ namespace librealsense {
                 _power_state = D3;
             }
 
+            std::cout<<"Power"<<std::endl;
+
             return _power_state;
         }
 
         bool cs_device::reset(void)
         {
             return _connected_device->CommandNodeExecute("DeviceReset");
+        }
+
+        bool cs_device::connect(void)
+        {
+            if (_connected_device == NULL || !_connected_device->Connect())
+                return false;
+            else return true;
+        }
+
+        void cs_device::disconnect(void)
+        {
+            if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
         }
 
         std::vector<byte> cs_device::send_hwm(std::vector<byte>& buffer)
