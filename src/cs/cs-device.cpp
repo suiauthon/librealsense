@@ -200,6 +200,9 @@ namespace librealsense
             depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
                                                                                                   lazy<float>([]() { return 0.001f; })));
         register_info(RS2_CAMERA_INFO_ADVANCED_MODE, ((advanced_mode) ? "YES" : "NO"));
+        
+        //added because ROS wrapper 2.2.9 requires this property
+        register_info(RS2_CAMERA_INFO_PHYSICAL_PORT, "N/A");
     }
 
     std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
