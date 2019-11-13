@@ -134,6 +134,7 @@ namespace librealsense
         friend class cs_depth_sensor;
 
         std::shared_ptr<hw_monitor> _hw_monitor;
+		std::shared_ptr<platform::cs_device> _cs_device;
         firmware_version            _fw_version;
         firmware_version            _recommended_fw_version;
         ds::d400_caps _device_capabilities;
@@ -325,4 +326,29 @@ namespace librealsense
     private:
         const cs_mono* _owner;
     };
+
+	class cs_external_sync_mode : public option
+	{
+	public:
+		cs_external_sync_mode(hw_monitor& hwm, cs_depth_sensor& depth);
+		virtual ~cs_external_sync_mode() = default;
+		virtual void set(float value) override;
+		virtual float query() const override;
+		virtual option_range get_range() const override;
+		virtual bool is_enabled() const override { return true; }
+
+		const char* get_description() const override
+		{
+			return "Inter-camera synchronization mode: 0:Default, 1:Master, 2:Slave";
+		}
+		void enable_recording(std::function<void(const option &)> record_action) override
+		{
+			_record_action = record_action;
+		}
+	private:
+		std::function<void(const option &)> _record_action = [](const option&) {};
+		lazy<option_range> _range;
+		hw_monitor& _hwm;
+		cs_depth_sensor& _depth;
+	};
 }
