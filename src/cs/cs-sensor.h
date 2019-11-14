@@ -279,6 +279,8 @@ namespace librealsense {
 
         void reset_streaming();
 
+        cs_stream get_stream(rs2_stream type, int index);
+
         struct power
         {
             explicit power(std::weak_ptr<cs_sensor> owner)
@@ -311,6 +313,7 @@ namespace librealsense {
         std::mutex _power_lock;
         std::mutex _configure_lock;
         cs_stream _cs_stream;
+        std::vector<cs_stream> _cs_selected_streams;
         std::unique_ptr<power> _power;
         std::shared_ptr<platform::cs_device> _device;
     };

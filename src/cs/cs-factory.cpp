@@ -51,34 +51,15 @@ namespace librealsense {
         std::string string_node;
 
         auto smcs_api = smcs::GetCameraAPI();
-        //printf("Trazim\n");
         smcs_api->FindAllDevices(0.15);
-        //printf("Nasao\n");
         auto devices = smcs_api->GetAllDevices();
 
         for (int i = 0; i < devices.size(); i++) {
-            //printf("Broj uredaja na kompu %d\n", devices.size());
             if (devices[i]->IsOnNetwork()) {
-                //printf("Uredaj je na kompu\n");
                 auto info = platform::cs_device_info();
                 info.serial = devices[i]->GetSerialNumber();
                 info.id = devices[i]->GetModelName();
-                //printf("id %s\n", info.id.c_str());
                 info.info = devices[i]->GetManufacturerSpecificInfo();
-
-
-                /*printf("%s\n", devices[i]->GetManufacturerName().c_str());
-                printf("%s\n", devices[i]->GetManufacturerSpecificInfo().c_str());
-                printf("%s\n", devices[i]->GetSerialNumber().c_str());
-                printf("%s\n", devices[i]->GetModelName().c_str());
-                printf("%d\n", devices[i]->GetDeviceType()); //dodati da bude tamo ikonica da je usb 3 ili gev
-                printf("%d\n", devices[i]->GetGateway());
-                printf("%d\n", devices[i]->GetIpAddress());
-                printf("%s\n", devices[i]->GetDeviceVersion().c_str());
-                printf("%d\n", devices[i]->GetMacAddress());
-                printf("%d\n", devices[i]->GetSubnetMask());
-                printf("%d\n", devices[i]->GetVersion());*/
-
                 results.push_back(info);
             }
         }

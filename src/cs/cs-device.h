@@ -246,10 +246,12 @@ namespace librealsense
                 }
                 else if (p->get_stream_type() == RS2_STREAM_INFRARED && p->get_stream_index() < 2)
                 {
+                    OutputDebugStringA("assigning left stream\n");
                     assign_stream(_owner->_left_ir_stream, p);
                 }
                 else if (p->get_stream_type() == RS2_STREAM_INFRARED  && p->get_stream_index() == 2)
                 {
+                    OutputDebugStringA("assigning right stream\n");
                     assign_stream(_owner->_right_ir_stream, p);
                 }
                 auto vid_profile = dynamic_cast<video_stream_profile_interface*>(p.get());
