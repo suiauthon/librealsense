@@ -455,14 +455,7 @@ namespace librealsense {
             else
                 resolutionList.push_back(resolutionValue);
 
-            if (_cs_firmware_version >= cs_firmware_version(1, 3)) {
-                is_successful = is_successful & _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
-                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
-                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "On");
-                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region1");
-                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "Off");
-                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
-            }
+            set_region(stream, true);
 
             for (const auto& resolution : resolutionList) {
 
@@ -1009,6 +1002,7 @@ namespace librealsense {
             }
         }
 
+        //TODO handle not being able to set some region because another region is enabled
         bool cs_device::set_region(cs_stream stream, bool enable)
         {
             if (select_region(stream))
