@@ -116,7 +116,7 @@ namespace librealsense {
 
     std::shared_ptr<matcher> D435e_camera::create_matcher(const frame_holder& frame) const
     {
-        std::vector<stream_interface*> streams = {_color_stream.get(), _depth_stream.get()/*, _left_ir_stream.get() , _right_ir_stream.get()*/};
+        std::vector<stream_interface*> streams = {_color_stream.get(), _depth_stream.get(), _left_ir_stream.get() , _right_ir_stream.get()};
         if (frame.frame->supports_frame_metadata(RS2_FRAME_METADATA_FRAME_COUNTER))
         {
             return matcher_factory::create(RS2_MATCHER_DLR_C, streams);
@@ -129,6 +129,7 @@ namespace librealsense {
         std::vector<tagged_profile> markers;
         markers.push_back({ RS2_STREAM_DEPTH, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
         markers.push_back({ RS2_STREAM_COLOR, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
+        markers.push_back({ RS2_STREAM_INFRARED, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
         return markers;
     }
 }

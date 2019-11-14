@@ -14,7 +14,7 @@ namespace librealsense {
     {
         auto device_version = device->GetDeviceVersion();
         std::smatch match;
-        if (std::regex_search(device_version, match, std::regex("FW:([0-9])\.([0-9])\.([0-9])\.([0-9])")))
+        if (std::regex_search(device_version, match, std::regex("FW:([0-9])\\.([0-9])\\.([0-9])\\.([0-9])")))
         {
             try
             {
@@ -33,17 +33,6 @@ namespace librealsense {
         }
 
     }
-
-    cs_stream_id cs_stream_to_id(cs_stream stream)
-    {
-        switch(stream)
-        {
-            case CS_STREAM_DEPTH: return CS_STREAM_ID_DEPTH;
-            case CS_STREAM_COLOR: return CS_STREAM_ID_COLOR;
-            case CS_STREAM_MONO: return CS_STREAM_ID_MONO;
-            default: return CS_STREAM_ID_MONO;
-        }
-    };
 
     void cs_sensor::open(const stream_profiles& requests)
     {
@@ -184,14 +173,14 @@ namespace librealsense {
                                                   }
                                               }
 
-                                          }, _cs_stream_id);
+                                          }, _cs_stream);
 
             }
             catch(...)
             {
                 for (auto&& commited_profile : commited)
                 {
-                    _device->close(commited_profile, _cs_stream_id);
+                    _device->close(commited_profile, _cs_stream);
                 }
                 throw;
             }
@@ -210,14 +199,14 @@ namespace librealsense {
             _device->stream_on([&](const notification& n)
                                {
                                    _notifications_processor->raise_notification(n);
-                               }, _cs_stream_id);
+                               }, _cs_stream);
         }
         catch (...)
         {
             for (auto& profile : _internal_config)
             {
                 try {
-                    _device->close(profile, _cs_stream_id);
+                    _device->close(profile, _cs_stream);
                 }
                 catch (...) {}
             }
@@ -244,7 +233,7 @@ namespace librealsense {
         power on(std::dynamic_pointer_cast<cs_sensor>(shared_from_this()));
 
         if (_uvc_profiles.empty()){}
-        _uvc_profiles = _device->get_profiles(_cs_stream_id);
+        _uvc_profiles = _device->get_profiles(_cs_stream);
 
         for (auto&& p : _uvc_profiles)
         {
@@ -342,7 +331,7 @@ namespace librealsense {
         {
             try // Handle disconnect event
             {
-                _device->close(profile, _cs_stream_id);
+                _device->close(profile, _cs_stream);
             }
             catch (...) {}
         }
@@ -442,7 +431,7 @@ namespace librealsense {
                 return RS2_FORMAT_BGR8;
         }
 
-        std::vector<stream_profile> cs_device::get_profiles(cs_stream_id stream)
+        std::vector<stream_profile> cs_device::get_profiles(cs_stream stream)
         {
             std::vector<stream_profile> all_stream_profiles;
             stream_profile profile;
@@ -640,7 +629,7 @@ namespace librealsense {
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
-                    if (!select_channel((cs_stream_id)stream))
+                    if (!select_channel(stream))
                         return false;
 
                     return _connected_device->SetIntegerNodeValue(get_cs_param_name(option, stream),
@@ -742,7 +731,7 @@ namespace librealsense {
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
-                    if (!select_channel((cs_stream_id)stream))
+                    if (!select_channel(stream))
                         return false;
 
                     status = _connected_device->GetIntegerNodeMin(get_cs_param_name(option, stream), int_value);
@@ -797,7 +786,7 @@ namespace librealsense {
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
-                    if (!select_channel((cs_stream_id)stream))
+                    if (!select_channel(stream))
                         return false;
 
                     status = _connected_device->GetIntegerNodeMax(get_cs_param_name(option, stream), int_value);
@@ -835,7 +824,7 @@ namespace librealsense {
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
-                    if (!select_channel((cs_stream_id)stream))
+                    if (!select_channel(stream))
                         return 1;
 
                     _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
@@ -902,7 +891,7 @@ namespace librealsense {
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
-                    if (!select_channel((cs_stream_id)stream))
+                    if (!select_channel(stream))
                         return false;
 
                     status = _connected_device->GetIntegerNodeValue(get_cs_param_name(option, stream), int_value);
@@ -925,7 +914,7 @@ namespace librealsense {
             }
         }
 
-        void cs_device::close(stream_profile profile, cs_stream_id stream)
+        void cs_device::close(stream_profile profile, cs_stream stream)
         {
             if (stream < _number_of_streams)
             {
@@ -935,7 +924,7 @@ namespace librealsense {
             else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
         }
 
-        void cs_device::start_acquisition(cs_stream_id stream)
+        void cs_device::start_acquisition(cs_stream stream)
         {
             if (_cs_firmware_version <= cs_firmware_version(1, 2, 0, 0)) {
 
@@ -950,6 +939,7 @@ namespace librealsense {
             }
 
             select_channel(stream);
+            //select_region(); TODO
 
             // disable trigger mode
             _connected_device->SetStringNodeValue("TriggerMode", "Off");
@@ -961,7 +951,7 @@ namespace librealsense {
             _connected_device->CommandNodeExecute("AcquisitionStart");
         }
 
-        void cs_device::stop_stream(cs_stream_id stream)
+        void cs_device::stop_stream(cs_stream stream)
         {
             if (_is_capturing[stream])
             {
@@ -972,7 +962,7 @@ namespace librealsense {
             }
         }
 
-        void cs_device::stop_acquisition(cs_stream_id stream)
+        void cs_device::stop_acquisition(cs_stream stream)
         {
             if (_cs_firmware_version <= cs_firmware_version(1, 2, 0, 0)) {
 
@@ -992,7 +982,7 @@ namespace librealsense {
             _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
         }
 
-        bool cs_device::select_channel(cs_stream_id stream)
+        bool cs_device::select_channel(cs_stream stream)
         {
             if (!_connected_device->SetIntegerNodeValue("SourceControlSelector", stream))
                 return false;
@@ -1007,7 +997,7 @@ namespace librealsense {
             return true;
         }
 
-        void cs_device::stream_on(std::function<void(const notification& n)> error_handler, cs_stream_id stream)
+        void cs_device::stream_on(std::function<void(const notification& n)> error_handler, cs_stream stream)
         {
             if (stream < _number_of_streams)
             {
@@ -1153,7 +1143,7 @@ namespace librealsense {
             return _cs_firmware_version >= cs_firmware_version(1, 4, 1, 0);
         }
 
-        void cs_device::capture_loop(cs_stream_id stream)
+        void cs_device::capture_loop(cs_stream stream)
         {
             try
             {
@@ -1172,7 +1162,7 @@ namespace librealsense {
             }
         }
 
-        void cs_device::image_poll(cs_stream_id stream)
+        void cs_device::image_poll(cs_stream stream)
         {
             smcs::IImageInfo image_info_;
 
@@ -1204,7 +1194,7 @@ namespace librealsense {
             }
         }
 
-        void cs_device::probe_and_commit(stream_profile profile, frame_callback callback, cs_stream_id stream)
+        void cs_device::probe_and_commit(stream_profile profile, frame_callback callback, cs_stream stream)
         {
             if (stream < _number_of_streams)
             {
@@ -1221,7 +1211,7 @@ namespace librealsense {
             else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
         }
 
-        void cs_device::set_format(stream_profile profile, cs_stream_id stream)
+        void cs_device::set_format(stream_profile profile, cs_stream stream)
         {
             std::string sourceSelectorValue;
             _connected_device->GetStringNodeValue("SourceControlSelector", sourceSelectorValue);

@@ -12,18 +12,13 @@
 
 namespace librealsense {
     typedef enum cs_stream {
-        CS_STREAM_DEPTH,
+        CS_STREAM_DEPTH = 0,
         CS_STREAM_COLOR,
-        CS_STREAM_MONO
-
+        CS_STREAM_IR_LEFT,
+        CS_STREAM_IR_RIGHT,
+        CS_STREAM_MONO,
+        CS_STREAM_COUNT
     } cs_stream;
-
-    typedef enum cs_stream_id {
-        CS_STREAM_ID_DEPTH = 0,
-        CS_STREAM_ID_COLOR = 1,
-        CS_STREAM_ID_MONO = 0
-
-    } cs_stream_id;
 
     typedef enum cs_camera_model {
         CS_UCC2592C,
@@ -31,8 +26,6 @@ namespace librealsense {
         CS_D435E,
         CS_UNDEFINED
     };
-
-    cs_stream_id cs_stream_to_id(cs_stream stream);
 
     class cs_firmware_version
     {
@@ -119,27 +112,21 @@ namespace librealsense {
                             throw wrong_api_call_sequence_exception("Could not create CS device!");
                         else
                         {
-                            INT64 int64Value;
-                            if (_connected_device->GetIntegerNodeValue("SourceControlCount", int64Value))
-                            {
-                                _number_of_streams = int64Value;
-                                _threads = std::vector<std::unique_ptr <std::thread>>(_number_of_streams);
-                                _is_capturing = std::vector<std::atomic<bool>>(_number_of_streams);
-                                _callbacks = std::vector<frame_callback>(_number_of_streams);
-                                _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
-                                _profiles = std::vector<stream_profile>(_number_of_streams);
-                                _device_version = _connected_device->GetDeviceVersion();
-                                _cs_firmware_version = cs_firmware_version(_connected_device);
+                            _number_of_streams = CS_STREAM_COUNT;
+                            _threads = std::vector<std::unique_ptr <std::thread>>(_number_of_streams);
+                            _is_capturing = std::vector<std::atomic<bool>>(_number_of_streams);
+                            _callbacks = std::vector<frame_callback>(_number_of_streams);
+                            _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
+                            _profiles = std::vector<stream_profile>(_number_of_streams);
+                            _device_version = _connected_device->GetDeviceVersion();
+                            _cs_firmware_version = cs_firmware_version(_connected_device);
 
-                                for (int i = 0; i < _number_of_streams; i++)
-                                {
-                                    _threads[i] = nullptr;
-                                    _is_capturing[i] = false;
-                                    _callbacks[i] = nullptr;
-                                }
+                            for (int i = 0; i < _number_of_streams; i++)
+                            {
+                                _threads[i] = nullptr;
+                                _is_capturing[i] = false;
+                                _callbacks[i] = nullptr;
                             }
-                            else
-                                throw wrong_api_call_sequence_exception("Could not create CS device!");
                         }
                     }
                 }
@@ -149,19 +136,22 @@ namespace librealsense {
                 //This causes only one camera to stream when using pipeline API with multiple devices (rs-multicam example)
                 //if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
 
-                stop_stream(CS_STREAM_ID_DEPTH);
-                stop_stream(CS_STREAM_ID_COLOR);
+                stop_stream(CS_STREAM_DEPTH);
+                stop_stream(CS_STREAM_COLOR);
+                stop_stream(CS_STREAM_IR_LEFT);
+                stop_stream(CS_STREAM_IR_RIGHT);
+
             }
 
             power_state set_power_state(power_state state);
 
-            void stream_on(std::function<void(const notification &n)> error_handler, cs_stream_id stream);
+            void stream_on(std::function<void(const notification &n)> error_handler, cs_stream stream);
 
-            void probe_and_commit(stream_profile profile, frame_callback callback, cs_stream_id stream);
+            void probe_and_commit(stream_profile profile, frame_callback callback, cs_stream stream);
 
-            void close(stream_profile profile, cs_stream_id stream);
+            void close(stream_profile profile, cs_stream stream);
 
-            void image_poll(cs_stream_id stream);
+            void image_poll(cs_stream stream);
 
             power_state get_power_state() const { return _power_state; }
 
@@ -173,7 +163,7 @@ namespace librealsense {
 
             enum rs2_format get_rgb_format();
 
-            std::vector <stream_profile> get_profiles(cs_stream_id stream);
+            std::vector <stream_profile> get_profiles(cs_stream stream);
 
             bool reset(void);
 
@@ -184,9 +174,9 @@ namespace librealsense {
             bool is_temperature_supported();
 
         protected:
-            void capture_loop(cs_stream_id stream);
+            void capture_loop(cs_stream stream);
 
-            void set_format(stream_profile profile, cs_stream_id stream);
+            void set_format(stream_profile profile, cs_stream stream);
 
             std::vector<std::function<void(const notification &n)>> _error_handler;
             std::vector<stream_profile> _profiles;
@@ -205,13 +195,13 @@ namespace librealsense {
 
             bool set_cs_param(rs2_option option, int32_t value, cs_stream stream);
 
-            void start_acquisition(cs_stream_id stream);
+            void start_acquisition(cs_stream stream);
 
-            void stop_stream(cs_stream_id stream);
+            void stop_stream(cs_stream stream);
 
-            void stop_acquisition(cs_stream_id stream);
+            void stop_acquisition(cs_stream stream);
 
-            bool select_channel(cs_stream_id stream);
+            bool select_channel(cs_stream stream);
 
             uint32_t read_from_buffer(std::vector<byte>& buffer, uint32_t index);
 
@@ -245,7 +235,6 @@ namespace librealsense {
                 : sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
                   _timestamp_reader(std::move(timestamp_reader)),
                   _device(std::move(cs_device)),
-                  _cs_stream_id(cs_stream_to_id(stream)),
                   _cs_stream(stream),
                   _user_count(0)
         {
@@ -317,7 +306,6 @@ namespace librealsense {
         std::mutex _power_lock;
         std::mutex _configure_lock;
         cs_stream _cs_stream;
-        cs_stream_id _cs_stream_id;
         std::unique_ptr<power> _power;
         std::shared_ptr<platform::cs_device> _device;
     };
