@@ -360,7 +360,6 @@ namespace librealsense {
 
     void cs_sensor::stop()
     {
-        //printf("Cs sensor STOP\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (!_is_streaming)
             throw wrong_api_call_sequence_exception("stop_streaming() failed. CS device is not streaming!");
@@ -447,63 +446,61 @@ namespace librealsense {
             else
                 resolutionValue = "Res_1280x720";
 
-            //for (int i = 0; i < _number_of_streams; i++) {
 
-                is_successful = is_successful & select_channel(stream);
+            is_successful = is_successful & select_channel(stream);
 
-                smcs::StringList resolutionList;
+            smcs::StringList resolutionList;
+            if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
+                is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolutionList);
+            else
+                resolutionList.push_back(resolutionValue);
+
+            if (_cs_firmware_version >= cs_firmware_version(1, 3)) {
+                is_successful = is_successful & _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
+                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
+                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "On");
+                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region1");
+                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "Off");
+                is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
+            }
+
+            for (const auto& resolution : resolutionList) {
+
                 if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
-                    is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolutionList);
-                else
-                    resolutionList.push_back(resolutionValue);
+                    is_successful =
+                        is_successful & _connected_device->SetStringNodeValue("Resolution", resolution);
 
-                if (_cs_firmware_version >= cs_firmware_version(1, 3)) {
-                    is_successful = is_successful & _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
-                    is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
-                    is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "On");
-                    is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region1");
-                    is_successful = is_successful & _connected_device->SetStringNodeValue("RegionMode", "Off");
-                    is_successful = is_successful & _connected_device->SetStringNodeValue("RegionSelector", "Region0");
-                }
+                is_successful = is_successful & _connected_device->GetIntegerNodeValue("Width", int64Value);
+                profile.width = (uint32_t) int64Value;
 
-                for (const auto& resolution : resolutionList) {
+                is_successful = is_successful & _connected_device->GetIntegerNodeValue("Height", int64Value);
+                profile.height = (uint32_t) int64Value;
 
-                    if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
-                        is_successful =
-                            is_successful & _connected_device->SetStringNodeValue("Resolution", resolution);
+                std::string pixelFormat;
+                is_successful = is_successful & _connected_device->GetStringNodeValue("PixelFormat", pixelFormat);
 
-                    is_successful = is_successful & _connected_device->GetIntegerNodeValue("Width", int64Value);
-                    profile.width = (uint32_t) int64Value;
+                profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
 
-                    is_successful = is_successful & _connected_device->GetIntegerNodeValue("Height", int64Value);
-                    profile.height = (uint32_t) int64Value;
+                auto frameRates = get_frame_rates();
 
-                    std::string pixelFormat;
-                    is_successful = is_successful & _connected_device->GetStringNodeValue("PixelFormat", pixelFormat);
+                for (auto frameRate : frameRates) {
 
-                    profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
+                    profile.fps = frameRate;
 
-                    auto frameRates = get_frame_rates();
-
-                    for (auto frameRate : frameRates) {
-
-                        profile.fps = frameRate;
-
-                        if (is_successful) {
-                            profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
-                            all_stream_profiles.push_back(profile);
+                    if (is_successful) {
+                        profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
+                        all_stream_profiles.push_back(profile);
                             
-                            std::string source;
-                            is_successful = is_successful &_connected_device->GetStringNodeValue("SourceControlSelector", source);
+                        std::string source;
+                        is_successful = is_successful &_connected_device->GetStringNodeValue("SourceControlSelector", source);
             
-                            if (is_successful && source == "Source0") {
-                                profile.format = 'Y8I ';
-                                all_stream_profiles.push_back(profile);
-                            }
+                        if (is_successful && source == "Source0") {
+                            profile.format = 'Y8I ';
+                            all_stream_profiles.push_back(profile);
                         }
                     }
                 }
-           // }
+            }
 
             _connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
             if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
@@ -939,7 +936,7 @@ namespace librealsense {
             }
 
             select_channel(stream);
-            //select_region(); TODO
+            set_region(stream, true);
 
             // disable trigger mode
             _connected_device->SetStringNodeValue("TriggerMode", "Off");
@@ -977,6 +974,7 @@ namespace librealsense {
             }
 
             select_channel(stream);
+            set_region(stream, false);
 
             _connected_device->CommandNodeExecute("AcquisitionStop");
             _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
@@ -984,17 +982,59 @@ namespace librealsense {
 
         bool cs_device::select_channel(cs_stream stream)
         {
-            if (!_connected_device->SetIntegerNodeValue("SourceControlSelector", stream))
+            if (!_connected_device->SetIntegerNodeValue("SourceControlSelector", get_stream_source(stream)))
                 return false;
 
-            INT64 streamChannel;
-            if (!_connected_device->GetIntegerNodeValue("SourceStreamChannel", streamChannel))
+            INT64 stream_channel;
+            if (!_connected_device->GetIntegerNodeValue("SourceStreamChannel", stream_channel))
                 return false;
 
-            if (!_connected_device->SetIntegerNodeValue("GevStreamChannelSelector", streamChannel))
+            if (!_connected_device->SetIntegerNodeValue("GevStreamChannelSelector", stream_channel))
                 return false;
 
             return true;
+        }
+
+        INT64 cs_device::get_stream_source(cs_stream stream)
+        {
+            switch (stream) {
+            case CS_STREAM_DEPTH:
+            case CS_STREAM_IR_LEFT:
+            case CS_STREAM_IR_RIGHT:
+                return 0;
+            case CS_STREAM_COLOR:
+                return 1;
+            default:
+                throw wrong_api_call_sequence_exception("Unknown stream ID!");
+            }
+        }
+
+        bool cs_device::set_region(cs_stream stream, bool enable)
+        {
+            if (select_region(stream))
+                return _connected_device->SetStringNodeValue("RegionMode", enable ? "On" : "Off");
+
+            return false;
+        }
+
+        bool cs_device::select_region(cs_stream stream)
+        {
+            return _connected_device->SetIntegerNodeValue("RegionSelector", get_stream_region(stream));
+        }
+
+        INT64 cs_device::get_stream_region(cs_stream stream)
+        {
+            switch (stream) {
+            case CS_STREAM_DEPTH:
+            case CS_STREAM_COLOR:
+                return 0;
+            case CS_STREAM_IR_LEFT:
+                return 3;
+            case CS_STREAM_IR_RIGHT:
+                return 2;
+            default:
+                throw wrong_api_call_sequence_exception("Unknown stream ID!");
+            }
         }
 
         void cs_device::stream_on(std::function<void(const notification& n)> error_handler, cs_stream stream)
