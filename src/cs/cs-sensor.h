@@ -151,7 +151,7 @@ namespace librealsense {
 
             void close(stream_profile profile, cs_stream stream);
 
-            void image_poll(cs_stream stream);
+            void image_poll(cs_stream stream, UINT32 channel);
 
             power_state get_power_state() const { return _power_state; }
 
@@ -201,12 +201,14 @@ namespace librealsense {
 
             void stop_acquisition(cs_stream stream);
 
-            bool select_channel(cs_stream stream);
-            INT64 get_stream_source(cs_stream stream);
-
+            bool select_source(cs_stream stream);
             bool set_region(cs_stream stream, bool enable);
             bool select_region(cs_stream stream);
+            bool select_channel(cs_stream stream);
+
+            INT64 get_stream_source(cs_stream stream);
             INT64 get_stream_region(cs_stream stream);
+            bool get_stream_channel(cs_stream stream, UINT32& channel);
 
             uint32_t read_from_buffer(std::vector<byte>& buffer, uint32_t index);
 

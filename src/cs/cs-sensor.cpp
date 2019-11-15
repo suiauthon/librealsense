@@ -463,43 +463,41 @@ namespace librealsense {
         {
             std::vector<stream_profile> all_stream_profiles;
             stream_profile profile;
-            INT64 int64Value;
+            INT64 int64_value;
             bool is_successful = true;
 
-            std::string sourceSelectorValue;
+            //TODO preserving this values is probably not requireds
+            /*std::string sourceSelectorValue;
             is_successful = is_successful &_connected_device->GetStringNodeValue("SourceControlSelector", sourceSelectorValue);
 
             std::string resolutionValue;
             if (_cs_firmware_version >= cs_firmware_version(1, 3))
                 is_successful = is_successful &_connected_device->GetStringNodeValue("Resolution", resolutionValue);
             else
-                resolutionValue = "Res_1280x720";
+                resolutionValue = "Res_1280x720";*/
 
-
-            is_successful = is_successful & select_channel(stream);
-
-            smcs::StringList resolutionList;
-            if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
-                is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolutionList);
-            else
-                resolutionList.push_back(resolutionValue);
-
-            auto test = set_region(stream, true);
+            auto test = select_region(stream);
             if (!test) {
-                OutputDebugStringA("set_region failed in enum\n");
+                OutputDebugStringA("select_region failed in enum\n");
             }
 
-            for (const auto& resolution : resolutionList) {
+            smcs::StringList resolution_list;
+            if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
+                is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolution_list);
+            else
+                resolution_list.push_back("Res_1280x720");
+
+            for (const auto& resolution : resolution_list) {
 
                 if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
                     is_successful =
                         is_successful & _connected_device->SetStringNodeValue("Resolution", resolution);
 
-                is_successful = is_successful & _connected_device->GetIntegerNodeValue("Width", int64Value);
-                profile.width = (uint32_t) int64Value;
+                is_successful = is_successful & _connected_device->GetIntegerNodeValue("Width", int64_value);
+                profile.width = (uint32_t) int64_value;
 
-                is_successful = is_successful & _connected_device->GetIntegerNodeValue("Height", int64Value);
-                profile.height = (uint32_t) int64Value;
+                is_successful = is_successful & _connected_device->GetIntegerNodeValue("Height", int64_value);
+                profile.height = (uint32_t) int64_value;
 
                 std::string pixelFormat;
                 is_successful = is_successful & _connected_device->GetStringNodeValue("PixelFormat", pixelFormat);
@@ -527,9 +525,11 @@ namespace librealsense {
                 }
             }
 
-            _connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
+            //TODO preserving setting not required
+            /*_connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
             if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
-                _connected_device->SetStringNodeValue("Resolution", resolutionValue);
+                _connected_device->SetStringNodeValue("Resolution", resolutionValue);*/
+            
             return all_stream_profiles;
         }
 
@@ -962,9 +962,8 @@ namespace librealsense {
                 );
                 if (capturing != 1)
                     return;
-            }
-
-            select_channel(stream);
+            }            
+            
             auto test = set_region(stream, true);
             if (!test) {
                 OutputDebugStringA("failed to set region!!!!\n");
@@ -977,7 +976,10 @@ namespace librealsense {
 
             // start acquisition
             _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
-            _connected_device->CommandNodeExecute("AcquisitionStart");
+            auto t2 = _connected_device->CommandNodeExecute("AcquisitionStart");
+            if (!t2) {
+                OutputDebugStringA("fail to start acq\n");
+            }
         }
 
         void cs_device::stop_stream(cs_stream stream)
@@ -1005,26 +1007,52 @@ namespace librealsense {
                     return;
             }
 
-            select_channel(stream);
             set_region(stream, false);
 
             _connected_device->CommandNodeExecute("AcquisitionStop");
             _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
         }
 
+        bool cs_device::select_source(cs_stream stream)
+        {
+            return _connected_device->SetIntegerNodeValue("SourceControlSelector", get_stream_source(stream));
+        }
+
+        //TODO handle not being able to set some region because another region is enabled
+        bool cs_device::set_region(cs_stream stream, bool enable)
+        {
+            if (select_region(stream))
+                return _connected_device->SetStringNodeValue("RegionMode", enable ? "On" : "Off");
+
+            return false;
+        }
+
+        bool cs_device::select_region(cs_stream stream)
+        {
+            if (select_source(stream))
+                return _connected_device->SetIntegerNodeValue("RegionSelector", get_stream_region(stream));
+
+            return false;
+        }
+
         bool cs_device::select_channel(cs_stream stream)
         {
-            if (!_connected_device->SetIntegerNodeValue("SourceControlSelector", get_stream_source(stream)))
-                return false;
+            //TOOD preserved to help with compatibility with older fw
+            /*if (!_connected_device->SetIntegerNodeValue("SourceControlSelector", get_stream_source(stream)))
+            return false;
 
             INT64 stream_channel;
             if (!_connected_device->GetIntegerNodeValue("SourceStreamChannel", stream_channel))
-                return false;
+            return false;
 
             if (!_connected_device->SetIntegerNodeValue("GevStreamChannelSelector", stream_channel))
-                return false;
+            return false;*/
 
-            return true;
+            UINT32 channel;
+            if (get_stream_channel(stream, channel))
+                return _connected_device->SetIntegerNodeValue("GevStreamChannelSelector", static_cast<INT64>(channel));
+
+            return false;
         }
 
         INT64 cs_device::get_stream_source(cs_stream stream)
@@ -1041,20 +1069,6 @@ namespace librealsense {
             }
         }
 
-        //TODO handle not being able to set some region because another region is enabled
-        bool cs_device::set_region(cs_stream stream, bool enable)
-        {
-            if (select_region(stream))
-                return _connected_device->SetStringNodeValue("RegionMode", enable ? "On" : "Off");
-
-            return false;
-        }
-
-        bool cs_device::select_region(cs_stream stream)
-        {
-            return _connected_device->SetIntegerNodeValue("RegionSelector", get_stream_region(stream));
-        }
-
         INT64 cs_device::get_stream_region(cs_stream stream)
         {
             switch (stream) {
@@ -1068,6 +1082,30 @@ namespace librealsense {
             default:
                 throw wrong_api_call_sequence_exception("Unknown stream ID!");
             }
+        }
+
+        //TODO will these results change dynamically? consider caching them in some way...
+        bool cs_device::get_stream_channel(cs_stream stream, UINT32& channel)
+        {
+            if (!select_source(stream))
+                return false;
+
+            if (!select_region(stream))
+                return false;
+
+            std::string region_destination;
+            if (!_connected_device->GetStringNodeValue("RegionDestination", region_destination))
+                return false;
+
+            if (!_connected_device->SetStringNodeValue("TransferSelector", region_destination))
+                return false;
+
+            INT64 transfer_stream_channel;
+            if (!_connected_device->GetIntegerNodeValue("TransferStreamChannel", transfer_stream_channel))
+                return false;
+
+            channel = static_cast<UINT32>(transfer_stream_channel);
+            return true;
         }
 
         void cs_device::stream_on(std::function<void(const notification& n)> error_handler, cs_stream stream)
@@ -1220,9 +1258,13 @@ namespace librealsense {
         {
             try
             {
+                UINT32 channel;
+                if (!get_stream_channel(stream, channel))
+                    throw wrong_api_call_sequence_exception("Unable to get stream channel!");
+                
                 while(_is_capturing[stream])
                 {
-                    image_poll(stream);
+                    image_poll(stream, channel);
                 }
             }
             catch (const std::exception& ex)
@@ -1235,16 +1277,16 @@ namespace librealsense {
             }
         }
 
-        void cs_device::image_poll(cs_stream stream)
+        void cs_device::image_poll(cs_stream stream, UINT32 channel)
         {
             smcs::IImageInfo image_info_;
 
             UINT32 src_pixel_type;
             double timestamp;
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
-                if (_connected_device->WaitForImage(3, stream))
+                if (_connected_device->WaitForImage(3, channel))
                 {
-                    _connected_device->GetImageInfo(&image_info_, stream);
+                    _connected_device->GetImageInfo(&image_info_, channel);
                     auto image_id = image_info_->GetImageID();
 
                     //if (cs_info::is_timestamp_supported(_device_info.id))
