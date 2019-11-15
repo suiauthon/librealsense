@@ -476,7 +476,11 @@ namespace librealsense {
             else
                 resolutionValue = "Res_1280x720";*/
 
-            auto test = select_region(stream);
+            //TODO disable all regions
+
+            OutputDebugStringA("get profiles\n");
+            disable_source_regions(stream);
+            auto test = set_region(stream, true);
             if (!test) {
                 OutputDebugStringA("select_region failed in enum\n");
             }
@@ -487,20 +491,34 @@ namespace librealsense {
             else
                 resolution_list.push_back("Res_1280x720");
 
+            if (!is_successful)
+                OutputDebugStringA("failed to get resolution node\n");
+
             for (const auto& resolution : resolution_list) {
 
                 if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
                     is_successful =
                         is_successful & _connected_device->SetStringNodeValue("Resolution", resolution);
 
+                if (!is_successful)
+                    OutputDebugStringA("failed to set node Resolution\n");
+                else
+                    OutputDebugStringA("setting resolution node ok\n");
+
                 is_successful = is_successful & _connected_device->GetIntegerNodeValue("Width", int64_value);
                 profile.width = (uint32_t) int64_value;
+
+                if (!is_successful)
+                    OutputDebugStringA("failed to set node width \n");
 
                 is_successful = is_successful & _connected_device->GetIntegerNodeValue("Height", int64_value);
                 profile.height = (uint32_t) int64_value;
 
                 std::string pixelFormat;
                 is_successful = is_successful & _connected_device->GetStringNodeValue("PixelFormat", pixelFormat);
+
+                if (!is_successful)
+                    OutputDebugStringA("failed to set res...\n");
 
                 profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
 
@@ -530,6 +548,8 @@ namespace librealsense {
             if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
                 _connected_device->SetStringNodeValue("Resolution", resolutionValue);*/
             
+            set_region(stream, false);
+
             return all_stream_profiles;
         }
 
@@ -1007,10 +1027,12 @@ namespace librealsense {
                     return;
             }
 
-            set_region(stream, false);
+            select_source(stream);
 
             _connected_device->CommandNodeExecute("AcquisitionStop");
             _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
+
+            set_region(stream, false);
         }
 
         bool cs_device::select_source(cs_stream stream)
@@ -1018,13 +1040,29 @@ namespace librealsense {
             return _connected_device->SetIntegerNodeValue("SourceControlSelector", get_stream_source(stream));
         }
 
-        //TODO handle not being able to set some region because another region is enabled
         bool cs_device::set_region(cs_stream stream, bool enable)
         {
             if (select_region(stream))
                 return _connected_device->SetStringNodeValue("RegionMode", enable ? "On" : "Off");
 
+            OutputDebugStringA("setting region failed\n");
             return false;
+        }
+
+        bool cs_device::disable_source_regions(cs_stream stream)
+        {
+            if (!select_source(stream))
+                return false;
+
+            smcs::StringList regions;
+            if (!_connected_device->GetEnumNodeValuesList("RegionSelector", regions))
+                return false;
+
+            for (const auto& region : regions)
+                _connected_device->SetStringNodeValue("RegionSelector", region);
+                //set off
+
+            return true;
         }
 
         bool cs_device::select_region(cs_stream stream)
@@ -1032,6 +1070,7 @@ namespace librealsense {
             if (select_source(stream))
                 return _connected_device->SetIntegerNodeValue("RegionSelector", get_stream_region(stream));
 
+            OutputDebugStringA("failed to select region\n");
             return false;
         }
 

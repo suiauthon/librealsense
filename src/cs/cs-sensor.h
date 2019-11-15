@@ -203,6 +203,7 @@ namespace librealsense {
 
             bool select_source(cs_stream stream);
             bool set_region(cs_stream stream, bool enable);
+            bool disable_source_regions(cs_stream stream);
             bool select_region(cs_stream stream);
             bool select_channel(cs_stream stream);
 
