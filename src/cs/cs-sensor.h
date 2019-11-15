@@ -202,6 +202,7 @@ namespace librealsense {
             void stop_acquisition(cs_stream stream);
 
             bool select_source(cs_stream stream);
+            bool set_source_locked(cs_stream stream, bool locked);
             bool set_region(cs_stream stream, bool enable);
             bool disable_source_regions(cs_stream stream);
             bool select_region(cs_stream stream);

@@ -476,10 +476,12 @@ namespace librealsense {
             else
                 resolutionValue = "Res_1280x720";*/
 
-            //TODO disable all regions
-
+            set_source_locked(stream, false);
             OutputDebugStringA("get profiles\n");
-            disable_source_regions(stream);
+            auto test1 = disable_source_regions(stream);
+            if (!test1)
+                OutputDebugStringA("disable source regions failed\n");
+
             auto test = set_region(stream, true);
             if (!test) {
                 OutputDebugStringA("select_region failed in enum\n");
@@ -995,7 +997,7 @@ namespace librealsense {
             _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
 
             // start acquisition
-            _connected_device->SetIntegerNodeValue("TLParamsLocked", 1);
+            set_source_locked(stream, true);
             auto t2 = _connected_device->CommandNodeExecute("AcquisitionStart");
             if (!t2) {
                 OutputDebugStringA("fail to start acq\n");
@@ -1030,7 +1032,7 @@ namespace librealsense {
             select_source(stream);
 
             _connected_device->CommandNodeExecute("AcquisitionStop");
-            _connected_device->SetIntegerNodeValue("TLParamsLocked", 0);
+            set_source_locked(stream, false);
 
             set_region(stream, false);
         }
@@ -1038,6 +1040,14 @@ namespace librealsense {
         bool cs_device::select_source(cs_stream stream)
         {
             return _connected_device->SetIntegerNodeValue("SourceControlSelector", get_stream_source(stream));
+        }
+
+        bool cs_device::set_source_locked(cs_stream stream, bool locked)
+        {
+            if (select_source(stream))
+                return _connected_device->SetIntegerNodeValue("TLParamsLocked", locked ? 1 : 0);
+
+            return false;
         }
 
         bool cs_device::set_region(cs_stream stream, bool enable)
@@ -1058,9 +1068,12 @@ namespace librealsense {
             if (!_connected_device->GetEnumNodeValuesList("RegionSelector", regions))
                 return false;
 
-            for (const auto& region : regions)
-                _connected_device->SetStringNodeValue("RegionSelector", region);
-                //set off
+            for (const auto& region : regions) {
+                if (!_connected_device->SetStringNodeValue("RegionSelector", region))
+                    return false;
+                if (_connected_device->SetStringNodeValue("RegionMdoe", "Off"))
+                    return false;
+            }
 
             return true;
         }
