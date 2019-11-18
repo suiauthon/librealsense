@@ -1,0 +1,6 @@
+#!/bin/bash
+
+. /usr/share/debconf/confmodule
+
+cd /usr/src/librealsense2
+. ./scripts/setup_udev_rules.sh

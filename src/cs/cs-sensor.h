@@ -122,7 +122,6 @@ namespace librealsense {
                             INT64 int64Value;
                             if (_connected_device->GetIntegerNodeValue("SourceControlCount", int64Value))
                             {
-                                //printf("Broj streamoa %d\n", int64Value);
                                 _number_of_streams = int64Value;
                                 _threads = std::vector<std::unique_ptr <std::thread>>(_number_of_streams);
                                 _is_capturing = std::vector<std::atomic<bool>>(_number_of_streams);
@@ -134,12 +133,6 @@ namespace librealsense {
 
                                 for (int i = 0; i < _number_of_streams; i++)
                                 {
-                                    select_channel((cs_stream_id)i);
-
-                                    // optimal settings for D435e
-                                    _connected_device->SetIntegerNodeValue("GevSCPSPacketSize", 1500);
-                                    _connected_device->SetIntegerNodeValue("GevSCPD", 10);
-
                                     _threads[i] = nullptr;
                                     _is_capturing[i] = false;
                                     _callbacks[i] = nullptr;
@@ -153,7 +146,6 @@ namespace librealsense {
             }
 
             ~cs_device() {
-                //printf("Ubijam cs device\n");
                 //This causes only one camera to stream when using pipeline API with multiple devices (rs-multicam example)
                 this->disconnect();
 
