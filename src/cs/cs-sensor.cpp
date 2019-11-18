@@ -188,6 +188,7 @@ namespace librealsense {
                     {
                         for (auto stream : _cs_selected_streams)
                             _device->close(commited_profile, stream);
+                        _device->unlock(_cs_stream);
                     }
                     throw;
                 }
@@ -218,6 +219,7 @@ namespace librealsense {
                 try {
                     for (auto stream : _cs_selected_streams)
                         _device->close(profile, stream);
+                    _device->unlock(_cs_stream);
                 }
                 catch (...) {}
             }
@@ -344,10 +346,11 @@ namespace librealsense {
             {
                 for (auto stream : _cs_selected_streams)
                     _device->close(profile, stream);
-
                 _device->unlock(_cs_stream);
             }
-            catch (...) {}
+            catch (...) {
+                OutputDebugStringA("wtf is this exeception\n");
+            }
         }
         reset_streaming();
         if (Is<librealsense::global_time_interface>(_owner))
@@ -994,8 +997,21 @@ namespace librealsense {
                     return;
             }
 
-            select_source(stream);
-            set_region(stream, false);
+            if (!select_source(stream))
+                throw wrong_api_call_sequence_exception("Unable to select source!");
+
+            if (!_connected_device->CommandNodeExecute("AcquisitionStop"))
+                throw wrong_api_call_sequence_exception("Unable to stop acquisition!");
+
+            // this cannot be handlel in a simple way
+            // 1 must disable inactive regions
+            // 2 must lock per source that includes mulitple regions
+            // 3 unable to change region while locked
+            // possible solutions:
+            // 1 disable locking -> possible unexpected behaviour, harder to find bugs
+            // 2 queue of regions to disable when the unlocking -> possible sync nightmare
+            if (!set_region(stream, false))
+                throw wrong_api_call_sequence_exception("Unable to set_region!");
         }
 
         bool cs_device::select_source(cs_stream stream)
@@ -1013,6 +1029,10 @@ namespace librealsense {
 
         bool cs_device::set_region(cs_stream stream, bool enable)
         {
+            std::stringstream ss;
+            ss << "region " << get_stream_region(stream) << " " << enable << "\n";
+            OutputDebugStringA(ss.str().c_str());
+
             if (select_region(stream))
                 return _connected_device->SetStringNodeValue("RegionMode", enable ? "On" : "Off");
 
@@ -1261,12 +1281,17 @@ namespace librealsense {
 
         void cs_device::lock(cs_stream stream)
         {
+
+            OutputDebugStringA("locking\n");
+
             if (!set_source_locked(stream, true))
                 throw wrong_api_call_sequence_exception("Unable to lock source!");
         }
 
         void cs_device::unlock(cs_stream stream)
         {
+            OutputDebugStringA("unlocking\n");
+
             if (!set_source_locked(stream, false))
                 throw wrong_api_call_sequence_exception("Unable to unlock source!");
         }
