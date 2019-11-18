@@ -135,10 +135,10 @@ namespace librealsense {
                 //This causes only one camera to stream when using pipeline API with multiple devices (rs-multicam example)
                 //if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
 
-                stop_stream(CS_STREAM_DEPTH);
-                stop_stream(CS_STREAM_COLOR);
-                stop_stream(CS_STREAM_IR_LEFT);
-                stop_stream(CS_STREAM_IR_RIGHT);
+                //stop_stream(CS_STREAM_DEPTH);
+                //stop_stream(CS_STREAM_COLOR);
+                //stop_stream(CS_STREAM_IR_LEFT);
+                //stop_stream(CS_STREAM_IR_RIGHT);
             }
 
             power_state set_power_state(power_state state);
@@ -166,6 +166,9 @@ namespace librealsense {
             bool reset(void);
 
             std::vector<byte> send_hwm(std::vector<byte>& buffer);
+
+            void lock(cs_stream stream);
+            void unlock(cs_stream stream);
 
             std::string get_device_version();
 

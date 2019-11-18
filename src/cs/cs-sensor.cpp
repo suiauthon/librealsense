@@ -204,12 +204,12 @@ namespace librealsense {
         _is_opened = true;
 
         try {
-
             for (auto stream : _cs_selected_streams)
                 _device->stream_on([&](const notification& n)
                                {
                                    _notifications_processor->raise_notification(n);
                                }, stream);
+            _device->lock(_cs_stream);
         }
         catch (...)
         {
@@ -344,6 +344,8 @@ namespace librealsense {
             {
                 for (auto stream : _cs_selected_streams)
                     _device->close(profile, stream);
+
+                _device->unlock(_cs_stream);
             }
             catch (...) {}
         }
@@ -961,9 +963,6 @@ namespace librealsense {
             // set continuous acquisition mode
             _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
 
-            if (!set_source_locked(stream, true))
-                throw wrong_api_call_sequence_exception("Unable to lock source!");
-
             if (!_connected_device->CommandNodeExecute("AcquisitionStart"))
                 throw wrong_api_call_sequence_exception("Unable to start acquisition!");
         }
@@ -972,6 +971,8 @@ namespace librealsense {
         {
             if (_is_capturing[stream])
             {
+                OutputDebugStringA("stopping stream\n");
+
                 _is_capturing[stream] = false;
                 stop_acquisition(stream);
                 _threads[stream]->join();
@@ -994,7 +995,6 @@ namespace librealsense {
             }
 
             select_source(stream);
-            set_source_locked(stream, false);
             set_region(stream, false);
         }
 
@@ -1121,13 +1121,17 @@ namespace librealsense {
 
         void cs_device::stream_on(std::function<void(const notification& n)> error_handler, cs_stream stream)
         {
+            OutputDebugStringA("stream_on\n");
+
             if (stream < _number_of_streams)
             {
                 if (!_is_capturing[stream])
                 {
                     _error_handler[stream] = error_handler;
                     _is_capturing[stream] = true;
+                    OutputDebugStringA("start_acq\n");
                     start_acquisition(stream);
+                    OutputDebugStringA("thread\n");
                     _threads[stream] = std::unique_ptr<std::thread>(new std::thread([this, stream](){ capture_loop(stream); }));
                 }
             }
@@ -1255,6 +1259,18 @@ namespace librealsense {
             _connected_device->CommandNodeExecute("RGB_ExposureAutoROISet");
         }
 
+        void cs_device::lock(cs_stream stream)
+        {
+            if (!set_source_locked(stream, true))
+                throw wrong_api_call_sequence_exception("Unable to lock source!");
+        }
+
+        void cs_device::unlock(cs_stream stream)
+        {
+            if (!set_source_locked(stream, false))
+                throw wrong_api_call_sequence_exception("Unable to unlock source!");
+        }
+
         std::string cs_device::get_device_version()
         {
             return _device_version;
@@ -1292,25 +1308,17 @@ namespace librealsense {
         {
             smcs::IImageInfo image_info_;
 
-            UINT32 src_pixel_type;
             double timestamp;
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
                 if (_connected_device->WaitForImage(3, channel))
                 {
                     _connected_device->GetImageInfo(&image_info_, channel);
 
-                    UINT32 x, y, pt;
-                    image_info_->GetSize(x, y);
-                    image_info_->GetPixelType(pt);
-
-                    auto image_id = image_info_->GetImageID();
-
                     //if (cs_info::is_timestamp_supported(_device_info.id))
                     //    timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
                     timestamp = -1;
 
                     auto im = image_info_->GetRawData();
-                    image_info_->GetPixelType(src_pixel_type);
                     auto image_size = image_info_->GetRawDataSize();
 
                     frame_object fo {image_size, 0, im, NULL, timestamp};
