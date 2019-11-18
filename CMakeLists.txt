@@ -26,7 +26,6 @@ include(CMake/global_config.cmake)
 include(CMake/camera_suite.cmake)
 
 config_cxx_flags()
-
 # include os specific macros
 # macro definition located at "CMake/global_config.cmake"
 include(CMake/include_os.cmake)
@@ -72,7 +71,8 @@ if (BUILD_EXAMPLES AND BUILD_GLSL_EXTENSIONS)
     find_package(glfw3 3.3 QUIET)
     if(NOT TARGET glfw)
         message(STATUS "GLFW 3.3 not found; using internal version")
-        set(GLFW_INSTALL ON CACHE BOOL "" FORCE)
+        #this forces installation of glfw3 headers, conflicting with libglfw3-dev package
+        #set(GLFW_INSTALL ON CACHE BOOL "" FORCE)
         add_subdirectory(third-party/glfw)
     endif()
     add_subdirectory(src/gl)

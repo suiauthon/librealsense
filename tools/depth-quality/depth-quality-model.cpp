@@ -61,8 +61,8 @@ namespace rs2
                 rs2::config cfg_default;
                 std::string id = devices[0].get_info(RS2_CAMERA_INFO_NAME);
                 if (devices.size() && std::string(devices[0].get_info(RS2_CAMERA_INFO_NAME)) == "FRAMOS D435e") {
-                    cfg_default.enable_stream(RS2_STREAM_DEPTH);
-                    cfg_default.enable_stream(RS2_STREAM_COLOR, RS2_FORMAT_BGR8);
+                    cfg_default.enable_stream(RS2_STREAM_DEPTH, -1, 1280, 720, RS2_FORMAT_Z16, 30);
+                    cfg_default.enable_stream(RS2_STREAM_COLOR, -1, 1280, 720, RS2_FORMAT_RGB8, 30);
                     cfgs.emplace_back(cfg_default);
                 }
                 else {   // Preferred configuration Depth + Synthetic Color

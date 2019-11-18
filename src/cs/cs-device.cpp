@@ -114,11 +114,15 @@ namespace librealsense
 
         register_stream_to_extrinsic_group(*_color_stream, 0);
 
-        //auto& color_ep = get_color_sensor();
+        auto& color_ep = get_color_sensor();
 
         /*roi_sensor_interface* roi_sensor;
+        if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_ep))
+            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor));*/
+
+        roi_sensor_interface* roi_sensor;
         if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&color_ep))
-            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));*/
+            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
     }
 
     void cs_depth::depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
@@ -195,7 +199,6 @@ namespace librealsense
         else
             depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
                                                                                                   lazy<float>([]() { return 0.001f; })));
-
         register_info(RS2_CAMERA_INFO_ADVANCED_MODE, ((advanced_mode) ? "YES" : "NO"));
     }
 
@@ -215,6 +218,7 @@ namespace librealsense
         color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
         color_ep->register_pixel_format(pf_yuyv);
+        color_ep->register_pixel_format(pf_uyvyc);
 
         color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
         color_ep->try_register_pu(RS2_OPTION_CONTRAST);
@@ -250,6 +254,12 @@ namespace librealsense
                                   std::make_shared<auto_disabling_control>(
                                           white_balance_option,
                                           auto_white_balance_option));
+
+        auto interPacketDelayOption = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_COLOR);
+        color_ep->register_option(RS2_OPTION_INTER_PACKET_DELAY, interPacketDelayOption);
+
+        auto packetSizeOption = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_COLOR);
+        color_ep->register_option(RS2_OPTION_PACKET_SIZE, packetSizeOption);
 
         return color_ep;
     }
@@ -355,6 +365,20 @@ namespace librealsense
                                           white_balance_option,
                                           auto_white_balance_option));*/
         depth_ep->register_pixel_format(pf_z16);
+
+        auto inter_packet_delay_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_INTER_PACKET_DELAY, inter_packet_delay_option);
+
+        auto packet_size_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_PACKET_SIZE, packet_size_option);
+
+        if (cs_device->is_temperature_supported()) {
+            auto asic_temperature_option = std::make_shared<cs_readonly_option>(*depth_ep, RS2_OPTION_ASIC_TEMPERATURE, CS_STREAM_DEPTH);
+            depth_ep->register_option(RS2_OPTION_ASIC_TEMPERATURE, asic_temperature_option);
+
+            auto projector_temperature_option = std::make_shared<cs_readonly_option>(*depth_ep, RS2_OPTION_PROJECTOR_TEMPERATURE, CS_STREAM_DEPTH);
+            depth_ep->register_option(RS2_OPTION_PROJECTOR_TEMPERATURE, projector_temperature_option);
+        }
 
         return depth_ep;
     }

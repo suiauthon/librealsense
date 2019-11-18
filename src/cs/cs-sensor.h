@@ -115,8 +115,6 @@ namespace librealsense {
                     if (!serial.compare(_device_info.serial)) {
                         _connected_device = devices[i];
 
-                        /*if (_connected_device == NULL || !_connected_device->Connect())
-                            throw wrong_api_call_sequence_exception("Could not create CS device!");*/
                         if (!this->connect())
                             throw wrong_api_call_sequence_exception("Could not create CS device!");
                         else
@@ -136,6 +134,12 @@ namespace librealsense {
 
                                 for (int i = 0; i < _number_of_streams; i++)
                                 {
+                                    select_channel((cs_stream_id)i);
+
+                                    // optimal settings for D435e
+                                    _connected_device->SetIntegerNodeValue("GevSCPSPacketSize", 1500);
+                                    _connected_device->SetIntegerNodeValue("GevSCPD", 10);
+
                                     _threads[i] = nullptr;
                                     _is_capturing[i] = false;
                                     _callbacks[i] = nullptr;
@@ -150,8 +154,8 @@ namespace librealsense {
 
             ~cs_device() {
                 //printf("Ubijam cs device\n");
+                //This causes only one camera to stream when using pipeline API with multiple devices (rs-multicam example)
                 this->disconnect();
-                //if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
 
                 stop_stream(CS_STREAM_ID_DEPTH);
                 stop_stream(CS_STREAM_ID_COLOR);
@@ -173,12 +177,11 @@ namespace librealsense {
 
             bool set_pu(rs2_option opt, int32_t value, cs_stream stream);
 
-            bool get_auto_exposure_roi(region_of_interest roi, cs_stream stream);
-            bool set_auto_exposure_roi(const region_of_interest &roi, cs_stream stream);
-
             control_range get_pu_range(rs2_option option, cs_stream stream);
 
-            std::vector <stream_profile> get_profiles();
+            enum rs2_format get_rgb_format();
+
+            std::vector <stream_profile> get_profiles(cs_stream_id stream);
 
             bool reset(void);
 
@@ -190,6 +193,8 @@ namespace librealsense {
 
             void disconnect(void);
 
+            bool is_temperature_supported();
+
         protected:
             void capture_loop(cs_stream_id stream);
 
@@ -199,6 +204,7 @@ namespace librealsense {
             std::vector<stream_profile> _profiles;
 
         private:
+
             std::string get_cs_param_name(rs2_option option, cs_stream stream);
 
             bool get_cs_param_min(rs2_option option, int32_t &value, cs_stream stream);
@@ -216,6 +222,16 @@ namespace librealsense {
             void stop_stream(cs_stream_id stream);
 
             void stop_acquisition(cs_stream_id stream);
+
+            bool select_channel(cs_stream_id stream);
+
+            uint32_t read_from_buffer(std::vector<byte>& buffer, uint32_t index);
+
+            std::vector<byte> send_hwm_to_device(std::vector<byte>& buffer);
+            void set_rgb_ae_roi(uint32_t top, uint32_t left, uint32_t bottom, uint32_t right);
+
+            std::vector<uint32_t> get_frame_rates(); 
+            std::vector<uint32_t> get_frame_rates_from_control();
 
             uint32_t cs_pixel_format_to_native_pixel_format(std::string cs_format);
 
@@ -342,6 +358,8 @@ namespace librealsense {
         {
         }
 
+        virtual ~cs_pu_option() = default;
+
         const char* get_description() const override;
 
         const char* get_value_description(float val) const override
@@ -356,11 +374,37 @@ namespace librealsense {
         }
 
     private:
-        cs_sensor& _ep;
         cs_stream _stream;
         rs2_option _id;
         const std::map<float, std::string> _description_per_value;
         std::function<void(const option &)> _record = [](const option &) {};
+
+    protected:
+        cs_sensor& _ep;
+    };
+
+    class cs_readonly_option : public cs_pu_option
+    {
+    public:
+        bool is_read_only() const override { return true; }
+
+        void set(float) override
+        {
+            throw not_implemented_exception("This option is read-only!");
+        }
+
+        bool is_enabled() const override
+        {
+            return _ep.is_streaming();
+        }
+
+        void enable_recording(std::function<void(const option &)> record_action) override
+        {
+            //empty
+        }
+
+        explicit cs_readonly_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+            : cs_pu_option(ep, id, stream) {}
     };
 }
 
