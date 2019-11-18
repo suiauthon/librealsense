@@ -99,7 +99,6 @@ namespace librealsense {
                     : _device_info(std::move(hwm)),
                       _power_state(D3),
                       _connected_device(NULL) {
-                //printf("Stvaram cs device\n");
                 _smcs_api = smcs::GetCameraAPI();
                 auto devices = _smcs_api->GetAllDevices();
 
@@ -140,7 +139,6 @@ namespace librealsense {
                 stop_stream(CS_STREAM_COLOR);
                 stop_stream(CS_STREAM_IR_LEFT);
                 stop_stream(CS_STREAM_IR_RIGHT);
-
             }
 
             power_state set_power_state(power_state state);

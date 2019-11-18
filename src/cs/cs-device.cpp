@@ -367,7 +367,9 @@ namespace librealsense
                                   std::make_shared<auto_disabling_control>(
                                           white_balance_option,
                                           auto_white_balance_option));*/
+        
         depth_ep->register_pixel_format(pf_z16);
+        depth_ep->register_pixel_format(pf_y8);
 
         auto inter_packet_delay_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_DEPTH);
         depth_ep->register_option(RS2_OPTION_INTER_PACKET_DELAY, inter_packet_delay_option);

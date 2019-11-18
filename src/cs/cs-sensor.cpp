@@ -235,8 +235,6 @@ namespace librealsense {
 
     stream_profiles cs_sensor::init_stream_profiles()
     {
-        OutputDebugStringA("init_stream_profiles\n");
-
         auto lock = environment::get_instance().get_extrinsics_graph().lock();
 
         std::unordered_set<std::shared_ptr<video_stream_profile>> results;
@@ -466,13 +464,14 @@ namespace librealsense {
             INT64 int64_value;
             bool is_successful = true;
 
-            set_source_locked(stream, false);
-            OutputDebugStringA("get profiles\n");
-            auto test1 = disable_source_regions(stream);
-            if (!test1)
-                OutputDebugStringA("disable source regions failed\n");
-
-            auto test = set_region(stream, true);
+            if (!set_source_locked(stream, false))
+                throw wrong_api_call_sequence_exception("Unable to read profiles!");
+            
+            if (!disable_source_regions(stream))
+                throw wrong_api_call_sequence_exception("Unable to read profiles!");
+            
+            if (!set_region(stream, true))
+                throw wrong_api_call_sequence_exception("Unable to read profiles!");
 
             smcs::StringList resolution_list;
             if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
@@ -497,9 +496,7 @@ namespace librealsense {
 
                 profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
 
-                auto frameRates = get_frame_rates();
-
-                for (auto frameRate : frameRates) {
+                for (auto frameRate : get_frame_rates()) {
 
                     profile.fps = frameRate;
 
@@ -507,15 +504,23 @@ namespace librealsense {
                         profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
                         all_stream_profiles.push_back(profile);
             
+                        /**
+                         * Adding profiles for IR streams.
+                         * GREY is for the left IR stream.
+                         * Y8I is for the right IR stream.
+                         * GREY must be added before Y8I. Order is important because 
+                         * only the first compatible format is selected.
+                         */
                         if (is_successful && get_stream_source(stream) == 0) {
-                            profile.format = 'Y8I ';
+                            profile.format = rs_fourcc('G', 'R', 'E', 'Y');
+                            all_stream_profiles.push_back(profile);
+                            profile.format = rs_fourcc('Y', '8', 'I', ' ');
                             all_stream_profiles.push_back(profile);
                         }
                     }
                 }
             }
             
-            OutputDebugStringA("disabling region 1\n");
             set_region(stream, false);
 
             return all_stream_profiles;
@@ -936,10 +941,6 @@ namespace librealsense {
 
         void cs_device::start_acquisition(cs_stream stream)
         {
-            std::stringstream ss;
-            ss << "start acquisition " << stream << "\n";
-            OutputDebugStringA(ss.str().c_str());
-
             if (_cs_firmware_version <= cs_firmware_version(1, 2, 0, 0)) {
 
                 auto capturing = std::count_if(
@@ -952,26 +953,19 @@ namespace librealsense {
                     return;
             }            
             
-            OutputDebugStringA("enabling region\n");
-            auto test = set_region(stream, true);
-            if (!test) {
-                OutputDebugStringA("failed to set region!!!!\n");
-            }
+            if (!set_region(stream, true))
+                throw wrong_api_call_sequence_exception("Unable to set region");
 
             // disable trigger mode
             _connected_device->SetStringNodeValue("TriggerMode", "Off");
             // set continuous acquisition mode
             _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
 
-            // start acquisition
-            test = set_source_locked(stream, true);
-            if (!test)
-                OutputDebugStringA("set source locked failed\n");
+            if (!set_source_locked(stream, true))
+                throw wrong_api_call_sequence_exception("Unable to lock source!");
 
-            auto t2 = _connected_device->CommandNodeExecute("AcquisitionStart");
-            if (!t2) {
-                OutputDebugStringA("fail to start acq\n");
-            }
+            if (!_connected_device->CommandNodeExecute("AcquisitionStart"))
+                throw wrong_api_call_sequence_exception("Unable to start acquisition!");
         }
 
         void cs_device::stop_stream(cs_stream stream)
@@ -1000,11 +994,7 @@ namespace librealsense {
             }
 
             select_source(stream);
-
-            _connected_device->CommandNodeExecute("AcquisitionStop");
             set_source_locked(stream, false);
-
-            OutputDebugStringA("disabling region\n");
             set_region(stream, false);
         }
 
@@ -1023,20 +1013,9 @@ namespace librealsense {
 
         bool cs_device::set_region(cs_stream stream, bool enable)
         {
-            std::stringstream ss;
-            ss << "stream " << stream << ", region " << get_stream_region(stream);
-
-            if (enable)
-                ss << " ON\n";
-            else
-                ss << " OFF\n";
-
-            OutputDebugStringA(ss.str().c_str());
-
             if (select_region(stream))
                 return _connected_device->SetStringNodeValue("RegionMode", enable ? "On" : "Off");
 
-            OutputDebugStringA("setting region failed\n");
             return false;
         }
 
@@ -1050,11 +1029,6 @@ namespace librealsense {
                 return false;
 
             for (const auto& region : regions) {
-
-                std::stringstream ss;
-                ss << "disabling region " << region << "\n";
-                OutputDebugStringA(ss.str().c_str());
-
                 if (!_connected_device->SetStringNodeValue("RegionSelector", region))
                     return false;
                 if (!_connected_device->SetStringNodeValue("RegionMode", "Off"))
@@ -1069,7 +1043,6 @@ namespace librealsense {
             if (select_source(stream))
                 return _connected_device->SetIntegerNodeValue("RegionSelector", get_stream_region(stream));
 
-            OutputDebugStringA("failed to select region\n");
             return false;
         }
 
@@ -1324,24 +1297,11 @@ namespace librealsense {
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
                 if (_connected_device->WaitForImage(3, channel))
                 {
-                    auto test = _connected_device->GetImageInfo(&image_info_, channel);
-                    if (test) {
-                        OutputDebugStringA("image info acquired\n");
-                    }
-                    else {
-                        OutputDebugStringA("image info acquired failed\n");
-                    }
-                    if (image_info_->GetRawData() == nullptr)
-                    {
-                        OutputDebugStringA("raw data nullptr\n");
-                    }
+                    _connected_device->GetImageInfo(&image_info_, channel);
 
                     UINT32 x, y, pt;
                     image_info_->GetSize(x, y);
                     image_info_->GetPixelType(pt);
-                    std::stringstream ss;
-                    ss << "width: " << x << " ,height: " << y << ", pixel type: " << pt <<  "\n";
-                    OutputDebugStringA(ss.str().c_str());
 
                     auto image_id = image_info_->GetImageID();
 
