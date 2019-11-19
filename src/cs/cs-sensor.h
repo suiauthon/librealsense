@@ -177,7 +177,7 @@ namespace librealsense {
             bool is_temperature_supported();
 
         protected:
-            void capture_loop(cs_stream stream);
+            void capture_loop(cs_stream stream, UINT32 channel);
 
             void set_format(stream_profile profile, cs_stream stream);
 

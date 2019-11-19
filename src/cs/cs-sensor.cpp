@@ -1125,9 +1125,13 @@ namespace librealsense {
             {
                 if (!_is_capturing[stream])
                 {
+                    UINT32 channel;
+                    if (!get_stream_channel(stream, channel))
+                        throw wrong_api_call_sequence_exception("Unable to get stream channel!");
+
                     _error_handler[stream] = error_handler;
                     _is_capturing[stream] = true;
-                    _threads[stream] = std::unique_ptr<std::thread>(new std::thread([this, stream]() { capture_loop(stream); }));
+                    _threads[stream] = std::unique_ptr<std::thread>(new std::thread([this, stream, channel]() { capture_loop(stream, channel); }));
                 }
             }
             else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
@@ -1311,16 +1315,10 @@ namespace librealsense {
             return _cs_firmware_version >= cs_firmware_version(1, 4, 1, 0);
         }
 
-        void cs_device::capture_loop(cs_stream stream)
+        void cs_device::capture_loop(cs_stream stream, UINT32 channel)
         {
             try
             {
-                UINT32 channel;
-                if (!get_stream_channel(stream, channel))
-                    throw wrong_api_call_sequence_exception("Unable to get stream channel!");
-                
-                OutputDebugStringA("capture looop!\n");
-
                 while(_is_capturing[stream])
                 {
                     image_poll(stream, channel);
@@ -1345,6 +1343,10 @@ namespace librealsense {
                 if (_connected_device->WaitForImage(1, channel))
                 {
                     _connected_device->GetImageInfo(&image_info_, channel);
+
+                    std::stringstream ss;
+                    ss << "IMGE on channel" << channel << " on thread " << std::this_thread::get_id() << "\n";
+                    OutputDebugStringA(ss.str().c_str());
 
                     //if (cs_info::is_timestamp_supported(_device_info.id))
                     //    timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
