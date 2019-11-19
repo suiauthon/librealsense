@@ -186,9 +186,9 @@ namespace librealsense {
                 {
                     for (auto&& commited_profile : commited)
                     {
+                        _device->unlock(_cs_stream);
                         for (auto stream : _cs_selected_streams)
                             _device->close(commited_profile, stream);
-                        _device->unlock(_cs_stream);
                     }
                     throw;
                 }
@@ -217,9 +217,9 @@ namespace librealsense {
             for (auto& profile : _internal_config)
             {
                 try {
+                    _device->unlock(_cs_stream);
                     for (auto stream : _cs_selected_streams)
                         _device->close(profile, stream);
-                    _device->unlock(_cs_stream);
                 }
                 catch (...) {}
             }
@@ -344,9 +344,9 @@ namespace librealsense {
         {
             try // Handle disconnect event
             {
+                _device->unlock(_cs_stream);
                 for (auto stream : _cs_selected_streams)
                     _device->close(profile, stream);
-                _device->unlock(_cs_stream);
             }
             catch (...) {
                 OutputDebugStringA("wtf is this exeception\n");
