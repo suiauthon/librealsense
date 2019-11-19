@@ -184,12 +184,7 @@ namespace librealsense {
                 }
                 catch (...)
                 {
-                    for (auto&& commited_profile : commited)
-                    {
-                        _device->unlock(_cs_stream);
-                        for (auto stream : _cs_selected_streams)
-                            _device->close(commited_profile, stream);
-                    }
+                    _device->close(_cs_selected_streams);
                     throw;
                 }
                 commited.push_back(mode.profile);
@@ -205,24 +200,17 @@ namespace librealsense {
         _is_opened = true;
 
         try {
-            for (auto stream : _cs_selected_streams)
-                _device->stream_on([&](const notification& n)
+            _device->stream_on([&](const notification& n)
                                {
                                    _notifications_processor->raise_notification(n);
-                               }, stream);
-            _device->lock(_cs_stream);
+                               }, _cs_selected_streams);
         }
         catch (...)
         {
-            for (auto& profile : _internal_config)
-            {
-                try {
-                    _device->unlock(_cs_stream);
-                    for (auto stream : _cs_selected_streams)
-                        _device->close(profile, stream);
-                }
-                catch (...) {}
+            try {
+                _device->close(_cs_selected_streams);
             }
+            catch (...) {}
             reset_streaming();
             _power.reset();
             _is_opened = false;
@@ -344,13 +332,9 @@ namespace librealsense {
         {
             try // Handle disconnect event
             {
-                _device->unlock(_cs_stream);
-                for (auto stream : _cs_selected_streams)
-                    _device->close(profile, stream);
+                _device->close(_cs_selected_streams);
             }
-            catch (...) {
-                OutputDebugStringA("wtf is this exeception\n");
-            }
+            catch (...) {}
         }
         reset_streaming();
         if (Is<librealsense::global_time_interface>(_owner))
@@ -934,16 +918,6 @@ namespace librealsense {
             }
         }
 
-        void cs_device::close(stream_profile profile, cs_stream stream)
-        {
-            if (stream < _number_of_streams)
-            {
-                stop_stream(stream);
-                if (_callbacks[stream]) _callbacks[stream] = nullptr;
-            }
-            else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
-        }
-
         void cs_device::start_acquisition(cs_stream stream)
         {
             if (_cs_firmware_version <= cs_firmware_version(1, 2, 0, 0)) {
@@ -957,9 +931,6 @@ namespace librealsense {
                 if (capturing != 1)
                     return;
             }            
-            
-            if (!set_region(stream, true))
-                throw wrong_api_call_sequence_exception("Unable to set region");
 
             // disable trigger mode
             _connected_device->SetStringNodeValue("TriggerMode", "Off");
@@ -968,17 +939,6 @@ namespace librealsense {
 
             if (!_connected_device->CommandNodeExecute("AcquisitionStart"))
                 throw wrong_api_call_sequence_exception("Unable to start acquisition!");
-        }
-
-        void cs_device::stop_stream(cs_stream stream)
-        {
-            if (_is_capturing[stream])
-            {
-                _is_capturing[stream] = false;
-                _threads[stream]->join();
-                _threads[stream].reset();
-                stop_acquisition(stream);
-            }
         }
 
         void cs_device::stop_acquisition(cs_stream stream)
@@ -1130,21 +1090,61 @@ namespace librealsense {
             return true;
         }
 
-        void cs_device::stream_on(std::function<void(const notification& n)> error_handler, cs_stream stream)
+        void cs_device::stream_on(std::function<void(const notification &n)> error_handler, std::vector<cs_stream> streams)
         {
-            OutputDebugStringA("stream_on\n");
+            if (streams.empty()) return;
 
+            for (auto stream : streams)
+                if (!set_region(stream, true))
+                    throw wrong_api_call_sequence_exception("Unable to set region");
+
+            lock(streams[0]);
+            start_acquisition(streams[0]);
+
+            for (auto stream : streams)
+                init_stream(error_handler, stream);
+        }
+
+        void cs_device::init_stream(std::function<void(const notification& n)> error_handler, cs_stream stream)
+        {
             if (stream < _number_of_streams)
             {
                 if (!_is_capturing[stream])
                 {
                     _error_handler[stream] = error_handler;
                     _is_capturing[stream] = true;
-                    OutputDebugStringA("start_acq\n");
-                    start_acquisition(stream);
-                    OutputDebugStringA("thread\n");
-                    _threads[stream] = std::unique_ptr<std::thread>(new std::thread([this, stream](){ capture_loop(stream); }));
+                    _threads[stream] = std::unique_ptr<std::thread>(new std::thread([this, stream]() { capture_loop(stream); }));
                 }
+            }
+            else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
+        }
+
+        void cs_device::close(std::vector<cs_stream> streams)
+        {
+            if (streams.empty()) return;
+
+            for (auto stream : streams)
+                deinit_stream(stream);
+
+            unlock(streams[0]);
+            stop_acquisition(streams[0]);
+
+            for (auto stream : streams)
+                if (!set_region(stream, false))
+                    throw wrong_api_call_sequence_exception("Unable to set region");
+        }
+
+        void cs_device::deinit_stream(cs_stream stream)
+        {
+            if (stream < _number_of_streams)
+            {
+                if (_is_capturing[stream])
+                {
+                    _is_capturing[stream] = false;
+                    _threads[stream]->join();
+                    _threads[stream].reset();
+                }
+                if (_callbacks[stream]) _callbacks[stream] = nullptr;
             }
             else throw wrong_api_call_sequence_exception("Unsuported streaming type!");
         }

@@ -135,6 +135,11 @@ namespace librealsense {
                 //This causes only one camera to stream when using pipeline API with multiple devices (rs-multicam example)
                 //if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
 
+                //TODO 
+                //This fixed crash when unplugging while streaming.
+                //However, this shuold not be done here because this class is not a unique representation of camera 
+                //and its destruction does not imply that the camera is disconnected.
+                //Waiting for new connect/disconnect implementation to propose a real fix.
                 //stop_stream(CS_STREAM_DEPTH);
                 //stop_stream(CS_STREAM_COLOR);
                 //stop_stream(CS_STREAM_IR_LEFT);
@@ -143,11 +148,11 @@ namespace librealsense {
 
             power_state set_power_state(power_state state);
 
-            void stream_on(std::function<void(const notification &n)> error_handler, cs_stream stream);
+            void stream_on(std::function<void(const notification &n)> error_handler, std::vector<cs_stream> streams);
 
             void probe_and_commit(stream_profile profile, frame_callback callback, cs_stream stream);
 
-            void close(stream_profile profile, cs_stream stream);
+            void close(std::vector<cs_stream> streams);
 
             void image_poll(cs_stream stream, UINT32 channel);
 
@@ -166,9 +171,6 @@ namespace librealsense {
             bool reset(void);
 
             std::vector<byte> send_hwm(std::vector<byte>& buffer);
-
-            void lock(cs_stream stream);
-            void unlock(cs_stream stream);
 
             std::string get_device_version();
 
@@ -196,9 +198,11 @@ namespace librealsense {
 
             bool set_cs_param(rs2_option option, int32_t value, cs_stream stream);
 
-            void start_acquisition(cs_stream stream);
+            void init_stream(std::function<void(const notification& n)> error_handler, cs_stream stream);
 
-            void stop_stream(cs_stream stream);
+            void deinit_stream(cs_stream stream);
+
+            void start_acquisition(cs_stream stream);
 
             void stop_acquisition(cs_stream stream);
 
@@ -212,6 +216,9 @@ namespace librealsense {
             INT64 get_stream_source(cs_stream stream);
             INT64 get_stream_region(cs_stream stream);
             bool get_stream_channel(cs_stream stream, UINT32& channel);
+
+            void lock(cs_stream stream);
+            void unlock(cs_stream stream);
 
             uint32_t read_from_buffer(std::vector<byte>& buffer, uint32_t index);
 
