@@ -974,12 +974,10 @@ namespace librealsense {
         {
             if (_is_capturing[stream])
             {
-                OutputDebugStringA("stopping stream\n");
-
                 _is_capturing[stream] = false;
-                stop_acquisition(stream);
                 _threads[stream]->join();
                 _threads[stream].reset();
+                stop_acquisition(stream);
             }
         }
 
@@ -1003,13 +1001,6 @@ namespace librealsense {
             if (!_connected_device->CommandNodeExecute("AcquisitionStop"))
                 throw wrong_api_call_sequence_exception("Unable to stop acquisition!");
 
-            // this cannot be handlel in a simple way
-            // 1 must disable inactive regions
-            // 2 must lock per source that includes mulitple regions
-            // 3 unable to change region while locked
-            // possible solutions:
-            // 1 disable locking -> possible unexpected behaviour, harder to find bugs
-            // 2 queue of regions to disable when the unlocking -> possible sync nightmare
             if (!set_region(stream, false))
                 throw wrong_api_call_sequence_exception("Unable to set_region!");
         }
@@ -1335,7 +1326,7 @@ namespace librealsense {
 
             double timestamp;
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
-                if (_connected_device->WaitForImage(3, channel))
+                if (_connected_device->WaitForImage(1, channel))
                 {
                     _connected_device->GetImageInfo(&image_info_, channel);
 
