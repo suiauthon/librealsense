@@ -1,6 +1,5 @@
-//
-// Created by marko on 09.03.19..
-//
+// License: Apache 2.0. See LICENSE file in root directory.
+// Copyright(c) 2019 FRAMOS GmbH.
 
 #pragma once
 

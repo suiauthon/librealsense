@@ -1,3 +1,6 @@
+// License: Apache 2.0. See LICENSE file in root directory.
+// Copyright(c) 2019 FRAMOS GmbH.
+
 #ifndef LIBREALSENSE2_CS_FACTORY_H
 #define LIBREALSENSE2_CS_FACTORY_H
 
