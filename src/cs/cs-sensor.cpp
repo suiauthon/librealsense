@@ -1094,6 +1094,7 @@ namespace librealsense {
         {
             if (streams.empty()) return;
 
+            //TODO refactor
             auto ir_left = std::find_if(streams.begin(), streams.end(), [](cs_stream stream) { return stream == CS_STREAM_IR_LEFT; }) != streams.end();
             auto ir_right = std::find_if(streams.begin(), streams.end(), [](cs_stream stream) { return stream == CS_STREAM_IR_RIGHT; }) != streams.end();
             auto skip_ir_left = ir_left && ir_right;
@@ -1110,8 +1111,12 @@ namespace librealsense {
             lock(streams[0]);
             start_acquisition(streams[0]);
 
-            for (auto stream : streams)
-                init_stream(error_handler, stream);
+            for (auto i = 0; i < streams.size(); ++i) {
+                auto stream = streams[i];
+                if (skip_ir_left && stream == CS_STREAM_IR_LEFT)
+                    continue;
+                init_stream(error_handler, streams[i]);
+            }
         }
 
         void cs_device::init_stream(std::function<void(const notification& n)> error_handler, cs_stream stream)
@@ -1314,6 +1319,8 @@ namespace librealsense {
                 if (!get_stream_channel(stream, channel))
                     throw wrong_api_call_sequence_exception("Unable to get stream channel!");
                 
+                OutputDebugStringA("capture looop!\n");
+
                 while(_is_capturing[stream])
                 {
                     image_poll(stream, channel);
