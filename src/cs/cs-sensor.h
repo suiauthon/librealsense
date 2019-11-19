@@ -148,7 +148,7 @@ namespace librealsense {
 
             power_state set_power_state(power_state state);
 
-            void stream_on(std::function<void(const notification &n)> error_handler, std::vector<cs_stream> streams);
+            void stream_on(std::function<void(const notification &n)> error_handler, std::vector<cs_stream> streams, std::vector<platform::stream_profile> profiles);
 
             void probe_and_commit(stream_profile profile, frame_callback callback, cs_stream stream);
 

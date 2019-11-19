@@ -203,7 +203,7 @@ namespace librealsense {
             _device->stream_on([&](const notification& n)
                                {
                                    _notifications_processor->raise_notification(n);
-                               }, _cs_selected_streams);
+                               }, _cs_selected_streams, _internal_config);
         }
         catch (...)
         {
@@ -1090,13 +1090,22 @@ namespace librealsense {
             return true;
         }
 
-        void cs_device::stream_on(std::function<void(const notification &n)> error_handler, std::vector<cs_stream> streams)
+        void cs_device::stream_on(std::function<void(const notification &n)> error_handler, std::vector<cs_stream> streams, std::vector<platform::stream_profile> profiles)
         {
             if (streams.empty()) return;
 
-            for (auto stream : streams)
+            auto ir_left = std::find_if(streams.begin(), streams.end(), [](cs_stream stream) { return stream == CS_STREAM_IR_LEFT; }) != streams.end();
+            auto ir_right = std::find_if(streams.begin(), streams.end(), [](cs_stream stream) { return stream == CS_STREAM_IR_RIGHT; }) != streams.end();
+            auto skip_ir_left = ir_left && ir_right;
+
+            for (auto i = 0; i < streams.size(); ++i) {
+                auto stream = streams[i];
+                if (skip_ir_left && stream == CS_STREAM_IR_LEFT)
+                    continue;
                 if (!set_region(stream, true))
                     throw wrong_api_call_sequence_exception("Unable to set region");
+                set_format(profiles[i], stream);
+            }
 
             lock(streams[0]);
             start_acquisition(streams[0]);
@@ -1355,7 +1364,6 @@ namespace librealsense {
             {
                 if (!_is_capturing[stream]/* && !_callbacks[stream]*/)
                 {
-                    set_format(profile, stream);
                     _profiles[stream] = profile;
                     _callbacks[stream] = callback;
                 }
