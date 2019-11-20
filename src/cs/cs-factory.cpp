@@ -1,3 +1,6 @@
+// License: Apache 2.0. See LICENSE file in root directory.
+// Copyright(c) 2019 FRAMOS GmbH.
+
 #include "cs/cs-factory.h"
 
 namespace librealsense {

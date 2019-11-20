@@ -1,6 +1,5 @@
-//
-// Created by marko on 21.05.19..
-//
+// License: Apache 2.0. See LICENSE file in root directory.
+// Copyright(c) 2019 FRAMOS GmbH.
 
 #include "cs/cs-sensor.h"
 #include "global_timestamp_reader.h"
