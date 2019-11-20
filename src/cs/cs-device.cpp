@@ -503,7 +503,7 @@ namespace librealsense
 
     std::vector<uint8_t> cs_depth::get_new_calibration_table() const
     {
-        //TODO provjeriti da li je treba resizati
+        //TODO check if resize required
         if (_fw_version >= firmware_version("5.11.9.5"))
         {
             command cmd(ds::RECPARAMSGET);
