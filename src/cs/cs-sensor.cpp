@@ -151,6 +151,7 @@ namespace librealsense {
                             }
 
                         }
+
                         // Unpack the frame
                         if (requires_processing && (dest.size() > 0))
                         {
@@ -980,10 +981,6 @@ namespace librealsense {
 
         bool cs_device::set_region(cs_stream stream, bool enable)
         {
-            std::stringstream ss;
-            ss << "region " << get_stream_region(stream) << " " << enable << "\n";
-            OutputDebugStringA(ss.str().c_str());
-
             if (select_region(stream))
                 return _connected_device->SetStringNodeValue("RegionMode", enable ? "On" : "Off");
 
@@ -1103,8 +1100,6 @@ namespace librealsense {
                 auto stream = streams[i];
                 if (skip_ir_left && stream == CS_STREAM_IR_LEFT)
                     continue;
-                if (!set_region(stream, true))
-                    throw wrong_api_call_sequence_exception("Unable to set region");
                 set_format(profiles[i], stream);
             }
 
@@ -1290,17 +1285,12 @@ namespace librealsense {
 
         void cs_device::lock(cs_stream stream)
         {
-
-            OutputDebugStringA("locking\n");
-
             if (!set_source_locked(stream, true))
                 throw wrong_api_call_sequence_exception("Unable to lock source!");
         }
 
         void cs_device::unlock(cs_stream stream)
         {
-            OutputDebugStringA("unlocking\n");
-
             if (!set_source_locked(stream, false))
                 throw wrong_api_call_sequence_exception("Unable to unlock source!");
         }
@@ -1342,11 +1332,15 @@ namespace librealsense {
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
                 if (_connected_device->WaitForImage(1, channel))
                 {
-                    _connected_device->GetImageInfo(&image_info_, channel);
+                    _connected_device->GetImageInfo(&image_info_, channel); 
 
-                    std::stringstream ss;
-                    ss << "IMGE on channel" << channel << " on thread " << std::this_thread::get_id() << "\n";
-                    OutputDebugStringA(ss.str().c_str());
+                    UINT32 width, height, format;
+                    image_info_->GetSize(width, height);
+                    
+                    if (width != _profiles[stream].width || height != _profiles[stream].height) {
+                        _connected_device->PopImage(image_info_);
+                        return;
+                    }
 
                     //if (cs_info::is_timestamp_supported(_device_info.id))
                     //    timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
