@@ -215,6 +215,7 @@ namespace librealsense {
             INT64 get_stream_source(cs_stream stream);
             INT64 get_stream_region(cs_stream stream);
             bool get_stream_channel(cs_stream stream, UINT32& channel);
+            std::vector<cs_stream> get_stream_group(cs_stream stream);
 
             void lock(cs_stream stream);
             void unlock(cs_stream stream);

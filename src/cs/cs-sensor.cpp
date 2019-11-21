@@ -645,11 +645,15 @@ namespace librealsense {
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
-                    if (!select_channel(stream))
-                        return false;
+                    for (auto memeber_stream : get_stream_group(stream)) {
+                        if (!select_channel(memeber_stream))
+                            return false;
 
-                    return _connected_device->SetIntegerNodeValue(get_cs_param_name(option, stream),
-                        (int)value);
+                        if (!_connected_device->SetIntegerNodeValue(get_cs_param_name(option, memeber_stream), (int)value))
+                            return false;
+                    }
+                    
+                    return true;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
@@ -1096,6 +1100,22 @@ namespace librealsense {
 
             channel = static_cast<UINT32>(transfer_stream_channel);
             return true;
+        }
+
+        std::vector<cs_stream> cs_device::get_stream_group(cs_stream stream)
+        {
+            std::vector<cs_stream> group { stream };
+
+            switch (stream) {
+            case CS_STREAM_DEPTH:
+                group.push_back(CS_STREAM_IR_LEFT);
+                group.push_back(CS_STREAM_IR_RIGHT);
+                break;
+            default:
+                break;
+            }
+
+            return group;
         }
 
         void cs_device::stream_on(std::function<void(const notification &n)> error_handler, std::vector<cs_stream> streams, std::vector<platform::stream_profile> profiles)
