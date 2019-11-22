@@ -645,6 +645,10 @@ namespace librealsense {
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
+                    auto node = _connected_device->GetStatisticsNode("DetectOptimalPacketSize");
+                    if (node != nullptr)
+                        node->SetBooleanNodeValue(false);
+
                     for (auto memeber_stream : get_stream_group(stream)) {
                         if (!select_channel(memeber_stream))
                             return false;
