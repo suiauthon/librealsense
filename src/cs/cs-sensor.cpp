@@ -642,13 +642,16 @@ namespace librealsense {
                     if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option), "Continuous");
                     else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option), "Off");
                 }*/
-                case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
+                    auto enabled = value == 0;
+
                     auto node = _connected_device->GetStatisticsNode("DetectOptimalPacketSize");
                     if (node != nullptr)
-                        node->SetBooleanNodeValue(false);
-
+                        node->SetBooleanNodeValue(enabled);
+                }
+                case RS2_OPTION_INTER_PACKET_DELAY:
+                {
                     for (auto memeber_stream : get_stream_group(stream)) {
                         if (!select_channel(memeber_stream))
                             return false;
