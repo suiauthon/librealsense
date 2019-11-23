@@ -143,28 +143,28 @@ namespace librealsense
         std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
     };
 
-    class cs_mono : public virtual device
-    {
-    public:
-        cs_mono(std::shared_ptr<context> ctx,
-                 const platform::backend_device_group& group,
-                 bool register_device_notifications)
-                : device(ctx, group, register_device_notifications),
-                  _fisheye_stream(new stream(RS2_STREAM_FISHEYE))
-        {};
+    //class cs_mono : public virtual device
+    //{
+    //public:
+    //    cs_mono(std::shared_ptr<context> ctx,
+    //             const platform::backend_device_group& group,
+    //             bool register_device_notifications)
+    //            : device(ctx, group, register_device_notifications),
+    //              _fisheye_stream(new stream(RS2_STREAM_FISHEYE))
+    //    {};
 
-        std::shared_ptr<cs_sensor> create_mono_device(std::shared_ptr<context> ctx,
-                                                       std::shared_ptr<platform::cs_device> cs_device);
-    protected:
-        std::shared_ptr<stream_interface> _fisheye_stream;
-        uint8_t _mono_device_idx;
+    //    std::shared_ptr<cs_sensor> create_mono_device(std::shared_ptr<context> ctx,
+    //                                                   std::shared_ptr<platform::cs_device> cs_device);
+    //protected:
+    //    std::shared_ptr<stream_interface> _fisheye_stream;
+    //    uint8_t _mono_device_idx;
 
-    private:
-        friend class cs_mono_sensor;
+    //private:
+    //    friend class cs_mono_sensor;
 
-        //lazy<std::vector<uint8_t>> _depth_calib_table_raw;
-        //std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
-    };
+    //    //lazy<std::vector<uint8_t>> _depth_calib_table_raw;
+    //    //std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
+    //};
 
     class cs_color_sensor : public cs_sensor,
                             public video_sensor_interface,
@@ -287,7 +287,7 @@ namespace librealsense
         mutable std::atomic<float> _depth_units;
     };
 
-    class cs_mono_sensor : public cs_sensor
+/*    class cs_mono_sensor : public cs_sensor
     {
     public:
         explicit cs_mono_sensor(cs_mono* owner, std::shared_ptr<platform::cs_device> cs_device,
@@ -323,5 +323,5 @@ namespace librealsense
         //processing_blocks get_recommended_processing_blocks() const override;
     private:
         const cs_mono* _owner;
-    };
+    };*/
 }

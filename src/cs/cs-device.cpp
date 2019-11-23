@@ -266,48 +266,48 @@ namespace librealsense
         return color_ep;
     }
 
-    std::shared_ptr<cs_sensor> cs_mono::create_mono_device(std::shared_ptr<context> ctx,
-                                                             std::shared_ptr<platform::cs_device> cs_device)
-    {
-        auto mono_ep = std::make_shared<cs_mono_sensor>(this, cs_device,
-                                                          std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
-                                                          ctx);
+    //std::shared_ptr<cs_sensor> cs_mono::create_mono_device(std::shared_ptr<context> ctx,
+    //                                                         std::shared_ptr<platform::cs_device> cs_device)
+    //{
+    //    auto mono_ep = std::make_shared<cs_mono_sensor>(this, cs_device,
+    //                                                      std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
+    //                                                      ctx);
 
-        mono_ep->register_pixel_format(pf_raw8);
+    //    mono_ep->register_pixel_format(pf_raw8);
 
-        /*color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
-        color_ep->try_register_pu(RS2_OPTION_CONTRAST);
-        color_ep->try_register_pu(RS2_OPTION_HUE);
-        color_ep->try_register_pu(RS2_OPTION_SATURATION);
-        color_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
-        /*color_ep->try_register_pu(RS2_OPTION_GAMMA);
+    //    /*color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
+    //    color_ep->try_register_pu(RS2_OPTION_CONTRAST);
+    //    color_ep->try_register_pu(RS2_OPTION_HUE);
+    //    color_ep->try_register_pu(RS2_OPTION_SATURATION);
+    //    color_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
+    //    /*color_ep->try_register_pu(RS2_OPTION_GAMMA);
 
-        auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE);
-        auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
-        color_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
-        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
-        color_ep->register_option(RS2_OPTION_EXPOSURE,
-                                  std::make_shared<auto_disabling_control>(
-                                          exposure_option,
-                                          auto_exposure_option));*/
+    //    auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE);
+    //    auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
+    //    color_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
+    //    color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
+    //    color_ep->register_option(RS2_OPTION_EXPOSURE,
+    //                              std::make_shared<auto_disabling_control>(
+    //                                      exposure_option,
+    //                                      auto_exposure_option));*/
 
-        /*auto gain_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_GAIN);
-        color_ep->register_option(RS2_OPTION_GAIN,
-                                  std::make_shared<auto_disabling_control>(
-                                          gain_option,
-                                          auto_exposure_option));
+    //    /*auto gain_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_GAIN);
+    //    color_ep->register_option(RS2_OPTION_GAIN,
+    //                              std::make_shared<auto_disabling_control>(
+    //                                      gain_option,
+    //                                      auto_exposure_option));
 
-        auto white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE);
-        auto auto_white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
-        color_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
-        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
-        color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
-                                  std::make_shared<auto_disabling_control>(
-                                          white_balance_option,
-                                          auto_white_balance_option));*/
+    //    auto white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE);
+    //    auto auto_white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
+    //    color_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
+    //    color_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
+    //    color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
+    //                              std::make_shared<auto_disabling_control>(
+    //                                      white_balance_option,
+    //                                      auto_white_balance_option));*/
 
-        return mono_ep;
-    }
+    //    return mono_ep;
+    //}
 
     std::shared_ptr<cs_sensor> cs_depth::create_depth_device(std::shared_ptr<context> ctx,
                                                              std::shared_ptr<platform::cs_device> cs_device)
