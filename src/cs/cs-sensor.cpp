@@ -649,6 +649,9 @@ namespace librealsense {
                     auto node = _connected_device->GetStatisticsNode("DetectOptimalPacketSize");
                     if (node != nullptr)
                         node->SetBooleanNodeValue(enabled);
+
+                    if (enabled)
+                        return true;
                 }
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 {
