@@ -15,13 +15,13 @@ namespace librealsense {
         CS_STREAM_COLOR,
         CS_STREAM_IR_LEFT,
         CS_STREAM_IR_RIGHT,
-        CS_STREAM_MONO,
+        //CS_STREAM_MONO,
         CS_STREAM_COUNT
     } cs_stream;
 
     typedef enum cs_camera_model {
-        CS_UCC2592C,
-        CS_UCC1932C,
+        //CS_UCC2592C,
+        //CS_UCC1932C,
         CS_D435E,
         CS_UNDEFINED
     };
@@ -124,6 +124,8 @@ namespace librealsense {
                                 _threads[i] = nullptr;
                                 _is_capturing[i] = false;
                                 _callbacks[i] = nullptr;
+                                // make sure stream parameters are unlocked
+                                stream_params_unlock((cs_stream)i);
                             }
                         }
                     }
@@ -217,8 +219,8 @@ namespace librealsense {
             bool get_stream_channel(cs_stream stream, UINT32& channel);
             std::vector<cs_stream> get_stream_group(cs_stream stream);
 
-            void lock(cs_stream stream);
-            void unlock(cs_stream stream);
+            void stream_params_lock(cs_stream stream);
+            void stream_params_unlock(cs_stream stream);
 
             uint32_t read_from_buffer(std::vector<byte>& buffer, uint32_t index);
 
