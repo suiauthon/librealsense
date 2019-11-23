@@ -112,7 +112,16 @@ namespace librealsense
     {
         LOG_DEBUG("Librealsense " << std::string(std::begin(rs2_api_version),std::end(rs2_api_version)));
 
-        if (_objects_count == 0) smcs::InitCameraAPI();
+        if (_objects_count == 0) {
+            smcs::InitCameraAPI();
+            auto smcs_api = smcs::GetCameraAPI();
+            auto node = smcs_api->GetApiParametersNode("PacketResendGroupSize");
+            if (node != nullptr) {
+                node->SetIntegerNodeValue(CS_PACKET_RESEND_GROUP_MAX_SIZE);
+            }
+            // set Heartbeat time
+            smcs_api->SetHeartbeatTime(CS_HEARTBEAT_TIME);    // 100sec heartbeat time
+        }
 
         switch(type)
         {
