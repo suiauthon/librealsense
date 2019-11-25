@@ -102,6 +102,43 @@ namespace librealsense
         return *_range;
     }
 
+	cs_external_sync_mode::cs_external_sync_mode(hw_monitor& hwm, cs_depth_sensor& depth)
+		: _hwm(hwm), _depth(depth)
+	{
+		_range = [this]()
+		{
+			return option_range{ ds::inter_cam_sync_mode::INTERCAM_SYNC_DEFAULT,
+				ds::inter_cam_sync_mode::INTERCAM_SYNC_MAX - 1,
+				ds::inter_cam_sync_mode::INTERCAM_SYNC_DEFAULT, 1 };
+		};
+	}
+
+	void cs_external_sync_mode::set(float value)
+	{
+		//command cmd(ds::SET_CAM_SYNC);
+		//cmd.param1 = static_cast<int>(value);
+
+		//_hwm.send(cmd);
+		_depth.set_inter_cam_sync_mode(value);
+
+		_record_action(*this);
+	}
+
+	float cs_external_sync_mode::query() const
+	{
+		command cmd(ds::GET_CAM_SYNC);
+		auto res = _hwm.send(cmd);
+		if (res.empty())
+			throw invalid_value_exception("external_sync_mode::query result is empty!");
+
+		return (res.front());
+	}
+
+	option_range cs_external_sync_mode::get_range() const
+	{
+		return *_range;
+	}
+
     void cs_color::color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
     {
         using namespace ds;
@@ -202,6 +239,10 @@ namespace librealsense
         
         //added because ROS wrapper 2.2.9 requires this property
         register_info(RS2_CAMERA_INFO_PHYSICAL_PORT, "N/A");
+
+		auto depth_sensor = As<cs_depth_sensor, cs_sensor>(&depth_ep);
+		auto ext_sync_mode = std::make_shared<cs_external_sync_mode>(*_hw_monitor, *depth_sensor);
+		depth_ep.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
     }
 
     std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
@@ -320,7 +361,6 @@ namespace librealsense
                                                           std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata),
                                                                                                                               _tf_keeper, enable_global_time_option)),
                                                           ctx);
-
 
         depth_ep->try_register_pu(RS2_OPTION_GAIN);
         /*depth_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);

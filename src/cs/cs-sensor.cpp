@@ -446,6 +446,11 @@ namespace librealsense {
         }
     }
 
+	void cs_sensor::set_inter_cam_sync_mode(float value)
+	{
+        _device->set_trigger_mode(value);
+	}
+
     namespace platform
     {
         enum rs2_format cs_device::get_rgb_format()
@@ -957,7 +962,7 @@ namespace librealsense {
             }            
 
             // disable trigger mode
-            _connected_device->SetStringNodeValue("TriggerMode", "Off");
+            //_connected_device->SetStringNodeValue("TriggerMode", "Off");
             // set continuous acquisition mode
             _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
 
@@ -1417,6 +1422,44 @@ namespace librealsense {
             if (!_connected_device->SetStringNodeValue("FrameRate", "FPS_" + std::to_string(profile.fps)))
                 throw wrong_api_call_sequence_exception("Failed to set framerate!");
         }
+
+		void cs_device::set_trigger_mode(float mode)
+		{
+			std::string sourceSelectorValue;
+			_connected_device->GetStringNodeValue("SourceControlSelector", sourceSelectorValue);
+			_connected_device->SetIntegerNodeValue("SourceControlSelector", CS_STREAM_DEPTH);
+
+			auto sync_mode = static_cast<int>(mode);
+
+			if (sync_mode == CS_INTERCAM_SYNC_SLAVE) {
+				//select line 1 : digital output
+				_connected_device->SetStringNodeValue("LineSelector", "Line1");
+				//set UserOutput1 as digital output
+				_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+				// slave mode : trigger is on
+				_connected_device->SetStringNodeValue("TriggerMode", "On");
+
+			}
+			else if (sync_mode == CS_INTERCAM_SYNC_MASTER) {
+				//select line 1 : digital output
+				_connected_device->SetStringNodeValue("LineSelector", "Line1");
+				//set VSync as digital output
+				_connected_device->SetStringNodeValue("LineSource", "VSync");
+				// master mode : trigger is off
+				_connected_device->SetStringNodeValue("TriggerMode", "Off");
+			}
+			//default mode - no sync signal on output
+			else {
+				//select line 1 : digital output
+				_connected_device->SetStringNodeValue("LineSelector", "Line1");
+				//set UserOutput1 as digital output
+				_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+				// master mode : trigger is off
+				_connected_device->SetStringNodeValue("TriggerMode", "Off");
+			}
+
+			_connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
+		}
     }
 
     void cs_pu_option::set(float value)
