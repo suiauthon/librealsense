@@ -25,6 +25,13 @@ namespace librealsense {
         CS_D435E,
         CS_UNDEFINED
     };
+    
+    typedef enum cs_inter_cam_sync_mode {
+        CS_INTERCAM_SYNC_DEFAULT,
+        CS_INTERCAM_SYNC_MASTER,
+        CS_INTERCAM_SYNC_SLAVE,
+        CS_INTERCAM_SYNC_MAX
+    } cs_inter_cam_mode;
 
     class cs_firmware_version
     {
@@ -216,6 +223,8 @@ namespace librealsense {
 
             bool is_temperature_supported();
 
+			void set_trigger_mode(float mode);
+
         protected:
             void capture_loop(cs_stream stream, UINT32 channel);
 
@@ -336,6 +345,8 @@ namespace librealsense {
 
         void try_register_pu(rs2_option id);
 
+		void set_inter_cam_sync_mode(float value);
+
     private:
         void acquire_power();
 
@@ -343,6 +354,7 @@ namespace librealsense {
 
         void reset_streaming();
 
+        cs_stream get_stream(const std::vector<std::shared_ptr<stream_profile_interface>>& requests);
         cs_stream get_stream(rs2_stream type, int index);
 
         struct power

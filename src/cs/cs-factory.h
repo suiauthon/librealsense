@@ -42,8 +42,8 @@ namespace librealsense {
         platform::cs_device_info _hwm;
     };
 
-    class D435e_camera : public cs_color,
-                         public cs_depth,
+    class D435e_camera : public cs_depth,
+                         public cs_color,
                          public cs_advanced_mode_base
     {
     public:

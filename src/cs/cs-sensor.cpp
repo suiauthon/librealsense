@@ -52,12 +52,9 @@ namespace librealsense {
         std::vector<platform::stream_profile> commited;
 
         _cs_selected_streams.clear();
-
         for (auto&& mode : mapping)
         {
-            for (auto&& request : mode.original_requests)
-            {
-                auto selected_stream = get_stream(request->get_stream_type(), request->get_stream_index());
+            auto selected_stream = get_stream(mode.original_requests);
 
                 unsigned long long last_frame_number = 0;
                 rs2_time_t last_timestamp = 0;
@@ -80,9 +77,7 @@ namespace librealsense {
                     // Ignore any frames which appear corrupted or invalid
                     // Determine the timestamp for this frame
                     auto timestamp = timestamp_reader->get_frame_timestamp(mode, f);
-                    //printf("Timestamp callback: %lf\n", timestamp);
                     auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(mode, f);
-                    //printf("Timestamp domain callback: %d\n", timestamp_domain);
                     auto frame_counter = timestamp_reader->get_frame_counter(mode, f);
 
                     auto requires_processing = mode.requires_processing();
@@ -176,12 +171,10 @@ namespace librealsense {
                             _source.invoke_callback(std::move(pref));
                         }
                     }
-
                 }, selected_stream);
                 _cs_selected_streams.push_back(selected_stream);
                 commited.push_back(mode.profile);
             }
-        }
 
         _internal_config = commited;
 
@@ -190,29 +183,6 @@ namespace librealsense {
 
         _power = move(on);
         _is_opened = true;
-
-        auto ir_left = std::find(_cs_selected_streams.begin(), _cs_selected_streams.end(), CS_STREAM_IR_LEFT);
-        if (ir_left != _cs_selected_streams.end()) {
-            auto ir_right = std::find(_cs_selected_streams.begin(), _cs_selected_streams.end(), CS_STREAM_IR_RIGHT);
-            if (ir_right != _cs_selected_streams.end()) {
-                auto index = std::distance(_cs_selected_streams.begin(), ir_left);
-                _cs_selected_streams.erase(_cs_selected_streams.begin() + index);
-                _internal_config.erase(_internal_config.begin() + index);
-            }
-        }        
-
-
-
-        /*auto ir_left = std::find_if(streams.begin(), streams.end(), [](cs_stream stream) { return stream == CS_STREAM_IR_LEFT; }) != streams.end();
-        auto ir_right = std::find_if(streams.begin(), streams.end(), [](cs_stream stream) { return stream == CS_STREAM_IR_RIGHT; }) != streams.end();
-        auto skip_ir_left = ir_left && ir_right;
-
-        for (auto i = 0; i < streams.size(); ++i) {
-            auto stream = streams[i];
-            if (skip_ir_left && stream == CS_STREAM_IR_LEFT)
-                continue;
-            set_format(profiles[i], stream);
-        }*/
 
         try {
             _device->stream_on([&](const notification& n)
@@ -408,6 +378,28 @@ namespace librealsense {
         _timestamp_reader->reset();
     }
 
+    cs_stream cs_sensor::get_stream(const std::vector<std::shared_ptr<stream_profile_interface>>& requests)
+    {
+        if (requests.size() == 2) {
+            auto ir_left = std::find_if(requests.begin(), requests.end(), 
+                [this](auto request) { 
+                    return get_stream(request->get_stream_type(), request->get_stream_index()) == CS_STREAM_IR_LEFT; 
+                }
+            );
+            if (ir_left != requests.end()) {
+                auto ir_right = std::find_if(requests.begin(), requests.end(), 
+                    [this](auto request) { 
+                        return get_stream(request->get_stream_type(), request->get_stream_index()) == CS_STREAM_IR_RIGHT; 
+                    }
+                );
+                if (ir_right != requests.end())
+                    return get_stream((*ir_right)->get_stream_type(), (*ir_right)->get_stream_index());
+            }
+        }
+
+        return get_stream(requests[0]->get_stream_type(), requests[0]->get_stream_index());
+    }
+
     cs_stream cs_sensor::get_stream(rs2_stream type, int index)
     {
         switch (type)
@@ -447,6 +439,11 @@ namespace librealsense {
             LOG_WARNING("Exception was thrown when inspecting " << this->get_info(RS2_CAMERA_INFO_NAME) << " property " << opt->get_description());
         }
     }
+
+	void cs_sensor::set_inter_cam_sync_mode(float value)
+	{
+        _device->set_trigger_mode(value);
+	}
 
     namespace platform
     {
@@ -962,7 +959,7 @@ namespace librealsense {
             }            
 
             // disable trigger mode
-            _connected_device->SetStringNodeValue("TriggerMode", "Off");
+            //_connected_device->SetStringNodeValue("TriggerMode", "Off");
             // set continuous acquisition mode
             _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
 
@@ -1422,6 +1419,46 @@ namespace librealsense {
             if (!_connected_device->SetStringNodeValue("FrameRate", "FPS_" + std::to_string(profile.fps)))
                 throw wrong_api_call_sequence_exception("Failed to set framerate!");
         }
+
+		void cs_device::set_trigger_mode(float mode)
+		{
+			std::string sourceSelectorValue;
+			_connected_device->GetStringNodeValue("SourceControlSelector", sourceSelectorValue);
+			_connected_device->SetIntegerNodeValue("SourceControlSelector", CS_STREAM_DEPTH);
+
+			auto sync_mode = static_cast<int>(mode);
+
+			if (sync_mode == CS_INTERCAM_SYNC_SLAVE) {
+				//select line 1 : digital output
+				_connected_device->SetStringNodeValue("LineSelector", "Line1");
+				//set UserOutput1 as digital output
+				_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+				// slave mode : trigger is on
+				_connected_device->SetStringNodeValue("TriggerMode", "On");
+
+			}
+			else if (sync_mode == CS_INTERCAM_SYNC_MASTER) {
+				//select line 1 : digital output
+				_connected_device->SetStringNodeValue("LineSelector", "Line1");
+				//set VSync as digital output
+				_connected_device->SetStringNodeValue("LineSource", "VSync");
+				// master mode : trigger is off
+				_connected_device->SetStringNodeValue("TriggerMode", "Off");
+			}
+			//default mode - no sync signal on output
+			else {
+				//select line 1 : digital output
+				_connected_device->SetStringNodeValue("LineSelector", "Line1");
+				//set UserOutput1 as digital output
+				_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+				// master mode : trigger is off
+				_connected_device->SetStringNodeValue("TriggerMode", "Off");
+			}
+
+			_connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
+		}
+    }
+
 
         int cs_device::get_optimal_inter_packet_delay(int packetSize)
         {
