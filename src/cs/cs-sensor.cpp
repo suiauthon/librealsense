@@ -80,9 +80,7 @@ namespace librealsense {
                     // Ignore any frames which appear corrupted or invalid
                     // Determine the timestamp for this frame
                     auto timestamp = timestamp_reader->get_frame_timestamp(mode, f);
-                    //printf("Timestamp callback: %lf\n", timestamp);
                     auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(mode, f);
-                    //printf("Timestamp domain callback: %d\n", timestamp_domain);
                     auto frame_counter = timestamp_reader->get_frame_counter(mode, f);
 
                     auto requires_processing = mode.requires_processing();
