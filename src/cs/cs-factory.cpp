@@ -17,18 +17,18 @@ namespace librealsense {
     }
 
     cs_camera_model cs_info::get_camera_model(std::string pid) {
-        if (pid.compare("UCC2592C") == 0) return CS_UCC2592C;
-        else if (pid.compare("UCC1932C") == 0) return CS_UCC1932C;
-        else if (pid.compare("D435e") == 0) return CS_D435E;
+        /*if (pid.compare("UCC2592C") == 0) return CS_UCC2592C;
+        else if (pid.compare("UCC1932C") == 0) return CS_UCC1932C;*/
+        if (pid.compare("D435e") == 0) return CS_D435E;
         else return CS_UNDEFINED;
     }
 
     bool cs_info::is_timestamp_supported(std::string pid) {
         switch (get_camera_model(pid)) {
-            case CS_UCC2592C:
+            /*case CS_UCC2592C:
                 return false;
             case CS_UCC1932C:
-                return true;
+                return true;*/
             case CS_D435E:
                 return true;
             default:
@@ -58,7 +58,7 @@ namespace librealsense {
         auto devices = smcs_api->GetAllDevices();
 
         for (int i = 0; i < devices.size(); i++) {
-            if (devices[i]->IsOnNetwork()) {
+            if ((devices[i]->IsOnNetwork()) && (devices[i]->IsSameSubnet())) {
                 auto info = platform::cs_device_info();
                 info.serial = devices[i]->GetSerialNumber();
                 info.id = devices[i]->GetModelName();

@@ -6,6 +6,13 @@
 
 #include <map>
 #include <vector>
+#include <librealsense2/hpp/rs_frame.hpp>
+
+
+
+float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize);
+
+
 
 int main(int argc, char * argv[]) try
 {
@@ -18,12 +25,34 @@ int main(int argc, char * argv[]) try
 
     std::vector<rs2::pipeline>            pipelines;
 
+    // adjust InterPacketDelay option on camera based on PacketSize, number of cameras and number of streams
+    // assumptions: 
+    //  - Two cameras are streaming to single NIC on PC
+    //  - PacketSize is the same on all cameras
+    //  - only depth and color streams are enabled on all cameras
+    for (auto&& sensor : ctx.query_all_sensors()) {
+        int numParallelStreams = 3; // (2 cameras * 2 streams) - 1
+        //float packetSize = 7996;  // select this value if jumbo frames on NIC are enabled
+        float packetSize = 1500;
+        float interPacketDelay = getOptimalInterPacketDelay(numParallelStreams, packetSize);
+
+        std::cout << sensor.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER) << ", Packet Size = " << packetSize << " InterPacketDelay = " << interPacketDelay << std::endl;
+        sensor.set_option(RS2_OPTION_PACKET_SIZE, packetSize);
+        sensor.set_option(RS2_OPTION_INTER_PACKET_DELAY, interPacketDelay);
+    }
+
     // Start a streaming pipe per each connected device
     for (auto&& dev : ctx.query_devices())
     {
         rs2::pipeline pipe(ctx);
         rs2::config cfg;
+
+        // enable only depth and color streams
+        cfg.enable_stream(RS2_STREAM_DEPTH, -1, 640, 480, RS2_FORMAT_Z16, 30);
+        cfg.enable_stream(RS2_STREAM_COLOR, -1, 640, 480, RS2_FORMAT_RGB8, 30);
+
         cfg.enable_device(dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
+
         pipe.start(cfg);
         pipelines.emplace_back(pipe);
         // Map from each device's serial number to a different colorizer
@@ -72,4 +101,19 @@ catch (const std::exception & e)
 {
     std::cerr << e.what() << std::endl;
     return EXIT_FAILURE;
+}
+
+
+
+float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize)
+{
+    float interPacketDelay = 0;
+    float ethPacketSize = packetSize + 38;  // 38 bytes overhead
+    float nsPerByte = 8.0;  // for 1Gbps
+
+    float timeToTransferPacket = (ethPacketSize * nsPerByte) / 1000.0;  // time in us
+    timeToTransferPacket = ceil(timeToTransferPacket + 0.5);            // round up
+    interPacketDelay = timeToTransferPacket * num_parallel_streams;
+
+    return interPacketDelay;
 }

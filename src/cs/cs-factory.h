@@ -9,6 +9,11 @@
 #include "context.h"
 
 namespace librealsense {
+
+#define CS_PACKET_RESEND_GROUP_MAX_SIZE 1
+//#define CS_HEARTBEAT_TIME               100 // 100sec for debugging
+#define CS_HEARTBEAT_TIME               3  // 3sec for release
+
     class cs_info : public device_info {
     public:
         std::shared_ptr <device_interface> create(std::shared_ptr <context> ctx,

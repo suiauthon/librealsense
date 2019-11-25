@@ -653,11 +653,11 @@ namespace librealsense {
                 }
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 {
-                    for (auto memeber_stream : get_stream_group(stream)) {
-                        if (!select_channel(memeber_stream))
+                    for (auto member_stream : get_stream_group(stream)) {
+                        if (!select_channel(member_stream))
                             return false;
 
-                        if (!_connected_device->SetIntegerNodeValue(get_cs_param_name(option, memeber_stream), (int)value))
+                        if (!_connected_device->SetIntegerNodeValue(get_cs_param_name(option, member_stream), (int)value))
                             return false;
                     }
                     
@@ -1133,8 +1133,8 @@ namespace librealsense {
             for (auto i = 0; i < streams.size(); ++i)
                 set_format(profiles[i], streams[i]);
 
-            lock(streams[0]);
-            start_acquisition(streams[0]);
+            stream_params_lock(streams[0]);
+            start_acquisition(streams[0]);  //TODO - initialize stream before starting acquisition?
 
             for (auto i = 0; i < streams.size(); ++i)
                 init_stream(error_handler, streams[i]);
@@ -1165,7 +1165,7 @@ namespace librealsense {
             for (auto stream : streams)
                 deinit_stream(stream);
 
-            unlock(streams[0]);
+            stream_params_unlock(streams[0]);
             stop_acquisition(streams[0]);
 
             for (auto stream : streams)
@@ -1309,13 +1309,13 @@ namespace librealsense {
             _connected_device->CommandNodeExecute("RGB_ExposureAutoROISet");
         }
 
-        void cs_device::lock(cs_stream stream)
+        void cs_device::stream_params_lock(cs_stream stream)
         {
             if (!set_source_locked(stream, true))
                 throw wrong_api_call_sequence_exception("Unable to lock source!");
         }
 
-        void cs_device::unlock(cs_stream stream)
+        void cs_device::stream_params_unlock(cs_stream stream)
         {
             if (!set_source_locked(stream, false))
                 throw wrong_api_call_sequence_exception("Unable to unlock source!");
@@ -1352,7 +1352,7 @@ namespace librealsense {
 
         void cs_device::image_poll(cs_stream stream, UINT32 channel)
         {
-            smcs::IImageInfo image_info_;
+            smcs::IImageInfo image_info_ = nullptr;
 
             double timestamp;
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
@@ -1360,29 +1360,32 @@ namespace librealsense {
                 {
                     _connected_device->GetImageInfo(&image_info_, channel); 
 
-                    UINT32 width, height, format;
-                    image_info_->GetSize(width, height);
-                    
-                    if (width != _profiles[stream].width || height != _profiles[stream].height) {
+                    if (image_info_ != nullptr) {
+                        UINT32 width, height, format;
+                        image_info_->GetSize(width, height);
+
+                        if (width != _profiles[stream].width || height != _profiles[stream].height) {
+                            _connected_device->PopImage(image_info_);
+                            return;
+                        }
+
+                        //if (cs_info::is_timestamp_supported(_device_info.id))
+                        //    timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
+                        //timestamp = image_info_->GetTimestamp();
+                        timestamp = -1;
+
+                        auto im = image_info_->GetRawData();
+                        auto image_size = image_info_->GetRawDataSize();
+
+                        frame_object fo{ image_size, 0, im, NULL, timestamp };
+
+                        {
+                            std::lock_guard<std::mutex> lock(_stream_lock);
+                            _callbacks[stream](_profiles[stream], fo, []() {});
+                        }
+
                         _connected_device->PopImage(image_info_);
-                        return;
                     }
-
-                    //if (cs_info::is_timestamp_supported(_device_info.id))
-                    //    timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
-                    timestamp = -1;
-
-                    auto im = image_info_->GetRawData();
-                    auto image_size = image_info_->GetRawDataSize();
-
-                    frame_object fo {image_size, 0, im, NULL, timestamp};
-                    
-                    {
-                        std::lock_guard<std::mutex> lock(_stream_lock);
-                        _callbacks[stream](_profiles[stream], fo, []() {});
-                    }
-
-                    _connected_device->PopImage(image_info_);
                 }
             }
         }
