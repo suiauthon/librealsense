@@ -304,6 +304,7 @@ namespace librealsense {
 
         void reset_streaming();
 
+        cs_stream get_stream(const std::vector<std::shared_ptr<stream_profile_interface>>& requests);
         cs_stream get_stream(rs2_stream type, int index);
 
         struct power

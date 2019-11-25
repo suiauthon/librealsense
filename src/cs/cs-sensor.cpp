@@ -52,133 +52,128 @@ namespace librealsense {
         std::vector<platform::stream_profile> commited;
 
         _cs_selected_streams.clear();
-
         for (auto&& mode : mapping)
         {
-            for (auto&& request : mode.original_requests)
-            {
-                auto selected_stream = get_stream(request->get_stream_type(), request->get_stream_index());
+            auto selected_stream = get_stream(mode.original_requests);
 
-                unsigned long long last_frame_number = 0;
-                rs2_time_t last_timestamp = 0;
-                _device->probe_and_commit(mode.profile,
-                    [this, mode, timestamp_reader, requests, last_frame_number, last_timestamp]
-                (platform::stream_profile p, platform::frame_object f,
-                    std::function<void()> continuation) mutable
+            unsigned long long last_frame_number = 0;
+            rs2_time_t last_timestamp = 0;
+            _device->probe_and_commit(mode.profile,
+                [this, mode, timestamp_reader, requests, last_frame_number, last_timestamp]
+            (platform::stream_profile p, platform::frame_object f,
+                std::function<void()> continuation) mutable
+            {
+                auto system_time = environment::get_instance().get_time_service()->get_time();
+                if (!this->is_streaming())
                 {
-                    auto system_time = environment::get_instance().get_time_service()->get_time();
-                    if (!this->is_streaming())
+                    LOG_WARNING("Frame received with streaming inactive,"
+                        << librealsense::get_string(mode.unpacker->outputs.front().stream_desc.type)
+                        << mode.unpacker->outputs.front().stream_desc.index
+                        << ", Arrived," << std::fixed << f.backend_time << " " << system_time);
+                    return;
+                }
+                frame_continuation release_and_enqueue(continuation, f.pixels);
+
+                // Ignore any frames which appear corrupted or invalid
+                // Determine the timestamp for this frame
+                auto timestamp = timestamp_reader->get_frame_timestamp(mode, f);
+                auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(mode, f);
+                auto frame_counter = timestamp_reader->get_frame_counter(mode, f);
+
+                auto requires_processing = mode.requires_processing();
+
+                std::vector<byte *> dest;
+                std::vector<frame_holder> refs;
+
+                auto&& unpacker = *mode.unpacker;
+                for (auto&& output : unpacker.outputs)
+                {
+                    LOG_DEBUG("FrameAccepted," << librealsense::get_string(output.stream_desc.type)
+                        << ",Counter," << std::dec << frame_counter
+                        << ",Index," << output.stream_desc.index
+                        << ",BackEndTS," << std::fixed << f.backend_time
+                        << ",SystemTime," << std::fixed << system_time
+                        << " ,diff_ts[Sys-BE]," << system_time - f.backend_time
+                        << ",TS," << std::fixed << timestamp << ",TS_Domain," << rs2_timestamp_domain_to_string(timestamp_domain)
+                        << ",last_frame_number," << last_frame_number << ",last_timestamp," << last_timestamp);
+
+                    std::shared_ptr<stream_profile_interface> request = nullptr;
+                    for (auto&& original_prof : mode.original_requests)
                     {
-                        LOG_WARNING("Frame received with streaming inactive,"
-                            << librealsense::get_string(mode.unpacker->outputs.front().stream_desc.type)
-                            << mode.unpacker->outputs.front().stream_desc.index
-                            << ", Arrived," << std::fixed << f.backend_time << " " << system_time);
+                        if (original_prof->get_format() == output.format &&
+                            original_prof->get_stream_type() == output.stream_desc.type &&
+                            original_prof->get_stream_index() == output.stream_desc.index)
+                        {
+                            request = original_prof;
+                        }
+                    }
+
+                    auto bpp = get_image_bpp(output.format);
+                    frame_additional_data additional_data(timestamp,
+                        frame_counter,
+                        system_time,
+                        static_cast<uint8_t>(f.metadata_size),
+                        (const uint8_t*)f.metadata,
+                        f.backend_time,
+                        last_timestamp,
+                        last_frame_number,
+                        false);
+
+                    last_frame_number = frame_counter;
+                    last_timestamp = timestamp;
+
+                    auto res = output.stream_resolution({ mode.profile.width, mode.profile.height });
+                    auto width = res.width;
+                    auto height = res.height;
+
+                    frame_holder frame = _source.alloc_frame(stream_to_frame_types(output.stream_desc.type), width * height * bpp / 8, additional_data, requires_processing);
+                    if (frame.frame)
+                    {
+                        auto video = (video_frame*)frame.frame;
+                        video->assign(width, height, width * bpp / 8, bpp);
+                        video->set_timestamp_domain(timestamp_domain);
+                        dest.push_back(const_cast<byte*>(video->get_frame_data()));
+                        frame->set_stream(request);
+                        refs.push_back(std::move(frame));
+                    }
+                    else
+                    {
+                        LOG_INFO("Dropped frame. alloc_frame(...) returned nullptr");
                         return;
                     }
-                    frame_continuation release_and_enqueue(continuation, f.pixels);
 
-                    // Ignore any frames which appear corrupted or invalid
-                    // Determine the timestamp for this frame
-                    auto timestamp = timestamp_reader->get_frame_timestamp(mode, f);
-                    auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(mode, f);
-                    auto frame_counter = timestamp_reader->get_frame_counter(mode, f);
+                }
 
-                    auto requires_processing = mode.requires_processing();
+                // Unpack the frame
+                if (requires_processing && (dest.size() > 0))
+                {
+                    unpacker.unpack(dest.data(), reinterpret_cast<const byte *>(f.pixels), mode.profile.width, mode.profile.height, f.frame_size);
+                }
 
-                    std::vector<byte *> dest;
-                    std::vector<frame_holder> refs;
-
-                    auto&& unpacker = *mode.unpacker;
-                    for (auto&& output : unpacker.outputs)
+                // If any frame callbacks were specified, dispatch them now
+                for (auto&& pref : refs)
+                {
+                    if (!requires_processing)
                     {
-                        LOG_DEBUG("FrameAccepted," << librealsense::get_string(output.stream_desc.type)
-                            << ",Counter," << std::dec << frame_counter
-                            << ",Index," << output.stream_desc.index
-                            << ",BackEndTS," << std::fixed << f.backend_time
-                            << ",SystemTime," << std::fixed << system_time
-                            << " ,diff_ts[Sys-BE]," << system_time - f.backend_time
-                            << ",TS," << std::fixed << timestamp << ",TS_Domain," << rs2_timestamp_domain_to_string(timestamp_domain)
-                            << ",last_frame_number," << last_frame_number << ",last_timestamp," << last_timestamp);
-
-                        std::shared_ptr<stream_profile_interface> request = nullptr;
-                        for (auto&& original_prof : mode.original_requests)
-                        {
-                            if (original_prof->get_format() == output.format &&
-                                original_prof->get_stream_type() == output.stream_desc.type &&
-                                original_prof->get_stream_index() == output.stream_desc.index)
-                            {
-                                request = original_prof;
-                            }
-                        }
-
-                        auto bpp = get_image_bpp(output.format);
-                        frame_additional_data additional_data(timestamp,
-                            frame_counter,
-                            system_time,
-                            static_cast<uint8_t>(f.metadata_size),
-                            (const uint8_t*)f.metadata,
-                            f.backend_time,
-                            last_timestamp,
-                            last_frame_number,
-                            false);
-
-                        last_frame_number = frame_counter;
-                        last_timestamp = timestamp;
-
-                        auto res = output.stream_resolution({ mode.profile.width, mode.profile.height });
-                        auto width = res.width;
-                        auto height = res.height;
-
-                        frame_holder frame = _source.alloc_frame(stream_to_frame_types(output.stream_desc.type), width * height * bpp / 8, additional_data, requires_processing);
-                        if (frame.frame)
-                        {
-                            auto video = (video_frame*)frame.frame;
-                            video->assign(width, height, width * bpp / 8, bpp);
-                            video->set_timestamp_domain(timestamp_domain);
-                            dest.push_back(const_cast<byte*>(video->get_frame_data()));
-                            frame->set_stream(request);
-                            refs.push_back(std::move(frame));
-                        }
-                        else
-                        {
-                            LOG_INFO("Dropped frame. alloc_frame(...) returned nullptr");
-                            return;
-                        }
-
+                        pref->attach_continuation(std::move(release_and_enqueue));
                     }
 
-                    // Unpack the frame
-                    if (requires_processing && (dest.size() > 0))
+                    if (_on_before_frame_callback)
                     {
-                        unpacker.unpack(dest.data(), reinterpret_cast<const byte *>(f.pixels), mode.profile.width, mode.profile.height, f.frame_size);
+                        //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
+                        auto callback = _source.begin_callback();
+                        auto stream_type = pref->get_stream()->get_stream_type();
+                        _on_before_frame_callback(stream_type, pref, std::move(callback));
                     }
-
-                    // If any frame callbacks were specified, dispatch them now
-                    for (auto&& pref : refs)
+                    if (pref->get_stream().get())
                     {
-                        if (!requires_processing)
-                        {
-                            pref->attach_continuation(std::move(release_and_enqueue));
-                        }
-
-                        if (_on_before_frame_callback)
-                        {
-                            //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
-                            auto callback = _source.begin_callback();
-                            auto stream_type = pref->get_stream()->get_stream_type();
-                            _on_before_frame_callback(stream_type, pref, std::move(callback));
-                        }
-                        if (pref->get_stream().get())
-                        {
-                            //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
-                            _source.invoke_callback(std::move(pref));
-                        }
+                        //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
+                        _source.invoke_callback(std::move(pref));
                     }
-
-                }, selected_stream);
-                _cs_selected_streams.push_back(selected_stream);
-                commited.push_back(mode.profile);
-            }
+                }
+            }, selected_stream);
+            _cs_selected_streams.push_back(selected_stream);
+            commited.push_back(mode.profile);
         }
 
         _internal_config = commited;
@@ -188,29 +183,6 @@ namespace librealsense {
 
         _power = move(on);
         _is_opened = true;
-
-        auto ir_left = std::find(_cs_selected_streams.begin(), _cs_selected_streams.end(), CS_STREAM_IR_LEFT);
-        if (ir_left != _cs_selected_streams.end()) {
-            auto ir_right = std::find(_cs_selected_streams.begin(), _cs_selected_streams.end(), CS_STREAM_IR_RIGHT);
-            if (ir_right != _cs_selected_streams.end()) {
-                auto index = std::distance(_cs_selected_streams.begin(), ir_left);
-                _cs_selected_streams.erase(_cs_selected_streams.begin() + index);
-                _internal_config.erase(_internal_config.begin() + index);
-            }
-        }        
-
-
-
-        /*auto ir_left = std::find_if(streams.begin(), streams.end(), [](cs_stream stream) { return stream == CS_STREAM_IR_LEFT; }) != streams.end();
-        auto ir_right = std::find_if(streams.begin(), streams.end(), [](cs_stream stream) { return stream == CS_STREAM_IR_RIGHT; }) != streams.end();
-        auto skip_ir_left = ir_left && ir_right;
-
-        for (auto i = 0; i < streams.size(); ++i) {
-            auto stream = streams[i];
-            if (skip_ir_left && stream == CS_STREAM_IR_LEFT)
-                continue;
-            set_format(profiles[i], stream);
-        }*/
 
         try {
             _device->stream_on([&](const notification& n)
@@ -404,6 +376,28 @@ namespace librealsense {
         _source.flush();
         _source.reset();
         _timestamp_reader->reset();
+    }
+
+    cs_stream cs_sensor::get_stream(const std::vector<std::shared_ptr<stream_profile_interface>>& requests)
+    {
+        if (requests.size() == 2) {
+            auto ir_left = std::find_if(requests.begin(), requests.end(), 
+                [this](auto request) { 
+                    return get_stream(request->get_stream_type(), request->get_stream_index()) == CS_STREAM_IR_LEFT; 
+                }
+            );
+            if (ir_left != requests.end()) {
+                auto ir_right = std::find_if(requests.begin(), requests.end(), 
+                    [this](auto request) { 
+                        return get_stream(request->get_stream_type(), request->get_stream_index()) == CS_STREAM_IR_RIGHT; 
+                    }
+                );
+                if (ir_right != requests.end())
+                    return get_stream((*ir_right)->get_stream_type(), (*ir_right)->get_stream_index());
+            }
+        }
+
+        return get_stream(requests[0]->get_stream_type(), requests[0]->get_stream_index());
     }
 
     cs_stream cs_sensor::get_stream(rs2_stream type, int index)
