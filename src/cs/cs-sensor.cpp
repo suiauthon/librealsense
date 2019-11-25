@@ -450,6 +450,9 @@ namespace librealsense {
 
     namespace platform
     {
+        std::map<std::string, int> cs_device::_cs_device_num_objects_SN;
+        std::map<std::string, bool> cs_device::_cs_device_initialized_SN;
+
         enum rs2_format cs_device::get_rgb_format()
         {
             if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
@@ -1418,6 +1421,94 @@ namespace librealsense {
 
             if (!_connected_device->SetStringNodeValue("FrameRate", "FPS_" + std::to_string(profile.fps)))
                 throw wrong_api_call_sequence_exception("Failed to set framerate!");
+        }
+
+        int cs_device::get_optimal_inter_packet_delay(int packetSize)
+        {
+            float interPacketDelay = 0;
+            float ethPacketSize = packetSize + 38;  // 38 bytes overhead
+            float nsPerByte = 8.0;  // for 1Gbps
+
+            float timeToTransferPacket = (ethPacketSize * nsPerByte) / 1000.0;  // time in us
+            timeToTransferPacket = ceil(timeToTransferPacket + 0.5);            // round up
+            interPacketDelay = (int)timeToTransferPacket;
+
+            return interPacketDelay;
+        }
+
+        bool cs_device::inc_device_count_SN(std::string serialNum)
+        {
+            bool result = true;
+
+            auto it = _cs_device_num_objects_SN.find(serialNum);
+            if (it == _cs_device_num_objects_SN.end()) {    // does not exist
+                _cs_device_num_objects_SN.insert({serialNum, 1});
+            } 
+            else {
+                it->second = it->second++;
+            }
+
+            return result;
+        }
+
+        bool cs_device::dec_device_count_SN(std::string serialNum)
+        {
+            bool result = true;
+
+            auto it = _cs_device_num_objects_SN.find(serialNum);
+            if (it == _cs_device_num_objects_SN.end()) {    // does not exist
+                result = false;
+            }
+            else {
+                it->second = it->second--;
+            }
+
+            return result;
+        }
+
+        int cs_device::get_device_count_SN(std::string serialNum)
+        {
+            int devCount = -1;
+            
+            auto it = _cs_device_num_objects_SN.find(serialNum);
+            if (it == _cs_device_num_objects_SN.end()) {    // does not exist
+                devCount = -1;
+            }
+            else {
+                devCount = it->second;
+            }
+
+            return devCount;
+        }
+
+        bool cs_device::set_device_init_flag_SN(std::string serialNum, bool setInitFlag)
+        {
+            bool result = true;
+
+            auto it = _cs_device_initialized_SN.find(serialNum);
+            if (it == _cs_device_initialized_SN.end()) {    // does not exist
+                _cs_device_initialized_SN.insert({serialNum, setInitFlag});
+            }
+            else {
+                it->second = setInitFlag;
+            }
+
+            return result;
+        }
+
+        bool cs_device::get_device_init_flag_SN(std::string serialNum)
+        {
+            bool flag = false;
+
+            auto it = _cs_device_initialized_SN.find(serialNum);
+            if (it == _cs_device_initialized_SN.end()) {    // does not exist
+                flag = false;
+            }
+            else {
+                flag = it->second;
+            }
+
+            return flag;
         }
     }
 
