@@ -25,20 +25,26 @@ int main(int argc, char * argv[]) try
 
     std::vector<rs2::pipeline>            pipelines;
 
-    // adjust InterPacketDelay option on camera based on PacketSize, number of cameras and number of streams
-    // assumptions: 
-    //  - Two cameras are streaming to single NIC on PC
-    //  - PacketSize is the same on all cameras
-    //  - only depth and color streams are enabled on all cameras
-    for (auto&& sensor : ctx.query_all_sensors()) {
-        int numParallelStreams = 3; // (2 cameras * 2 streams) - 1
-        //float packetSize = 7996;  // select this value if jumbo frames on NIC are enabled
-        float packetSize = 1500;
-        float interPacketDelay = getOptimalInterPacketDelay(numParallelStreams, packetSize);
+    for (auto&& dev : ctx.query_devices()) {
+        std::string name = dev.get_info(RS2_CAMERA_INFO_NAME);
+        if (name.compare("FRAMOS D435e") == 0) {
+            for (auto&& sensor : dev.query_sensors()) {
+                // adjust InterPacketDelay option on D435e camera based on PacketSize, number of cameras and number of streams
+                // assumptions: 
+                //  - Two D435e cameras are streaming to single NIC on PC
+                //  - only depth and color streams are enabled on all cameras
+                //  - PacketSize is the same on all cameras
+                int numParallelStreams = 3; // (2 cameras * 2 streams) - 1
+                //float packetSize = 7996;  // Manual - select this value if jumbo frames on NIC are enabled
+                //float packetSize = 1500;  // Manual - select this value if jumbo frames on NIC are disabled
+                float packetSize = sensor.get_option(RS2_OPTION_PACKET_SIZE);   // Automatic packet size discovery
+                float interPacketDelay = getOptimalInterPacketDelay(numParallelStreams, packetSize);
 
-        std::cout << sensor.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER) << ", Packet Size = " << packetSize << " InterPacketDelay = " << interPacketDelay << std::endl;
-        sensor.set_option(RS2_OPTION_PACKET_SIZE, packetSize);
-        sensor.set_option(RS2_OPTION_INTER_PACKET_DELAY, interPacketDelay);
+                std::cout << sensor.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER) << ", Packet Size = " << packetSize << " InterPacketDelay = " << interPacketDelay << std::endl;
+                sensor.set_option(RS2_OPTION_PACKET_SIZE, packetSize);
+                sensor.set_option(RS2_OPTION_INTER_PACKET_DELAY, interPacketDelay);
+            }
+        }
     }
 
     // Start a streaming pipe per each connected device
