@@ -1457,7 +1457,6 @@ namespace librealsense {
 
 			_connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
 		}
-    }
 
 
         int cs_device::get_optimal_inter_packet_delay(int packetSize)
