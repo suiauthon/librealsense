@@ -174,22 +174,23 @@ namespace librealsense {
 
             ~cs_device() {
                 dec_device_count_SN(_device_info.serial);
+                for (int i = 0; i < _number_of_streams; i++) {
+                    deinit_stream((cs_stream)i);
+                }
                 
                 if (get_device_count_SN(_device_info.serial) == 0) {
-                    //This causes only one camera to stream when using pipeline API with multiple devices (rs-multicam example)
                     if (_connected_device->IsConnected()) {
+                        try {
+                            //TODO - close all streams
+                            close({ CS_STREAM_DEPTH }); // -> Source0
+                            close({ CS_STREAM_COLOR }); // -> Source1
+                        }
+                        //catch (...) {
+                        catch (const std::exception& ex) {
+                            LOG_ERROR(ex.what());
+                        }
                         _connected_device->Disconnect();
                     }
-
-                    //TODO 
-                    //This fixed crash when unplugging while streaming.
-                    //However, this shuold not be done here because this class is not a unique representation of camera 
-                    //and its destruction does not imply that the camera is disconnected.
-                    //Waiting for new connect/disconnect implementation to propose a real fix.
-                    //stop_stream(CS_STREAM_DEPTH);
-                    //stop_stream(CS_STREAM_COLOR);
-                    //stop_stream(CS_STREAM_IR_LEFT);
-                    //stop_stream(CS_STREAM_IR_RIGHT);
                 }
             }
 

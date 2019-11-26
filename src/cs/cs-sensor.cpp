@@ -1360,7 +1360,7 @@ namespace librealsense {
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
                 if (_connected_device->WaitForImage(1, channel))
                 {
-                    _connected_device->GetImageInfo(&image_info_, channel); 
+                    _connected_device->GetImageInfo(&image_info_, channel);
 
                     if (image_info_ != nullptr) {
                         UINT32 width, height, format;
@@ -1389,6 +1389,9 @@ namespace librealsense {
                         _connected_device->PopImage(image_info_);
                     }
                 }
+            }
+            else {
+                throw camera_disconnected_exception("Polling images from disconnected device!");
             }
         }
 
@@ -1457,8 +1460,6 @@ namespace librealsense {
 
 			_connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
 		}
-    }
-
 
         int cs_device::get_optimal_inter_packet_delay(int packetSize)
         {
