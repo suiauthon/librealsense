@@ -382,13 +382,13 @@ namespace librealsense {
     {
         if (requests.size() == 2) {
             auto ir_left = std::find_if(requests.begin(), requests.end(), 
-                [this](auto request) { 
+                [this](std::shared_ptr<stream_profile_interface> request) { 
                     return get_stream(request->get_stream_type(), request->get_stream_index()) == CS_STREAM_IR_LEFT; 
                 }
             );
             if (ir_left != requests.end()) {
                 auto ir_right = std::find_if(requests.begin(), requests.end(), 
-                    [this](auto request) { 
+                    [this](std::shared_ptr<stream_profile_interface> request) { 
                         return get_stream(request->get_stream_type(), request->get_stream_index()) == CS_STREAM_IR_RIGHT; 
                     }
                 );
