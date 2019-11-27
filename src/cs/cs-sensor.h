@@ -223,6 +223,7 @@ namespace librealsense {
             std::string get_device_version();
 
             bool is_temperature_supported();
+            bool is_infrared_supported();
 
 			void set_trigger_mode(float mode);
 
