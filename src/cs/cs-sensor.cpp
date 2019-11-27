@@ -1339,7 +1339,7 @@ namespace librealsense {
 
         bool cs_device::is_infrared_supported()
         {
-            return _cs_firmware_version >= cs_firmware_version(1, 5, 4, 0);
+            return _cs_firmware_version >= cs_firmware_version(1, 5, 0, 0);
         }
 
         void cs_device::capture_loop(cs_stream stream, UINT32 channel)
