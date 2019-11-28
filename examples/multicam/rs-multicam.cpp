@@ -1,5 +1,6 @@
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2015-2017 Intel Corporation. All Rights Reserved.
+// Partly modified by Framos GmbH.
 
 #include <librealsense2/rs.hpp>     // Include RealSense Cross Platform API
 #include "example.hpp"              // Include short list of convenience functions for rendering
@@ -111,6 +112,7 @@ catch (const std::exception & e)
 
 
 
+// calculate optimal InterPacketDelay for D435e camera based on PacketSize and number of parallel streams
 float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize)
 {
     float interPacketDelay = 0;
