@@ -370,7 +370,7 @@ namespace librealsense
         depth_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
         //depth_ep->try_register_pu(RS2_OPTION_GAMMA);
 
-        auto exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_EXPOSURE, CS_STREAM_DEPTH);
+        auto exposure_option = std::make_shared<cs_depth_exposure_option>(*depth_ep, RS2_OPTION_EXPOSURE, CS_STREAM_DEPTH);
         auto auto_exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_DEPTH);
         depth_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
         depth_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);

@@ -1608,21 +1608,21 @@ namespace librealsense {
         switch(_id)
         {
             case RS2_OPTION_BACKLIGHT_COMPENSATION: return "Enable / disable backlight compensation";
-            case RS2_OPTION_BRIGHTNESS: return "CS image brightness";
-            case RS2_OPTION_CONTRAST: return "CS image contrast";
+            case RS2_OPTION_BRIGHTNESS: return "Image brightness";
+            case RS2_OPTION_CONTRAST: return "Image contrast";
             case RS2_OPTION_EXPOSURE: return "Controls exposure time of color camera. Setting any value will disable auto exposure";
-            case RS2_OPTION_GAIN: return "CS image gain";
-            case RS2_OPTION_GAMMA: return "CS image gamma setting";
-            case RS2_OPTION_HUE: return "CS image hue";
-            case RS2_OPTION_SATURATION: return "CS image saturation setting";
-            case RS2_OPTION_SHARPNESS: return "CS image sharpness setting";
+            case RS2_OPTION_GAIN: return "Image gain";
+            case RS2_OPTION_GAMMA: return "Image gamma setting";
+            case RS2_OPTION_HUE: return "Image hue";
+            case RS2_OPTION_SATURATION: return "Image saturation setting";
+            case RS2_OPTION_SHARPNESS: return "Image sharpness setting";
             case RS2_OPTION_WHITE_BALANCE: return "Controls white balance of color image. Setting any value will disable auto white balance";
             case RS2_OPTION_ENABLE_AUTO_EXPOSURE: return "Enable / disable auto-exposure";
             case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE: return "Enable / disable auto-white-balance";
             case RS2_OPTION_POWER_LINE_FREQUENCY: return "Power Line Frequency";
             case RS2_OPTION_AUTO_EXPOSURE_PRIORITY: return "Limit exposure time when auto-exposure is ON to preserve constant fps rate";
-            case RS2_OPTION_INTER_PACKET_DELAY: return "Set inter-packet delay";
-            case RS2_OPTION_PACKET_SIZE: return "Set packet size";
+            case RS2_OPTION_INTER_PACKET_DELAY: return "Inter-packet delay";
+            case RS2_OPTION_PACKET_SIZE: return "Packet size";
             case RS2_OPTION_ASIC_TEMPERATURE: return "Current Asic Temperature (degree celsius)";
             case RS2_OPTION_PROJECTOR_TEMPERATURE: return "Current Projector Temperature (degree celsius)";
             default: return _ep.get_option_name(_id);

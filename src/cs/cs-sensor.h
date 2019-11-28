@@ -445,6 +445,14 @@ namespace librealsense {
         cs_sensor& _ep;
     };
 
+    class cs_depth_exposure_option : public cs_pu_option
+    {
+    public:
+        cs_depth_exposure_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+            : cs_pu_option(ep, id, stream) {}
+        const char* get_description() const override { return "Depth Exposure (usec)"; }
+    };
+
     class cs_readonly_option : public cs_pu_option
     {
     public:
