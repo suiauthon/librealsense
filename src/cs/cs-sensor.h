@@ -1,6 +1,5 @@
-//
-// Created by marko on 21.05.19..
-//
+// License: Apache 2.0. See LICENSE file in root directory.
+// Copyright(c) 2019 FRAMOS GmbH.
 
 #ifndef LIBREALSENSE2_CS_SENSOR_H
 #define LIBREALSENSE2_CS_SENSOR_H
@@ -12,27 +11,27 @@
 
 namespace librealsense {
     typedef enum cs_stream {
-        CS_STREAM_DEPTH,
+        CS_STREAM_DEPTH = 0,
         CS_STREAM_COLOR,
-        CS_STREAM_MONO
-
+        CS_STREAM_IR_LEFT,
+        CS_STREAM_IR_RIGHT,
+        //CS_STREAM_MONO,
+        CS_STREAM_COUNT
     } cs_stream;
 
-    typedef enum cs_stream_id {
-        CS_STREAM_ID_DEPTH = 0,
-        CS_STREAM_ID_COLOR = 1,
-        CS_STREAM_ID_MONO = 0
-
-    } cs_stream_id;
-
     typedef enum cs_camera_model {
-        CS_UCC2592C,
-        CS_UCC1932C,
+        //CS_UCC2592C,
+        //CS_UCC1932C,
         CS_D435E,
         CS_UNDEFINED
     };
-
-    cs_stream_id cs_stream_to_id(cs_stream stream);
+    
+    typedef enum cs_inter_cam_sync_mode {
+        CS_INTERCAM_SYNC_DEFAULT,
+        CS_INTERCAM_SYNC_MASTER,
+        CS_INTERCAM_SYNC_SLAVE,
+        CS_INTERCAM_SYNC_MAX
+    } cs_inter_cam_mode;
 
     class cs_firmware_version
     {
@@ -106,7 +105,6 @@ namespace librealsense {
                     : _device_info(std::move(hwm)),
                       _power_state(D3),
                       _connected_device(NULL) {
-                //printf("Stvaram cs device\n");
                 _smcs_api = smcs::GetCameraAPI();
                 auto devices = _smcs_api->GetAllDevices();
 
@@ -115,53 +113,96 @@ namespace librealsense {
                     if (!serial.compare(_device_info.serial)) {
                         _connected_device = devices[i];
 
-                        if (_connected_device == NULL || !_connected_device->Connect())
-                            throw wrong_api_call_sequence_exception("Could not create CS device!");
-                        else
-                        {
-                            INT64 int64Value;
-                            if (_connected_device->GetIntegerNodeValue("SourceControlCount", int64Value))
-                            {
-                                _number_of_streams = int64Value;
-                                _threads = std::vector<std::unique_ptr <std::thread>>(_number_of_streams);
-                                _is_capturing = std::vector<std::atomic<bool>>(_number_of_streams);
-                                _callbacks = std::vector<frame_callback>(_number_of_streams);
-                                _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
-                                _profiles = std::vector<stream_profile>(_number_of_streams);
-                                _device_version = _connected_device->GetDeviceVersion();
-                                _cs_firmware_version = cs_firmware_version(_connected_device);
+                        if (_connected_device == NULL) {
+                            break;
+                        } else {
+                            if (!_connected_device->IsConnected()) {
+                                // try to connect to camera if not already connected
+                                if (!_connected_device->Connect()) {
+                                    throw wrong_api_call_sequence_exception("Could not connect to CS device with given SN!");
+                                }
+                                else {
+                                    // initialize this part (inter-packet delay) only once
+                                    if (get_device_init_flag_SN(_device_info.serial) == false) { 
+                                        INT64 numOfCameraStream;
+                                        _connected_device->GetIntegerNodeValue("GevStreamChannelCount", numOfCameraStream);
+                                        for (int i = 0; i < numOfCameraStream; i++)
+                                        {
+                                            INT64 packetSize;
+                                            select_channel((cs_stream)i);
 
-                                for (int i = 0; i < _number_of_streams; i++)
-                                {
-                                    _threads[i] = nullptr;
-                                    _is_capturing[i] = false;
-                                    _callbacks[i] = nullptr;
+                                            // set optimal inter-packet delay
+                                            _connected_device->GetIntegerNodeValue("GevSCPSPacketSize", packetSize);
+                                            int interPacketDelay = get_optimal_inter_packet_delay(packetSize);
+                                            _connected_device->SetIntegerNodeValue("GevSCPD", interPacketDelay);
+                                        }
+                                        set_device_init_flag_SN(_device_info.serial, true);
+                                    }
                                 }
                             }
-                            else
-                                throw wrong_api_call_sequence_exception("Could not create CS device!");
+
+                            _number_of_streams = CS_STREAM_COUNT;
+                            _threads = std::vector<std::unique_ptr <std::thread>>(_number_of_streams);
+                            _is_capturing = std::vector<std::atomic<bool>>(_number_of_streams);
+                            _callbacks = std::vector<frame_callback>(_number_of_streams);
+                            _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
+                            _profiles = std::vector<stream_profile>(_number_of_streams);
+                            _device_version = _connected_device->GetDeviceVersion();
+                            _cs_firmware_version = cs_firmware_version(_connected_device);
+
+                            for (int i = 0; i < _number_of_streams; i++)
+                            {
+                                _threads[i] = nullptr;
+                                _is_capturing[i] = false;
+                                _callbacks[i] = nullptr;
+
+                                // make sure stream parameters are unlocked
+                                stream_params_unlock((cs_stream)i);
+                            }
+
+                            // increment device counter for device with current SN
+                            inc_device_count_SN(_device_info.serial);
                         }
+                        // found device with SN
+                        break;
                     }
+                }
+                if (_connected_device == NULL) {    // Could not find device with given SN
+                    throw wrong_api_call_sequence_exception("Could not create CS device with given SN!");
                 }
             }
 
             ~cs_device() {
-                //This causes only one camera to stream when using pipeline API with multiple devices (rs-multicam example)
-                //if (_connected_device->IsOnNetwork()) _connected_device->Disconnect();
-
-                stop_stream(CS_STREAM_ID_DEPTH);
-                stop_stream(CS_STREAM_ID_COLOR);
+                dec_device_count_SN(_device_info.serial);
+                for (int i = 0; i < _number_of_streams; i++) {
+                    deinit_stream((cs_stream)i);
+                }
+                
+                if (get_device_count_SN(_device_info.serial) == 0) {
+                    if (_connected_device->IsConnected()) {
+                        try {
+                            //TODO - close all streams
+                            close({ CS_STREAM_DEPTH }); // -> Source0
+                            close({ CS_STREAM_COLOR }); // -> Source1
+                        }
+                        //catch (...) {
+                        catch (const std::exception& ex) {
+                            LOG_ERROR(ex.what());
+                        }
+                        _connected_device->Disconnect();
+                    }
+                }
             }
 
             power_state set_power_state(power_state state);
 
-            void stream_on(std::function<void(const notification &n)> error_handler, cs_stream_id stream);
+            void stream_on(std::function<void(const notification &n)> error_handler, std::vector<cs_stream> streams, std::vector<platform::stream_profile> profiles);
 
-            void probe_and_commit(stream_profile profile, frame_callback callback, cs_stream_id stream);
+            void probe_and_commit(stream_profile profile, frame_callback callback, cs_stream stream);
 
-            void close(stream_profile profile, cs_stream_id stream);
+            void close(std::vector<cs_stream> streams);
 
-            void image_poll(cs_stream_id stream);
+            void image_poll(cs_stream stream, UINT32 channel);
 
             power_state get_power_state() const { return _power_state; }
 
@@ -173,7 +214,7 @@ namespace librealsense {
 
             enum rs2_format get_rgb_format();
 
-            std::vector <stream_profile> get_profiles(cs_stream_id stream);
+            std::vector <stream_profile> get_profiles(cs_stream stream);
 
             bool reset(void);
 
@@ -182,11 +223,14 @@ namespace librealsense {
             std::string get_device_version();
 
             bool is_temperature_supported();
+            bool is_infrared_supported();
+
+			void set_trigger_mode(float mode);
 
         protected:
-            void capture_loop(cs_stream_id stream);
+            void capture_loop(cs_stream stream, UINT32 channel);
 
-            void set_format(stream_profile profile, cs_stream_id stream);
+            void set_format(stream_profile profile, cs_stream stream);
 
             std::vector<std::function<void(const notification &n)>> _error_handler;
             std::vector<stream_profile> _profiles;
@@ -205,13 +249,28 @@ namespace librealsense {
 
             bool set_cs_param(rs2_option option, int32_t value, cs_stream stream);
 
-            void start_acquisition(cs_stream_id stream);
+            void init_stream(std::function<void(const notification& n)> error_handler, cs_stream stream);
 
-            void stop_stream(cs_stream_id stream);
+            void deinit_stream(cs_stream stream);
 
-            void stop_acquisition(cs_stream_id stream);
+            void start_acquisition(cs_stream stream);
 
-            bool select_channel(cs_stream_id stream);
+            void stop_acquisition(cs_stream stream);
+
+            bool select_source(cs_stream stream);
+            bool set_source_locked(cs_stream stream, bool locked);
+            bool set_region(cs_stream stream, bool enable);
+            bool disable_source_regions(cs_stream stream);
+            bool select_region(cs_stream stream);
+            bool select_channel(cs_stream stream);
+
+            INT64 get_stream_source(cs_stream stream);
+            INT64 get_stream_region(cs_stream stream);
+            bool get_stream_channel(cs_stream stream, UINT32& channel);
+            std::vector<cs_stream> get_stream_group(cs_stream stream);
+
+            void stream_params_lock(cs_stream stream);
+            void stream_params_unlock(cs_stream stream);
 
             uint32_t read_from_buffer(std::vector<byte>& buffer, uint32_t index);
 
@@ -222,7 +281,16 @@ namespace librealsense {
             std::vector<uint32_t> get_frame_rates_from_control();
 
             uint32_t cs_pixel_format_to_native_pixel_format(std::string cs_format);
+            
+            int get_optimal_inter_packet_delay(int packetSize);
 
+            static bool inc_device_count_SN(std::string serialNum);
+            static bool dec_device_count_SN(std::string serialNum);
+            static int get_device_count_SN(std::string serialNum);
+            static bool set_device_init_flag_SN(std::string serialNum, bool setInitFlag);
+            static bool get_device_init_flag_SN(std::string serialNum);
+
+            // members
             std::vector<std::unique_ptr <std::thread>> _threads;
             platform::cs_device_info _device_info;
             power_state _power_state;
@@ -234,6 +302,8 @@ namespace librealsense {
             std::vector<frame_callback> _callbacks;
             std::string _device_version;
             cs_firmware_version _cs_firmware_version;
+            static std::map<std::string, int> _cs_device_num_objects_SN; // serial_number, number of objects per SN (device creation)
+            static std::map<std::string, bool> _cs_device_initialized_SN; // serial_number, is device with SN initialized
         };
     }
 
@@ -245,7 +315,6 @@ namespace librealsense {
                 : sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
                   _timestamp_reader(std::move(timestamp_reader)),
                   _device(std::move(cs_device)),
-                  _cs_stream_id(cs_stream_to_id(stream)),
                   _cs_stream(stream),
                   _user_count(0)
         {
@@ -278,12 +347,17 @@ namespace librealsense {
 
         void try_register_pu(rs2_option id);
 
+		void set_inter_cam_sync_mode(float value);
+
     private:
         void acquire_power();
 
         void release_power();
 
         void reset_streaming();
+
+        cs_stream get_stream(const std::vector<std::shared_ptr<stream_profile_interface>>& requests);
+        cs_stream get_stream(rs2_stream type, int index);
 
         struct power
         {
@@ -317,7 +391,7 @@ namespace librealsense {
         std::mutex _power_lock;
         std::mutex _configure_lock;
         cs_stream _cs_stream;
-        cs_stream_id _cs_stream_id;
+        std::vector<cs_stream> _cs_selected_streams;
         std::unique_ptr<power> _power;
         std::shared_ptr<platform::cs_device> _device;
     };

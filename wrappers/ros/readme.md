@@ -10,7 +10,7 @@ Ubuntu 16.04 x86_64
 
 FRAMOS CameraSuite version 4.1.2.0 or higher
 
-Intel® RealSense™ SDK with support for D435e camera version 2.29.1 or higher
+Intel® RealSense™ SDK with support for D435e camera version 2.29.2 or higher
 
 FRAMOS D435e Camera with firmware version 1.4.0.0 or higher
 
@@ -18,7 +18,7 @@ FRAMOS D435e Camera with firmware version 1.4.0.0 or higher
 
 These instructions are based on the instructions available at the [ROS Wrapper for Intel® RealSense™ Devices GitHub repository](https://github.com/IntelRealSense/realsense-ros).
 
-Intel® RealSense™ SDK with support for D435e camera is compatible with the ROS wrapper version 2.2.8.
+Intel® RealSense™ SDK with support for D435e camera is compatible with the ROS wrapper version 2.2.9.
 
 ## Installation
 
@@ -70,7 +70,7 @@ cd ~/catkin_ws/src/
 ```
 git clone https://github.com/IntelRealSense/realsense-ros.git
 cd realsense-ros/
-git checkout 2.2.8
+git checkout 2.2.9
 cd ..
 ```
 
