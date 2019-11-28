@@ -63,7 +63,7 @@ install(FILES
 
 if (UNIX)
     set(DYNAMIC_CALIBRATOR_DIR /opt/Projects/RS-D4-ETH/Software/RS-CalibrationToolAPI/linux/usr)
-    install(FILES
+    install(PROGRAMS
         ${DYNAMIC_CALIBRATOR_DIR}/bin/DynamicCalibrator
         DESTINATION ${CMAKE_INSTALL_BINDIR}    
     )
@@ -107,6 +107,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/config/realsense2.pc"
 )
 
 set(CPACK_PACKAGE_NAME "FRAMOS-librealsense2")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "freeglut3")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "FRAMOS GmbH")
 set(CPACK_PACKAGE_VERSION_MAJOR 2)
 set(CPACK_PACKAGE_VERSION_MINOR 29)
