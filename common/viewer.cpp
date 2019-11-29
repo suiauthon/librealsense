@@ -566,7 +566,7 @@ namespace rs2
 
     viewer_model::viewer_model()
             : ppf(*this), 
-              synchronization_enable(false),
+              synchronization_enable(true),
               zo_sensors(0)
     {
         syncer = std::make_shared<syncer_model>();
