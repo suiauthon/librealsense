@@ -15,13 +15,10 @@ namespace librealsense {
         CS_STREAM_COLOR,
         CS_STREAM_IR_LEFT,
         CS_STREAM_IR_RIGHT,
-        //CS_STREAM_MONO,
         CS_STREAM_COUNT
     } cs_stream;
 
-    typedef enum cs_camera_model {
-        //CS_UCC2592C,
-        //CS_UCC1932C,
+    enum cs_camera_model {
         CS_D435E,
         CS_UNDEFINED
     };
