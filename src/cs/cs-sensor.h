@@ -280,7 +280,10 @@ namespace librealsense {
             std::vector<uint32_t> get_frame_rates(); 
             std::vector<uint32_t> get_frame_rates_from_control();
 
-            uint32_t cs_pixel_format_to_native_pixel_format(std::string cs_format);
+            bool is_profile_format(const smcs::IImageInfo& image_info, const stream_profile& profile);
+
+            uint32_t cs_pixel_format_to_native_pixel_format(std::string cs_format); 
+            uint32_t native_pixel_format_to_cs_pixel_format(uint32_t native_format);
             
             int get_optimal_inter_packet_delay(int packetSize);
 

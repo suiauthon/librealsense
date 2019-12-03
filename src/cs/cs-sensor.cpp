@@ -499,8 +499,6 @@ namespace librealsense {
                 std::string pixelFormat;
                 is_successful = is_successful & _connected_device->GetStringNodeValue("PixelFormat", pixelFormat);
 
-                profile.format = cs_pixel_format_to_native_pixel_format(pixelFormat);
-
                 for (auto frameRate : get_frame_rates()) {
 
                     profile.fps = frameRate;
@@ -561,6 +559,17 @@ namespace librealsense {
             return acquisitionFrameRates;
         }
 
+        bool cs_device::is_profile_format(const smcs::IImageInfo& image_info, const stream_profile& profile)
+        {
+            UINT32 width = 0, height = 0, format = 0;
+            image_info->GetSize(width, height);
+            image_info->GetPixelType(format);
+            
+            return width == profile.width
+                && height == profile.height
+                && format == native_pixel_format_to_cs_pixel_format(profile.format);
+        }
+
         uint32_t cs_device::cs_pixel_format_to_native_pixel_format(std::string cs_format)
         {
             uint32_t npf;
@@ -576,6 +585,19 @@ namespace librealsense {
             return npf;
         }
 
+        uint32_t cs_device::native_pixel_format_to_cs_pixel_format(uint32_t native_format)
+        {
+            if (native_format == pf_y8i.fourcc || native_format == pf_z16.fourcc)
+                return GVSP_PIX_MONO16;
+            else if (native_format == pf_raw8.fourcc)
+                return GVSP_PIX_MONO8;
+            else if (native_format == pf_yuyv.fourcc)
+                return GVSP_PIX_YUV422_YUYV_PACKED;
+            else if (native_format == pf_uyvyl.fourcc)
+                return GVSP_PIX_YUV422_PACKED;
+            else
+                throw wrong_api_call_sequence_exception("Unable to map Realsense pixel format to CameraSuite pixel format!");
+        }
 
         bool cs_device::get_pu(rs2_option opt, int32_t& value, cs_stream stream)
         {
@@ -1372,10 +1394,8 @@ namespace librealsense {
                     _connected_device->GetImageInfo(&image_info_, channel);
 
                     if (image_info_ != nullptr) {
-                        UINT32 width, height, format;
-                        image_info_->GetSize(width, height);
 
-                        if (width != _profiles[stream].width || height != _profiles[stream].height) {
+                        if (!is_profile_format(image_info_, _profiles[stream])) {
                             _connected_device->PopImage(image_info_);
                             return;
                         }
