@@ -1,12 +1,11 @@
-//
-// Created by marko on 21.05.19..
-//
+// License: Apache 2.0. See LICENSE file in root directory.
+// Copyright(c) 2019 FRAMOS GmbH.
 
 #include "cs/cs-timestamp.h"
 
 namespace librealsense {
     cs_timestamp_reader_from_metadata::cs_timestamp_reader_from_metadata(std::unique_ptr<frame_timestamp_reader> backup_timestamp_reader)
-            :_backup_timestamp_reader(std::move(backup_timestamp_reader)), one_time_note(false)
+            :_backup_timestamp_reader(std::move(backup_timestamp_reader)), _has_metadata(pins), one_time_note(false)
     {
         reset();
     }
@@ -33,14 +32,17 @@ namespace librealsense {
     rs2_time_t cs_timestamp_reader_from_metadata::get_frame_timestamp(const request_mapping& mode, const platform::frame_object& fo)
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
+        auto pin_index = 0;
+        if (mode.pf->fourcc == 0x5a313620) // Z16
+            pin_index = 1;
 
-        if(!_has_metadata)
+        if(!_has_metadata[pin_index])
         {
-            _has_metadata = has_metadata(mode, fo.metadata, fo.metadata_size);
+            _has_metadata[pin_index] = has_metadata(mode, fo.metadata, fo.metadata_size);
         }
 
         auto md = (librealsense::metadata_intel_basic*)(fo.metadata);
-        if(_has_metadata && md)
+        if(_has_metadata[pin_index] && md)
         {
             return (double)(md->header.timestamp)*TIMESTAMP_USEC_TO_MSEC;
         }
@@ -58,8 +60,11 @@ namespace librealsense {
     unsigned long long cs_timestamp_reader_from_metadata::get_frame_counter(const request_mapping & mode, const platform::frame_object& fo) const
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
+        auto pin_index = 0;
+        if (mode.pf->fourcc == 0x5a313620) // Z16
+            pin_index = 1;
 
-        if(_has_metadata && fo.metadata_size > platform::uvc_header_size)
+        if(_has_metadata[pin_index] && fo.metadata_size > platform::uvc_header_size)
         {
             auto md = (librealsense::metadata_intel_basic*)(fo.metadata);
             if (md->capture_valid())
@@ -73,26 +78,35 @@ namespace librealsense {
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
         one_time_note = false;
-
-        _has_metadata = false;
+        for (auto i = 0; i < pins; ++i)
+        {
+            _has_metadata[i] = false;
+        }
     }
 
     rs2_timestamp_domain cs_timestamp_reader_from_metadata::get_frame_timestamp_domain(const request_mapping & mode, const platform::frame_object& fo) const
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
+        auto pin_index = 0;
+        if (mode.pf->fourcc == 0x5a313620) // Z16
+            pin_index = 1;
 
-        return _has_metadata ? RS2_TIMESTAMP_DOMAIN_HARDWARE_CLOCK :
+        return _has_metadata[pin_index] ? RS2_TIMESTAMP_DOMAIN_HARDWARE_CLOCK :
                _backup_timestamp_reader->get_frame_timestamp_domain(mode,fo);
     }
 
-    cs_timestamp_reader::cs_timestamp_reader(std::shared_ptr <platform::time_service> ts) :
-            _ts(ts) {
+    cs_timestamp_reader::cs_timestamp_reader(std::shared_ptr <platform::time_service> ts)
+            : counter(pins), _ts(ts) 
+    {
         reset();
     }
 
     void cs_timestamp_reader::reset() {
         std::lock_guard <std::recursive_mutex> lock(_mtx);
-        counter = 0;
+        for (auto i = 0; i < pins; ++i)
+        {
+            counter[i] = 0;
+        }
     }
 
     rs2_time_t cs_timestamp_reader::get_frame_timestamp(const request_mapping &mode, const platform::frame_object &fo) {
@@ -105,8 +119,11 @@ namespace librealsense {
     unsigned long long
     cs_timestamp_reader::get_frame_counter(const request_mapping &mode, const platform::frame_object &fo) const {
         std::lock_guard <std::recursive_mutex> lock(_mtx);
+        auto pin_index = 0;
+        if (mode.pf->fourcc == 0x5a313620) // Z16
+            pin_index = 1;
 
-        return ++counter;
+        return ++counter[pin_index];
     }
 
     rs2_timestamp_domain cs_timestamp_reader::get_frame_timestamp_domain(const request_mapping &mode,

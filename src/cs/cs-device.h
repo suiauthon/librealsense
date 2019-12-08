@@ -1,6 +1,5 @@
-//
-// Created by marko on 09.03.19..
-//
+// License: Apache 2.0. See LICENSE file in root directory.
+// Copyright(c) 2019 FRAMOS GmbH.
 
 #pragma once
 
@@ -97,7 +96,8 @@ namespace librealsense
                   _left_ir_stream(new stream(RS2_STREAM_INFRARED, 1)),
                   _right_ir_stream(new stream(RS2_STREAM_INFRARED, 2)),
                   _device_capabilities(ds::d400_caps::CAP_UNDEFINED)
-        {}
+        {
+        }
 
         std::shared_ptr<cs_sensor> create_depth_device(std::shared_ptr<context> ctx,
                                                        std::shared_ptr<platform::cs_device> cs_device);
@@ -134,6 +134,7 @@ namespace librealsense
         friend class cs_depth_sensor;
 
         std::shared_ptr<hw_monitor> _hw_monitor;
+		std::shared_ptr<platform::cs_device> _cs_device;
         firmware_version            _fw_version;
         firmware_version            _recommended_fw_version;
         ds::d400_caps _device_capabilities;
@@ -142,29 +143,6 @@ namespace librealsense
         lazy<std::vector<uint8_t>> _new_calib_table_raw;
 
         std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
-    };
-
-    class cs_mono : public virtual device
-    {
-    public:
-        cs_mono(std::shared_ptr<context> ctx,
-                 const platform::backend_device_group& group,
-                 bool register_device_notifications)
-                : device(ctx, group, register_device_notifications),
-                  _fisheye_stream(new stream(RS2_STREAM_FISHEYE))
-        {};
-
-        std::shared_ptr<cs_sensor> create_mono_device(std::shared_ptr<context> ctx,
-                                                       std::shared_ptr<platform::cs_device> cs_device);
-    protected:
-        std::shared_ptr<stream_interface> _fisheye_stream;
-        uint8_t _mono_device_idx;
-
-    private:
-        friend class cs_mono_sensor;
-
-        //lazy<std::vector<uint8_t>> _depth_calib_table_raw;
-        //std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
     };
 
     class cs_color_sensor : public cs_sensor,
@@ -288,41 +266,28 @@ namespace librealsense
         mutable std::atomic<float> _depth_units;
     };
 
-    class cs_mono_sensor : public cs_sensor
-    {
-    public:
-        explicit cs_mono_sensor(cs_mono* owner, std::shared_ptr<platform::cs_device> cs_device,
-                                 std::unique_ptr<frame_timestamp_reader> timestamp_reader,
-                                 std::shared_ptr<context> ctx)
-                : cs_sensor("MONO Camera", cs_device, move(timestamp_reader), owner, CS_STREAM_MONO),
-                  _owner(owner)
-        {};
+	class cs_external_sync_mode : public option
+	{
+	public:
+		cs_external_sync_mode(hw_monitor& hwm, cs_depth_sensor& depth);
+		virtual ~cs_external_sync_mode() = default;
+		virtual void set(float value) override;
+		virtual float query() const override;
+		virtual option_range get_range() const override;
+		virtual bool is_enabled() const override { return true; }
 
-        stream_profiles init_stream_profiles() override
-        {
-            auto lock = environment::get_instance().get_extrinsics_graph().lock();
-
-            auto results = cs_sensor::init_stream_profiles();
-
-            for (auto p : results)
-            {
-                // Register stream types
-                if (p->get_stream_type() == RS2_STREAM_FISHEYE)
-                {
-                    assign_stream(_owner->_fisheye_stream, p);
-                }
-
-                //TODO
-                //provjeriti
-                //environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*_owner->_color_stream, *p);
-            }
-
-            return results;
-        };
-
-        //rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
-        //processing_blocks get_recommended_processing_blocks() const override;
-    private:
-        const cs_mono* _owner;
-    };
+		const char* get_description() const override
+		{
+			return "Inter-camera synchronization mode: 0:Default, 1:Master, 2:Slave";
+		}
+		void enable_recording(std::function<void(const option &)> record_action) override
+		{
+			_record_action = record_action;
+		}
+	private:
+		std::function<void(const option &)> _record_action = [](const option&) {};
+		lazy<option_range> _range;
+		hw_monitor& _hwm;
+		cs_depth_sensor& _depth;
+	};
 }

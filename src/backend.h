@@ -243,6 +243,7 @@ namespace librealsense
             uint16_t vid = 0;
             std::string info;
             std::string serial;
+            //uint32_t ip = 0;
 
             operator std::string()
             {
@@ -251,6 +252,7 @@ namespace librealsense
                 s << "info- " << info <<
                   "\nid- " << id <<
                   "\nvid- " << std::hex << vid <<
+                 // "\nip- " << std::hex << ip <<
                   "\nserial- " << serial;
 
                 return s.str();

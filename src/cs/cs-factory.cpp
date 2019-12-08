@@ -1,3 +1,6 @@
+// License: Apache 2.0. See LICENSE file in root directory.
+// Copyright(c) 2019 FRAMOS GmbH.
+
 #include "cs/cs-factory.h"
 
 namespace librealsense {
@@ -14,18 +17,18 @@ namespace librealsense {
     }
 
     cs_camera_model cs_info::get_camera_model(std::string pid) {
-        if (pid.compare("UCC2592C") == 0) return CS_UCC2592C;
-        else if (pid.compare("UCC1932C") == 0) return CS_UCC1932C;
-        else if (pid.compare("D435e") == 0) return CS_D435E;
+        /*if (pid.compare("UCC2592C") == 0) return CS_UCC2592C;
+        else if (pid.compare("UCC1932C") == 0) return CS_UCC1932C;*/
+        if (pid.compare("D435e") == 0) return CS_D435E;
         else return CS_UNDEFINED;
     }
 
     bool cs_info::is_timestamp_supported(std::string pid) {
         switch (get_camera_model(pid)) {
-            case CS_UCC2592C:
+            /*case CS_UCC2592C:
                 return false;
             case CS_UCC1932C:
-                return true;
+                return true;*/
             case CS_D435E:
                 return true;
             default:
@@ -51,34 +54,15 @@ namespace librealsense {
         std::string string_node;
 
         auto smcs_api = smcs::GetCameraAPI();
-        //printf("Trazim\n");
         smcs_api->FindAllDevices(0.15);
-        //printf("Nasao\n");
         auto devices = smcs_api->GetAllDevices();
 
         for (int i = 0; i < devices.size(); i++) {
-            //printf("Broj uredaja na kompu %d\n", devices.size());
-            if (devices[i]->IsOnNetwork()) {
-                //printf("Uredaj je na kompu\n");
+            if ((devices[i]->IsOnNetwork()) && (devices[i]->IsSameSubnet())) {
                 auto info = platform::cs_device_info();
                 info.serial = devices[i]->GetSerialNumber();
                 info.id = devices[i]->GetModelName();
-                //printf("id %s\n", info.id.c_str());
                 info.info = devices[i]->GetManufacturerSpecificInfo();
-
-
-                /*printf("%s\n", devices[i]->GetManufacturerName().c_str());
-                printf("%s\n", devices[i]->GetManufacturerSpecificInfo().c_str());
-                printf("%s\n", devices[i]->GetSerialNumber().c_str());
-                printf("%s\n", devices[i]->GetModelName().c_str());
-                printf("%d\n", devices[i]->GetDeviceType()); //dodati da bude tamo ikonica da je usb 3 ili gev
-                printf("%d\n", devices[i]->GetGateway());
-                printf("%d\n", devices[i]->GetIpAddress());
-                printf("%s\n", devices[i]->GetDeviceVersion().c_str());
-                printf("%d\n", devices[i]->GetMacAddress());
-                printf("%d\n", devices[i]->GetSubnetMask());
-                printf("%d\n", devices[i]->GetVersion());*/
-
                 results.push_back(info);
             }
         }
@@ -91,8 +75,8 @@ namespace librealsense {
                                const platform::backend_device_group& group,
                                bool register_device_notifications)
             : device(ctx, group, register_device_notifications),
-              cs_color(ctx, group, register_device_notifications),
               cs_depth(ctx, group, register_device_notifications),
+              cs_color(ctx, group, register_device_notifications),
               cs_advanced_mode_base()
     {
         _cs_device = ctx->get_backend().create_cs_device(hwm_device);
@@ -116,7 +100,7 @@ namespace librealsense {
 
     std::shared_ptr<matcher> D435e_camera::create_matcher(const frame_holder& frame) const
     {
-        std::vector<stream_interface*> streams = {_color_stream.get(), _depth_stream.get()/*, _left_ir_stream.get() , _right_ir_stream.get()*/};
+        std::vector<stream_interface*> streams = {_depth_stream.get(), _left_ir_stream.get() , _right_ir_stream.get(), _color_stream.get()};
         if (frame.frame->supports_frame_metadata(RS2_FRAME_METADATA_FRAME_COUNTER))
         {
             return matcher_factory::create(RS2_MATCHER_DLR_C, streams);
@@ -129,6 +113,7 @@ namespace librealsense {
         std::vector<tagged_profile> markers;
         markers.push_back({ RS2_STREAM_DEPTH, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
         markers.push_back({ RS2_STREAM_COLOR, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
+        //markers.push_back({ RS2_STREAM_INFRARED, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
         return markers;
     }
 }

@@ -1,3 +1,6 @@
+// License: Apache 2.0. See LICENSE file in root directory.
+// Copyright(c) 2019 FRAMOS GmbH.
+
 #ifndef LIBREALSENSE2_CS_FACTORY_H
 #define LIBREALSENSE2_CS_FACTORY_H
 
@@ -6,6 +9,11 @@
 #include "context.h"
 
 namespace librealsense {
+
+#define CS_PACKET_RESEND_GROUP_MAX_SIZE 1
+//#define CS_HEARTBEAT_TIME               100 // 100sec for debugging
+#define CS_HEARTBEAT_TIME               3  // 3sec for release
+
     class cs_info : public device_info {
     public:
         std::shared_ptr <device_interface> create(std::shared_ptr <context> ctx,
@@ -34,8 +42,8 @@ namespace librealsense {
         platform::cs_device_info _hwm;
     };
 
-    class D435e_camera : public cs_color,
-                         public cs_depth,
+    class D435e_camera : public cs_depth,
+                         public cs_color,
                          public cs_advanced_mode_base
     {
     public:
@@ -66,7 +74,7 @@ namespace librealsense {
         }
 
     private:
-        std::shared_ptr<platform::cs_device> _cs_device;
+        //std::shared_ptr<platform::cs_device> _cs_device;
     };
 }
 

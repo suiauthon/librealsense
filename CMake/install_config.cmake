@@ -30,7 +30,7 @@ if (UNIX)
 elseif (WIN32)
     set(SOURCE_DEST src)
 else()
-    set (SOURCE_DEST .)
+    set(SOURCE_DEST .)
 endif()
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/.github DESTINATION ${SOURCE_DEST})
@@ -61,6 +61,26 @@ install(FILES
     DESTINATION ${SOURCE_DEST}
 )
 
+if (UNIX)
+    set(DYNAMIC_CALIBRATOR_DIR /opt/Projects/RS-D4-ETH/Software/RS-CalibrationToolAPI/linux/usr)
+    install(PROGRAMS
+        ${DYNAMIC_CALIBRATOR_DIR}/bin/DynamicCalibrator
+        DESTINATION ${CMAKE_INSTALL_BINDIR}    
+    )
+    install(FILES
+        ${DYNAMIC_CALIBRATOR_DIR}/lib/libDSDynamicCalibrationAPI.so
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+elseif (WIN32)
+	set(DYNAMIC_CALIBRATOR_DIR C:/SmartekVision/Projects/RS-D4-ETH/Software/RS-CalibrationToolAPI/windows/bin)
+	install(FILES 
+		${DYNAMIC_CALIBRATOR_DIR}/DynamicCalibrator.exe
+		${DYNAMIC_CALIBRATOR_DIR}/DSDynamicCalibrationAPI.dll
+		${DYNAMIC_CALIBRATOR_DIR}/freeglut.dll
+		DESTINATION ${CMAKE_INSTALL_BINDIR}
+	)
+endif()
+
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/librealsense2
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
@@ -87,10 +107,11 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/config/realsense2.pc"
 )
 
 set(CPACK_PACKAGE_NAME "FRAMOS-librealsense2")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "freeglut3")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "FRAMOS GmbH")
 set(CPACK_PACKAGE_VERSION_MAJOR 2)
 set(CPACK_PACKAGE_VERSION_MINOR 29)
-set(CPACK_PACKAGE_VERSION_PATCH 1)
+set(CPACK_PACKAGE_VERSION_PATCH 2)
 
 # Workaround for path length limitation of NSIS (260 characters)
 if (WIN32)
