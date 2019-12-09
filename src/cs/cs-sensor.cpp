@@ -456,7 +456,7 @@ namespace librealsense {
 
         enum rs2_format cs_device::get_rgb_format()
         {
-            if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
+            if ((_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2)) || (_device_info.id == CS_CAMERA_MODEL_D415e))
                 return RS2_FORMAT_RGB8;
             else
                 return RS2_FORMAT_BGR8;
@@ -479,14 +479,14 @@ namespace librealsense {
                 throw wrong_api_call_sequence_exception("Unable to read profiles!");
 
             smcs::StringList resolution_list;
-            if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
+            if ((_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2)) || (_device_info.id == CS_CAMERA_MODEL_D415e))
                 is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolution_list);
             else
                 resolution_list.push_back("Res_1280x720");
 
             for (const auto& resolution : resolution_list) {
 
-                if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
+                if ((_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2)) || (_device_info.id == CS_CAMERA_MODEL_D415e))
                     is_successful =
                         is_successful & _connected_device->SetStringNodeValue("Resolution", resolution);
 
@@ -531,7 +531,7 @@ namespace librealsense {
 
         std::vector<uint32_t> cs_device::get_frame_rates()
         {
-            if (_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2))
+            if ((_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2)) || (_device_info.id == CS_CAMERA_MODEL_D415e))
                 return get_frame_rates_from_control();
             else
                 return std::vector<uint32_t> {30};
@@ -972,7 +972,7 @@ namespace librealsense {
 
         void cs_device::start_acquisition(cs_stream stream)
         {
-            if (_cs_firmware_version <= cs_firmware_version(1, 2, 0, 0)) {
+            if ((_cs_firmware_version <= cs_firmware_version(1, 2, 0, 0)) && (_device_info.id != CS_CAMERA_MODEL_D415e)) {
 
                 auto capturing = std::count_if(
                     _is_capturing.begin(), _is_capturing.end(), 
@@ -995,7 +995,7 @@ namespace librealsense {
 
         void cs_device::stop_acquisition(cs_stream stream)
         {
-            if (_cs_firmware_version <= cs_firmware_version(1, 2, 0, 0)) {
+            if ((_cs_firmware_version <= cs_firmware_version(1, 2, 0, 0)) && (_device_info.id != CS_CAMERA_MODEL_D415e)) {
 
                 auto capturing = std::find_if(
                     _is_capturing.begin(), _is_capturing.end(), 
@@ -1356,12 +1356,12 @@ namespace librealsense {
 
         bool cs_device::is_temperature_supported()
         {
-            return _cs_firmware_version >= cs_firmware_version(1, 4, 1, 0);
+            return ((_cs_firmware_version >= cs_firmware_version(1, 4, 1, 0)) || (_device_info.id == CS_CAMERA_MODEL_D415e));
         }
 
         bool cs_device::is_infrared_supported()
         {
-            return _cs_firmware_version >= cs_firmware_version(1, 5, 0, 0);
+            return ((_cs_firmware_version >= cs_firmware_version(1, 5, 0, 0)) || (_device_info.id == CS_CAMERA_MODEL_D415e));
         }
 
         void cs_device::capture_loop(cs_stream stream, UINT32 channel)
