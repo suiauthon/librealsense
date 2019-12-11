@@ -122,7 +122,7 @@ namespace librealsense
             // set Heartbeat time
             smcs_api->SetHeartbeatTime(CS_HEARTBEAT_TIME);    // 100sec heartbeat time
             if (!smcs_api->IsUsingKernelDriver())
-                LOG_ERROR("GigE filter driver not loaded. This will result in decreased performance and may lead to software instability.");
+                LOG_WARNING("GigE filter driver not loaded. This will result in decreased performance and may lead to software instability.");
         }
 
         switch(type)
