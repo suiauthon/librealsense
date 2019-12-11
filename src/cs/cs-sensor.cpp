@@ -1161,6 +1161,9 @@ namespace librealsense {
             for (auto i = 0; i < streams.size(); ++i)
                 set_format(profiles[i], streams[i]);
 
+            if (!select_source(streams[0]))
+                throw wrong_api_call_sequence_exception("Unable to select source!");
+
             stream_params_lock(streams[0]);
             start_acquisition(streams[0]);  //TODO - initialize stream before starting acquisition?
 
