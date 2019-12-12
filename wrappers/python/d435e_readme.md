@@ -1,7 +1,6 @@
 # Python Wrapper for FRAMOS D435e camera
 
 This readme file provides instructions on how to use the D435e camera with Python.
-Building the wrapper from source is currently not supported on Linux.
 
 ## Supported platforms
 
@@ -19,7 +18,10 @@ FRAMOS D435e Camera with firmware version 1.4.0.0 or higher
 
 ## Linux
 
-This is a temporary workaround for using the Python wrapper on Linux.
+Python3 wrapper for Intel® RealSense™ SDK with support for D435e camera is 
+automatically installed as a part of the FRAMOS package.
+
+Before launching one of the examples, make sure that required components are installed:
 
 1. Install Python development packages
    
@@ -27,54 +29,23 @@ This is a temporary workaround for using the Python wrapper on Linux.
    sudo apt install python3 python3-dev
    ```
 
-2. Install `pyrealsense2` using `pip`
-
+2. Update PYTHONPATH to add the path to the pyrealsense library
+   
     ```
-    sudo pip3 install pyrealsense2
-    ```
-
-3. Locate the folder in which `pyrealsense2` was installed
-
-    ```
-    cd /usr/local/lib/python3.X/dist-packages
+    export PYTHONPATH=$PYTHONPATH:/usr/lib
     ```
 
-4. Delete `pyrealsense2-*` folder
+3. Install Python3 OpenCV package, required by some of the examples
 
     ```
-    sudo rm -r pyrealsense2-*
+    pip3 install --user opencv-python
     ```
 
-5. Delete `pyrealsense2.*` file
+4. Launch the examples
 
     ```
-    sudo rm pyrealsense2/pyrealsense2.*
-    ```
-
-6. Clone and build Intel® RealSense™ SDK 2.29.0
-
-    ```
-    cd ~
-    git clone https://github.com/IntelRealSense/librealsense.git
-    cd librealsense
-    git checkout v2.29.0
-    mkdir build
-    cd build
-    cmake ../ -DBUILD_PYTHON_BINDINGS:bool=true -DPYTHON_EXECUTABLE=/usr/bin/python3.X
-    make -j4
-    sudo make install
-    ```
-
-7. Copy the built 'pyrealsense.so' file
-
-    ```
-    sudo cp /usr/local/lib/pyrealsense2.* /usr/local/lib/python3.X/dist-packages/pyrealsense2/
-    ```
-
-8. Uninstall Intel® RealSense™ SDK 2.29.0
-
-    ```
-    sudo make uninstall
+    cd /usr/src/librealsense2/wrappers/python/examples
+    python3 align-depth2color.py
     ```
 
 ## Windows
