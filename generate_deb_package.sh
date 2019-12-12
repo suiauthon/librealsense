@@ -13,7 +13,7 @@
     fi
     export LD_LIBRARY_PATH=/media/L/GenICam/V3_0_2/bin/Linux64_x64:/media/L/OpenCV/builds/Linux64_x64/lib
 
-    cmake ../ -DCMAKE_BUILD_TYPE=Release -DCPACK_SYSTEM_NAME=Linux64_x64
+    cmake ../ -DBUILD_PYTHON_BINDINGS=true -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=Release -DCPACK_SYSTEM_NAME=Linux64_x64
     make -j4
     cpack -G DEB
 )
