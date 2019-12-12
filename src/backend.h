@@ -235,8 +235,6 @@ namespace librealsense
                 (a.conn_spec == b.conn_spec);
         }
 
-
-
         struct cs_device_info
         {
             std::string id;

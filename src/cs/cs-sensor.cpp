@@ -5,6 +5,7 @@
 #include "global_timestamp_reader.h"
 #include "stream.h"
 #include "device.h"
+#include "backend.h"
 #include <regex>
 
 namespace librealsense {
@@ -453,6 +454,99 @@ namespace librealsense {
     {
         std::map<std::string, int> cs_device::_cs_device_num_objects_SN;
         std::map<std::string, bool> cs_device::_cs_device_initialized_SN;
+
+        cs_device::cs_device(cs_device_info hwm)
+                : _device_info(std::move(hwm)),
+                    _power_state(D3),
+                    _connected_device(NULL) {
+            _smcs_api = smcs::GetCameraAPI();
+            auto devices = _smcs_api->GetAllDevices();
+
+            for (int i = 0; i < devices.size(); i++) {
+                auto serial = devices[i]->GetSerialNumber();
+                if (!serial.compare(_device_info.serial)) {
+                    _connected_device = devices[i];
+
+                    if (_connected_device == NULL) {
+                        break;
+                    } else {
+                        if (!_connected_device->IsConnected()) {
+                            // try to connect to camera if not already connected
+                            if (!_connected_device->Connect()) {
+                                throw wrong_api_call_sequence_exception("Could not connect to CS device with given SN!");
+                            }
+                            else {
+                                // initialize this part (inter-packet delay) only once
+                                if (get_device_init_flag_SN(_device_info.serial) == false) { 
+                                    INT64 numOfCameraStream;
+                                    _connected_device->GetIntegerNodeValue("GevStreamChannelCount", numOfCameraStream);
+                                    for (int i = 0; i < numOfCameraStream; i++)
+                                    {
+                                        INT64 packetSize;
+                                        select_channel((cs_stream)i);
+
+                                        // set optimal inter-packet delay
+                                        _connected_device->GetIntegerNodeValue("GevSCPSPacketSize", packetSize);
+                                        int interPacketDelay = get_optimal_inter_packet_delay(packetSize);
+                                        _connected_device->SetIntegerNodeValue("GevSCPD", interPacketDelay);
+                                    }
+                                    set_device_init_flag_SN(_device_info.serial, true);
+                                }
+                            }
+                        }
+
+                        _number_of_streams = CS_STREAM_COUNT;
+                        _threads = std::vector<std::unique_ptr <std::thread>>(_number_of_streams);
+                        _is_capturing = std::vector<std::atomic<bool>>(_number_of_streams);
+                        _callbacks = std::vector<frame_callback>(_number_of_streams);
+                        _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
+                        _profiles = std::vector<stream_profile>(_number_of_streams);
+                        _device_version = _connected_device->GetDeviceVersion();
+                        _cs_firmware_version = cs_firmware_version(_connected_device);
+
+                        for (int i = 0; i < _number_of_streams; i++)
+                        {
+                            _threads[i] = nullptr;
+                            _is_capturing[i] = false;
+                            _callbacks[i] = nullptr;
+
+                            // make sure stream parameters are unlocked
+                            stream_params_unlock((cs_stream)i);
+                        }
+
+                        // increment device counter for device with current SN
+                        inc_device_count_SN(_device_info.serial);
+                    }
+                    // found device with SN
+                    break;
+                }
+            }
+            if (_connected_device == NULL) {    // Could not find device with given SN
+                throw wrong_api_call_sequence_exception("Could not create CS device with given SN!");
+            }
+        }
+
+        cs_device::~cs_device() {
+            dec_device_count_SN(_device_info.serial);
+            for (int i = 0; i < _number_of_streams; i++) {
+                deinit_stream((cs_stream)i);
+            }
+            
+            if (get_device_count_SN(_device_info.serial) == 0) {
+                if (_connected_device->IsConnected()) {
+                    try {
+                        //TODO - close all streams
+                        close({ CS_STREAM_DEPTH }); // -> Source0
+                        close({ CS_STREAM_COLOR }); // -> Source1
+                    }
+                    //catch (...) {
+                    catch (const std::exception& ex) {
+                        LOG_ERROR(ex.what());
+                    }
+                    _connected_device->Disconnect();
+                }
+            }
+        }
 
         enum rs2_format cs_device::get_rgb_format()
         {

@@ -51,6 +51,8 @@ set(RAW_RS
     ../../third-party/easyloggingpp/src/easylogging++.cc
     ../../src/backend.h
     ../../src/backend.cpp
+    ../../src/cs/cs-sensor.cpp
+    ../../src/cs/cs-factory.cpp 
 )
 
 if(UNIX)
