@@ -61,7 +61,7 @@ global_target_config()
 
 # add camera suite configuration flags
 # macro definition located at "CMake/camera_suite.cmake"
-add_camerasuite()
+add_camerasuite(${LRS_TARGET})
 
 include(CMake/install_config.cmake)
 
