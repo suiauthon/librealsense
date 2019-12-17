@@ -1164,17 +1164,6 @@ namespace librealsense {
 
         bool cs_device::select_channel(cs_stream stream)
         {
-            //TOOD preserved to help with compatibility with older fw
-            /*if (!_connected_device->SetIntegerNodeValue("SourceControlSelector", get_stream_source(stream)))
-            return false;
-
-            INT64 stream_channel;
-            if (!_connected_device->GetIntegerNodeValue("SourceStreamChannel", stream_channel))
-            return false;
-
-            if (!_connected_device->SetIntegerNodeValue("GevStreamChannelSelector", stream_channel))
-            return false;*/
-
             UINT32 channel;
             if (get_stream_channel(stream, channel))
                 return _connected_device->SetIntegerNodeValue("GevStreamChannelSelector", static_cast<INT64>(channel));
@@ -1211,27 +1200,31 @@ namespace librealsense {
             }
         }
 
-        //TODO will these results change dynamically? consider caching them in some way... -> nodes as class members in constructor
         bool cs_device::get_stream_channel(cs_stream stream, UINT32& channel)
         {
-            if (!select_source(stream))
-                return false;
+            if (_stream_channels.find(stream) == _stream_channels.end()) {
+                
+                if (!select_source(stream))
+                    return false;
 
-            if (!select_region(stream))
-                return false;
+                if (!select_region(stream))
+                    return false;
 
-            std::string region_destination;
-            if (!_connected_device->GetStringNodeValue("RegionDestination", region_destination))
-                return false;
+                std::string region_destination;
+                if (!_connected_device->GetStringNodeValue("RegionDestination", region_destination))
+                    return false;
 
-            if (!_connected_device->SetStringNodeValue("TransferSelector", region_destination))
-                return false;
+                if (!_connected_device->SetStringNodeValue("TransferSelector", region_destination))
+                    return false;
 
-            INT64 transfer_stream_channel;
-            if (!_connected_device->GetIntegerNodeValue("TransferStreamChannel", transfer_stream_channel))
-                return false;
+                INT64 transfer_stream_channel;
+                if (!_connected_device->GetIntegerNodeValue("TransferStreamChannel", transfer_stream_channel))
+                    return false;
 
-            channel = static_cast<UINT32>(transfer_stream_channel);
+                _stream_channels[stream] = static_cast<UINT32>(transfer_stream_channel);
+            }
+
+            channel = _stream_channels[stream];
             return true;
         }
 
