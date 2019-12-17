@@ -44,6 +44,9 @@ namespace librealsense {
 
         auto on = std::unique_ptr<power>(new power(std::dynamic_pointer_cast<cs_sensor>(shared_from_this())));
 
+        if (!smcs::GetCameraAPI()->IsUsingKernelDriver())
+            throw wrong_api_call_sequence_exception("GigE filter driver not loaded! Please make sure that the driver is installed and available.");
+
         _source.init(_metadata_parsers);
         _source.set_sensor(this->shared_from_this());
         auto mapping = resolve_requests(requests);
