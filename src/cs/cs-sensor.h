@@ -209,7 +209,7 @@ namespace librealsense {
             uint8_t _number_of_streams;
             smcs::ICameraAPI _smcs_api;
             smcs::IDevice _connected_device;
-            std::unordered_map<cs_stream, UINT32> _stream_channels;
+            std::unordered_map<cs_stream, UINT32, std::hash<int>> _stream_channels;
             std::vector<frame_callback> _callbacks;
             std::string _device_version;
             cs_firmware_version _cs_firmware_version;
