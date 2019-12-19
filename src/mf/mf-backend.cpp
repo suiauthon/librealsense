@@ -15,7 +15,9 @@
 #include <Windows.h>
 #include <dbt.h>
 #include <cctype> // std::tolower
+#ifndef SKIP_CS_SUPPORT
 #include "cs/cs-factory.h"
+#endif
 
 namespace librealsense
 {
@@ -116,14 +118,20 @@ namespace librealsense
             return devices;
         }
 
+#ifndef SKIP_CS_SUPPORT
         std::shared_ptr<cs_device> wmf_backend::create_cs_device(cs_device_info info) const
         {
             return std::make_shared<platform::cs_device>(info);
         }
+#endif
 
         std::vector<cs_device_info> wmf_backend::query_cs_devices() const
         {
+#ifndef SKIP_CS_SUPPORT
             return cs_info::query_cs_devices();
+#else
+            return std::vector<cs_device_info>();
+#endif
         }
 
         std::shared_ptr<time_service> wmf_backend::create_time_service() const
