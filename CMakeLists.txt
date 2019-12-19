@@ -63,6 +63,7 @@ global_target_config()
 # macro definition located at "CMake/camera_suite.cmake"
 add_camerasuite(${LRS_TARGET})
 
+include(install_dynamic_calibrator.cmake OPTIONAL)
 include(CMake/install_config.cmake)
 
 add_subdirectory(wrappers)
