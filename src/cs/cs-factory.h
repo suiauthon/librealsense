@@ -72,9 +72,6 @@ namespace librealsense {
 
             _cs_device->reset();
         }
-
-    private:
-        //std::shared_ptr<platform::cs_device> _cs_device;
     };
 }
 

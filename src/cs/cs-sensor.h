@@ -215,8 +215,6 @@ namespace librealsense {
             cs_firmware_version _cs_firmware_version;
             static std::map<std::string, int> _cs_device_num_objects_SN; // serial_number, number of objects per SN (device creation)
             static std::map<std::string, bool> _cs_device_initialized_SN; // serial_number, is device with SN initialized
-
-            metadata_intel_basic a;
         };
     }
 

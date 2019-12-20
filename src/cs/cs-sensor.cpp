@@ -1495,14 +1495,12 @@ namespace librealsense {
 
                         //if (cs_info::is_timestamp_supported(_device_info.id))
                         //timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
-                        timestamp = image_info_->GetCameraTimestamp();
-                        //timestamp = -1;
-                        a.header.timestamp = timestamp;
+                        timestamp = -1;
 
                         auto im = image_info_->GetRawData();
                         auto image_size = image_info_->GetRawDataSize();
 
-                        frame_object fo{ image_size, sizeof(metadata_intel_basic), im, &a, timestamp };
+                        frame_object fo{ image_size, 0, im, NULL, timestamp };
 
                         {
                             std::lock_guard<std::mutex> lock(_stream_lock);
