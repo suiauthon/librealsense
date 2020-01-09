@@ -150,11 +150,13 @@ namespace librealsense {
 
             bool get_cs_param_max(rs2_option option, int32_t &value, cs_stream stream);
 
-            int32_t get_cs_param_step(rs2_option option, cs_stream stream);
+            bool get_cs_param_step(rs2_option option, int32_t &value, cs_stream stream);
 
             bool get_cs_param_value(rs2_option option, int32_t &value, cs_stream stream);
 
             bool set_cs_param(rs2_option option, int32_t value, cs_stream stream);
+
+            int32_t round_cs_param(rs2_option option, int32_t value, cs_stream stream);
 
             void init_stream(std::function<void(const notification& n)> error_handler, cs_stream stream);
 

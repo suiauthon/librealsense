@@ -708,7 +708,6 @@ namespace librealsense {
 
         control_range cs_device::get_pu_range(rs2_option option, cs_stream stream)
         {
-            int32_t max, min, value;
             // Auto controls range is trimed to {0,1} range
             if(option == RS2_OPTION_ENABLE_AUTO_EXPOSURE || option == RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE ||
                     option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED)
@@ -723,11 +722,13 @@ namespace librealsense {
             if (option == RS2_OPTION_ASIC_TEMPERATURE || option == RS2_OPTION_PROJECTOR_TEMPERATURE)
                 return control_range{ -40, 125, 0, 0 };
 
-            if (!get_cs_param_value(option, value, stream)) value = 0;
+            int32_t min, max, step, value;
             if (!get_cs_param_min(option, min, stream)) min = 0;
             if (!get_cs_param_max(option, max, stream)) max = 0;
+            if (!get_cs_param_step(option, step, stream)) step = 1;
+            if (!get_cs_param_value(option, value, stream)) value = 0;
 
-            control_range range(min, max, get_cs_param_step(option, stream), value);
+            control_range range(min, max, step, value);
 
             return range;
         }
@@ -747,8 +748,11 @@ namespace librealsense {
                 case RS2_OPTION_CONTRAST:
                 case RS2_OPTION_GAIN:
                 case RS2_OPTION_LASER_POWER:
-                case RS2_OPTION_HUE: return _connected_device->SetIntegerNodeValue(get_cs_param_name(option, stream),
-                                                                                    (int)value);
+                case RS2_OPTION_HUE:
+                    return _connected_device->SetIntegerNodeValue(
+                        get_cs_param_name(option, stream), 
+                        round_cs_param(option, value, stream)
+                    );
                 case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
                 case RS2_OPTION_EMITTER_ENABLED:
                 case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
@@ -789,6 +793,24 @@ namespace librealsense {
                     return true;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
+            }
+        }
+
+        int32_t cs_device::round_cs_param(rs2_option option, int32_t value, cs_stream stream)
+        {
+            int32_t min, max, step;
+            if (get_cs_param_min(option, min, stream)
+                && get_cs_param_max(option, max, stream)
+                && get_cs_param_step(option, step, stream)) 
+            {
+                auto rounded = step * std::round(value / static_cast<double>(step));
+                if (rounded < min) return min;
+                else if (rounded > max) return max;
+                else return rounded;
+            }
+            else
+            {
+                return value;
             }
         }
 
@@ -950,7 +972,7 @@ namespace librealsense {
             }
         }
 
-        int32_t cs_device::get_cs_param_step(rs2_option option, cs_stream stream)
+        bool cs_device::get_cs_param_step(rs2_option option, int32_t& step, cs_stream stream)
         {
             INT64 int_value;
 
@@ -967,21 +989,26 @@ namespace librealsense {
                 case RS2_OPTION_GAIN:
                 case RS2_OPTION_HUE:
                 {
-                    _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
-                    return static_cast<int32_t>(int_value);
+                    auto result = _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
+                    step = static_cast<int32_t>(int_value);
+                    return result;
                 }
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
-                    return 1;
-                //case RS2_OPTION_EXPOSURE: return 1;
-                //case RS2_OPTION_GAMMA: return 1;
+                {
+                    step = 1;
+                    return true;
+                }
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
-                    if (!select_channel(stream))
-                        return 1;
+                    if (!select_channel(stream)) {
+                        step = 1;
+                        return true;
+                    }
 
-                    _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
-                    return static_cast<int32_t>(int_value);
+                    auto result = _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
+                    step = static_cast<int32_t>(int_value);
+                    return true;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
