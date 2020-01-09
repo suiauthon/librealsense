@@ -5,7 +5,7 @@
     "tasks": [
         {
             "type": "shell",
-            "label": "g++ build active file",
+            "label": "build librs debug",
             "command": "./debug_build.sh",
             "options": {
                 "cwd": "${workspaceFolder}"
