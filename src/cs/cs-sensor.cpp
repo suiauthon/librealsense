@@ -1281,8 +1281,18 @@ namespace librealsense {
             if (!select_source(streams[0]))
                 throw wrong_api_call_sequence_exception("Unable to select source!");
 
+            // Temporary fix for D435e not setting the format correctly 
+            // when programmed in a specific order.
+            // Issue is reproducible when depth and left IR are selected 
+            // in realsense-viewer.
+            // Issue exists in firmware 1.5.1.0 and earlier.
+            // TODO Remove this fix when the issue is fixed in firmware.
+            auto left_ir = std::find(streams.begin(), streams.end(), CS_STREAM_IR_LEFT);
+            if (left_ir != streams.end())
+                _connected_device->SetStringNodeValue("RegionSelector", "Region3");
+
             stream_params_lock(streams[0]);
-            start_acquisition(streams[0]);  //TODO - initialize stream before starting acquisition?
+            start_acquisition(streams[0]);
 
             for (auto i = 0; i < streams.size(); ++i)
                 init_stream(error_handler, streams[i]);
