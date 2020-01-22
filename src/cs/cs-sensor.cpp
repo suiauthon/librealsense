@@ -1285,8 +1285,8 @@ namespace librealsense {
             // when programmed in a specific order.
             // Issue is reproducible when depth and left IR are selected 
             // in realsense-viewer.
-            // Issue exists in firmware 1.5.1.0 and earlier.
-            // TODO Remove this fix when the issue is fixed in firmware.
+            // Issue exists only in firmware 1.5.1.0 and earlier. 
+            // It is fixed in later firmwares versions.
             auto left_ir = std::find(streams.begin(), streams.end(), CS_STREAM_IR_LEFT);
             if (left_ir != streams.end())
                 _connected_device->SetStringNodeValue("RegionSelector", "Region3");
