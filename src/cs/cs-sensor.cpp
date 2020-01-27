@@ -504,7 +504,6 @@ namespace librealsense {
                         _callbacks = std::vector<frame_callback>(_number_of_streams);
                         _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
                         _profiles = std::vector<stream_profile>(_number_of_streams);
-                        _device_version = _connected_device->GetDeviceVersion();
                         _cs_firmware_version = cs_firmware_version(_connected_device);
 
                         for (int i = 0; i < _number_of_streams; i++)
@@ -1481,7 +1480,27 @@ namespace librealsense {
 
         std::string cs_device::get_device_version()
         {
-            return _device_version;
+            return _connected_device->GetDeviceVersion();
+        }
+
+        std::string cs_device::get_ip_address()
+        {
+            return ip_address_to_string(_connected_device->GetIpAddress());
+        }
+
+        std::string cs_device::get_subnet_mask()
+        {
+            return ip_address_to_string(_connected_device->GetSubnetMask());
+        }
+
+        std::string cs_device::ip_address_to_string(uint32_t ip_address)
+        {
+            std::stringstream stream;
+            stream << ((ip_address >> 24) & 0xFF) << "." 
+                << ((ip_address >> 16) & 0xFF) << "." 
+                << ((ip_address >> 8) & 0xFF) << "." 
+                << ((ip_address) & 0xFF);
+            return stream.str();
         }
 
         bool cs_device::is_temperature_supported()

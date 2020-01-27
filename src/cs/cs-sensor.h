@@ -128,6 +128,8 @@ namespace librealsense {
             std::vector<byte> send_hwm(std::vector<byte>& buffer);
 
             std::string get_device_version();
+            std::string get_ip_address();
+            std::string get_subnet_mask();
 
             bool is_temperature_supported();
             bool is_infrared_supported();
@@ -193,7 +195,9 @@ namespace librealsense {
 
             uint32_t cs_pixel_format_to_native_pixel_format(std::string cs_format); 
             uint32_t native_pixel_format_to_cs_pixel_format(uint32_t native_format);
-            
+
+            std::string ip_address_to_string(uint32_t ip_address);
+
             int get_optimal_inter_packet_delay(int packetSize);
 
             static bool inc_device_count_SN(std::string serialNum);
@@ -213,7 +217,6 @@ namespace librealsense {
             smcs::IDevice _connected_device;
             std::unordered_map<cs_stream, UINT32, std::hash<int>> _stream_channels;
             std::vector<frame_callback> _callbacks;
-            std::string _device_version;
             cs_firmware_version _cs_firmware_version;
             static std::map<std::string, int> _cs_device_num_objects_SN; // serial_number, number of objects per SN (device creation)
             static std::map<std::string, bool> _cs_device_initialized_SN; // serial_number, is device with SN initialized

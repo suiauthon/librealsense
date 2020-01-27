@@ -94,6 +94,8 @@ namespace librealsense {
         register_info(RS2_CAMERA_INFO_PRODUCT_ID, "0B07"/*hwm_device.id*/);
         register_info(RS2_CAMERA_INFO_FIRMWARE_VERSION, cs_depth::_fw_version);
         register_info(RS2_CAMERA_INFO_DEVICE_VERSION, _cs_device->get_device_version());
+        register_info(RS2_CAMERA_INFO_IP_ADDRESS, _cs_device->get_ip_address());
+        register_info(RS2_CAMERA_INFO_SUBNET_MASK, _cs_device->get_subnet_mask());
 
         cs_advanced_mode_init(cs_depth::_hw_monitor, &get_depth_sensor());
     }
