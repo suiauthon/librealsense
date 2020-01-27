@@ -10,6 +10,9 @@ namespace librealsense {
             case CS_D435E:
                 return std::make_shared<D435e_camera>(ctx, _hwm, this->get_device_data(),
                                                       register_device_notifications);
+            case CS_D415E:
+                return std::make_shared<D415e_camera>(ctx, _hwm, this->get_device_data(),
+                    register_device_notifications);
             default:
                 throw std::runtime_error(to_string() << "Unsupported CS model! 0x"
                                                      << std::hex << std::setw(4) << std::setfill('0') << _hwm.id);
@@ -19,7 +22,8 @@ namespace librealsense {
     cs_camera_model cs_info::get_camera_model(std::string pid) {
         /*if (pid.compare("UCC2592C") == 0) return CS_UCC2592C;
         else if (pid.compare("UCC1932C") == 0) return CS_UCC1932C;*/
-        if (pid.compare("D435e") == 0) return CS_D435E;
+        if (pid.compare(CS_CAMERA_MODEL_D435e) == 0) return CS_D435E;
+        else if (pid.compare(CS_CAMERA_MODEL_D415e) == 0) return CS_D415E;
         else return CS_UNDEFINED;
     }
 
@@ -30,6 +34,7 @@ namespace librealsense {
             case CS_UCC1932C:
                 return true;*/
             case CS_D435E:
+            case CS_D415E:
                 return true;
             default:
                 return false;
@@ -63,7 +68,14 @@ namespace librealsense {
                 info.serial = devices[i]->GetSerialNumber();
                 info.id = devices[i]->GetModelName();
                 info.info = devices[i]->GetManufacturerSpecificInfo();
-                results.push_back(info);
+                //results.push_back(info);
+                // TODO REMOVE
+                if ((info.serial == "6CD146117777") ||
+                    (info.serial == "6CD146030036") ||
+                    (info.serial == "6CD146030033")) {
+                    results.push_back(info);
+                }
+                // TODO REMOVE
             }
         }
 
@@ -111,6 +123,55 @@ namespace librealsense {
     }
 
     std::vector<tagged_profile> D435e_camera::get_profiles_tags() const
+    {
+        std::vector<tagged_profile> markers;
+        markers.push_back({ RS2_STREAM_DEPTH, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
+        markers.push_back({ RS2_STREAM_COLOR, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
+        //markers.push_back({ RS2_STREAM_INFRARED, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });
+        return markers;
+    }
+
+
+
+    D415e_camera::D415e_camera(std::shared_ptr<context> ctx,
+        const platform::cs_device_info &hwm_device,
+        const platform::backend_device_group& group,
+        bool register_device_notifications)
+        : device(ctx, group, register_device_notifications),
+        cs_depth(ctx, group, register_device_notifications),
+        cs_color(ctx, group, register_device_notifications),
+        cs_advanced_mode_base()
+    {
+        _cs_device = ctx->get_backend().create_cs_device(hwm_device);
+
+        _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
+        _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
+
+        depth_init(ctx, group);
+        color_init(ctx, group);
+
+        environment::get_instance().get_extrinsics_graph().register_extrinsics(*_color_stream, *_depth_stream, _color_extrinsic);
+
+        register_info(RS2_CAMERA_INFO_NAME, "FRAMOS D415e"/*hwm_device.info*/);
+        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
+        register_info(RS2_CAMERA_INFO_PRODUCT_ID, "0B07"/*hwm_device.id*/);
+        register_info(RS2_CAMERA_INFO_FIRMWARE_VERSION, cs_depth::_fw_version);
+        register_info(RS2_CAMERA_INFO_DEVICE_VERSION, _cs_device->get_device_version());
+
+        cs_advanced_mode_init(cs_depth::_hw_monitor, &get_depth_sensor());
+    }
+
+    std::shared_ptr<matcher> D415e_camera::create_matcher(const frame_holder& frame) const
+    {
+        std::vector<stream_interface*> streams = { _depth_stream.get(), _left_ir_stream.get() , _right_ir_stream.get(), _color_stream.get() };
+        if (frame.frame->supports_frame_metadata(RS2_FRAME_METADATA_FRAME_COUNTER))
+        {
+            return matcher_factory::create(RS2_MATCHER_DLR_C, streams);
+        }
+        return matcher_factory::create(RS2_MATCHER_DEFAULT, streams);
+    }
+
+    std::vector<tagged_profile> D415e_camera::get_profiles_tags() const
     {
         std::vector<tagged_profile> markers;
         markers.push_back({ RS2_STREAM_DEPTH, -1, (uint32_t)-1, (uint32_t)-1, RS2_FORMAT_ANY, (uint32_t)-1, profile_tag::PROFILE_TAG_SUPERSET | profile_tag::PROFILE_TAG_DEFAULT });

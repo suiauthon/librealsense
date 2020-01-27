@@ -10,6 +10,10 @@
 #include "types.h"
 
 namespace librealsense {
+
+    const std::string CS_CAMERA_MODEL_D435e = "D435e";
+    const std::string CS_CAMERA_MODEL_D415e = "D415e";
+
     typedef enum cs_stream {
         CS_STREAM_DEPTH = 0,
         CS_STREAM_COLOR,
@@ -20,6 +24,7 @@ namespace librealsense {
 
     enum cs_camera_model {
         CS_D435E,
+        CS_D415E,
         CS_UNDEFINED
     };
     

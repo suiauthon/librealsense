@@ -73,6 +73,41 @@ namespace librealsense {
             _cs_device->reset();
         }
     };
+
+    class D415e_camera : public cs_depth,
+                         public cs_color,
+                         public cs_advanced_mode_base
+    {
+    public:
+        D415e_camera(std::shared_ptr<context> ctx,
+            const platform::cs_device_info &hwm_device,
+            const platform::backend_device_group& group,
+            bool register_device_notifications);
+
+        std::shared_ptr<matcher> create_matcher(const frame_holder& frame) const override;
+
+        std::vector<tagged_profile> get_profiles_tags() const override;
+
+        cs_sensor& get_cs_sensor(size_t subdevice) { return dynamic_cast<cs_sensor&>(get_sensor(subdevice)); }
+
+        void hardware_reset() override
+        {
+            if (get_cs_sensor(_color_device_idx).is_streaming()) {
+                get_cs_sensor(_color_device_idx).stop();
+                get_cs_sensor(_color_device_idx).close();
+            }
+
+            if (get_cs_sensor(_depth_device_idx).is_streaming()) {
+                get_cs_sensor(_depth_device_idx).stop();
+                get_cs_sensor(_depth_device_idx).close();
+            }
+
+            _cs_device->reset();
+        }
+
+    private:
+        //std::shared_ptr<platform::cs_device> _cs_device;
+    };
 }
 
 #endif //LIBREALSENSE2_CS_FACTORY_H
