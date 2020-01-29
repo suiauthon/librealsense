@@ -68,14 +68,7 @@ namespace librealsense {
                 info.serial = devices[i]->GetSerialNumber();
                 info.id = devices[i]->GetModelName();
                 info.info = devices[i]->GetManufacturerSpecificInfo();
-                //results.push_back(info);
-                // TODO REMOVE
-                if ((info.serial == "6CD146117777") ||
-                    (info.serial == "6CD146030036") ||
-                    (info.serial == "6CD146030033")) {
-                    results.push_back(info);
-                }
-                // TODO REMOVE
+                results.push_back(info);
             }
         }
 
