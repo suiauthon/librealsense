@@ -278,7 +278,7 @@ namespace librealsense
 
 		const char* get_description() const override
 		{
-			return "Inter-camera synchronization mode: 0:Default, 1:Master, 2:Slave";
+			return "Inter-camera synchronization mode: 0:Default, 1:Master, 2:Slave, 3:External Trigger";
 		}
 		void enable_recording(std::function<void(const option &)> record_action) override
 		{
@@ -290,4 +290,32 @@ namespace librealsense
 		hw_monitor& _hwm;
 		cs_depth_sensor& _depth;
 	};
+
+	class cs_external_sync_mode_color : public option
+	{
+	public:
+		cs_external_sync_mode_color(cs_color_sensor& color);
+		virtual ~cs_external_sync_mode_color() = default;
+		virtual void set(float value) override;
+		virtual float query() const override;
+		virtual option_range get_range() const override;
+		virtual bool is_enabled() const override { return true; }
+
+		const char* get_description() const override
+		{
+			return "Inter-camera synchronization mode: 0:Default, 1:External Trigger";
+		}
+		void enable_recording(std::function<void(const option &)> record_action) override
+		{
+			_record_action = record_action;
+		}
+	private:
+		std::function<void(const option &)> _record_action = [](const option&) {};
+		lazy<option_range> _range;
+		cs_color_sensor& _color;
+	protected:
+		float _value;
+	};
+
 }
+

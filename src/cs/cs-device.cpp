@@ -107,9 +107,9 @@ namespace librealsense
 	{
 		_range = [this]()
 		{
-			return option_range{ ds::inter_cam_sync_mode::INTERCAM_SYNC_DEFAULT,
-				ds::inter_cam_sync_mode::INTERCAM_SYNC_MAX - 1,
-				ds::inter_cam_sync_mode::INTERCAM_SYNC_DEFAULT, 1 };
+			return option_range{ cs_inter_cam_mode::CS_INTERCAM_SYNC_DEFAULT,
+				cs_inter_cam_mode::CS_INTERCAM_SYNC_MAX - 1,
+				cs_inter_cam_mode::CS_INTERCAM_SYNC_DEFAULT, 1 };
 		};
 	}
 
@@ -119,7 +119,7 @@ namespace librealsense
 		//cmd.param1 = static_cast<int>(value);
 
 		//_hwm.send(cmd);
-		_depth.set_inter_cam_sync_mode(value);
+		_depth.set_inter_cam_sync_mode(value, CS_STREAM_DEPTH);
 
 		_record_action(*this);
 	}
@@ -135,6 +135,45 @@ namespace librealsense
 	}
 
 	option_range cs_external_sync_mode::get_range() const
+	{
+		return *_range;
+	}
+
+	cs_external_sync_mode_color::cs_external_sync_mode_color(cs_color_sensor& color)
+		: _color(color), _value(CS_INTERCAM_SYNC_DEFAULT_COLOR)
+	{
+		_range = [this]()
+		{
+			return option_range{ cs_inter_cam_mode_color::CS_INTERCAM_SYNC_DEFAULT_COLOR,
+				cs_inter_cam_mode_color::CS_INTERCAM_SYNC_MAX_COLOR - 1,
+				cs_inter_cam_mode_color::CS_INTERCAM_SYNC_DEFAULT_COLOR, 1 };
+		};
+	}
+
+	void cs_external_sync_mode_color::set(float value)
+	{
+		//command cmd(ds::SET_CAM_SYNC);
+		//cmd.param1 = static_cast<int>(value);
+
+		//_hwm.send(cmd);
+		_color.set_inter_cam_sync_mode(value, CS_STREAM_COLOR);
+		_value = value;
+
+		_record_action(*this);
+	}
+
+	float cs_external_sync_mode_color::query() const
+	{
+		/*command cmd(ds::GET_CAM_SYNC);
+		auto res = _hwm.send(cmd);
+		if (res.empty())
+			throw invalid_value_exception("external_sync_mode::query result is empty!");*/
+		
+		//return (res.front());
+		return _value;
+	}
+
+	option_range cs_external_sync_mode_color::get_range() const
 	{
 		return *_range;
 	}
@@ -303,6 +342,10 @@ namespace librealsense
 
         auto packetSizeOption = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_COLOR);
         color_ep->register_option(RS2_OPTION_PACKET_SIZE, packetSizeOption);
+
+		auto color_sensor = As<cs_color_sensor, cs_sensor>(color_ep);
+		auto ext_sync_mode = std::make_shared<cs_external_sync_mode_color>(*color_sensor);
+		color_ep->register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
 
         return color_ep;
     }
