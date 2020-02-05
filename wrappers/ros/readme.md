@@ -68,10 +68,7 @@ cd ~/catkin_ws/src/
 ```
 
 ```
-git clone https://github.com/IntelRealSense/realsense-ros.git
-cd realsense-ros/
-git checkout 2.2.9
-cd ..
+cp -r /usr/src/librealsense2/wrappers/ros/realsense-ros .
 ```
 
 ```
@@ -84,13 +81,13 @@ echo "source ~/catkin_ws/devel/setup.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
 
-## Usage Instructions
+## Usage Instructions for single camera
+
+The launch file used in this example is `rs_camera.launch` located in `~/catkin_ws/src/realsense-ros/realsense2_camera/launch`.
 
 Before starting the camera node, make sure to modify the launch file used with the D435e camera:
 
 - set the `enable_pointcloud` argument to `true`
-
-The launch file used in this example is `rs_camera.launch` located in `~/catkin_ws/src/realsense-ros/realsense2_camera/launch`
 
 Start the camera node in ROS
 
@@ -107,3 +104,29 @@ rosrun rviz rviz
 In the `rviz` GUI 
 - change the `Fixed Frame` from `map` to `camera_depth_frame`
 - click `Add`, select `By topic` and choose `depth/color/points/PointCloud2`
+
+## Usage instruction for two cameras
+
+The launch file used in this example is `framos_multiple_devices.launch` located in `~/catkin_ws/src/realsense-ros/realsense2_camera/launch`.
+
+Enter the serial numbers of cameras in the `serial_no` filed in the file `multicam_config_file.yaml` located in `~/catkin_ws/src/realsense-ros/realsense2_camera/config`.
+
+Start the camera nodes in ROS
+
+```
+roslaunch realsense2_camera framos_multiple_devices.launch
+```
+
+Launch `rviz` in another terminal
+
+```
+rosrun rviz rviz
+```
+
+## Usage instruction for three or more cameras
+
+The launch file used in this example is `framos_multiple_devices.launch` located in `~/catkin_ws/src/realsense-ros/realsense2_camera/launch`.
+
+Create a new `cameraN` entry for each additional camera in the file `multicam_config_file.yaml` located in `~/catkin_ws/src/realsense-ros/realsense2_camera/config`. Use the existing `camera1` and `camera2` entries as a reference.
+
+Create a new set of parameters for each additional camera in the file `framos_multiple_devices.launch` located in `~/catkin_ws/src/realsense-ros/realsense2_camera/launch`. Parameters must use the camera entry name from the file `multicam_config_file.yaml` as a prefix. Use the existing parameters prefixed with `camera1` and `camera2` as a reference.
