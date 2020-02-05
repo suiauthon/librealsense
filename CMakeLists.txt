@@ -64,6 +64,7 @@ global_target_config()
 add_camerasuite(${LRS_TARGET})
 
 include(install_dynamic_calibrator.cmake OPTIONAL)
+include(install_ros_wrapper.cmake OPTIONAL)
 include(CMake/install_config.cmake)
 
 add_subdirectory(wrappers)
