@@ -61,8 +61,10 @@ global_target_config()
 
 # add camera suite configuration flags
 # macro definition located at "CMake/camera_suite.cmake"
-add_camerasuite()
+add_camerasuite(${LRS_TARGET})
 
+include(install_dynamic_calibrator.cmake OPTIONAL)
+include(install_ros_wrapper.cmake OPTIONAL)
 include(CMake/install_config.cmake)
 
 add_subdirectory(wrappers)

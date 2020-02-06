@@ -360,6 +360,8 @@ namespace librealsense
             CASE(USB_TYPE_DESCRIPTOR)
             CASE(ASIC_SERIAL_NUMBER)
             CASE(FIRMWARE_UPDATE_ID)
+            CASE(IP_ADDRESS)
+            CASE(SUBNET_MASK)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 #undef CASE

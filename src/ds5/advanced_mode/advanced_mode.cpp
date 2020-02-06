@@ -6,6 +6,7 @@
 #include "ds5/ds5-nonmonochrome.h"
 #include "json_loader.hpp"
 #include "ds5/ds5-color.h"
+#include "cs/cs-device.h"
 
 namespace librealsense
 {

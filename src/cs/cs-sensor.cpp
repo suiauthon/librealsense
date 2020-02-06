@@ -5,6 +5,7 @@
 #include "global_timestamp_reader.h"
 #include "stream.h"
 #include "device.h"
+#include "backend.h"
 #include <regex>
 
 namespace librealsense {
@@ -42,6 +43,9 @@ namespace librealsense {
             throw wrong_api_call_sequence_exception("open(...) failed. CS device is already opened!");
 
         auto on = std::unique_ptr<power>(new power(std::dynamic_pointer_cast<cs_sensor>(shared_from_this())));
+
+        if (!smcs::GetCameraAPI()->IsUsingKernelDriver())
+            throw wrong_api_call_sequence_exception("GigE filter driver not loaded! Please make sure that the driver is installed and available.");
 
         _source.init(_metadata_parsers);
         _source.set_sensor(this->shared_from_this());
@@ -454,6 +458,98 @@ namespace librealsense {
         std::map<std::string, int> cs_device::_cs_device_num_objects_SN;
         std::map<std::string, bool> cs_device::_cs_device_initialized_SN;
 
+        cs_device::cs_device(cs_device_info hwm)
+                : _device_info(std::move(hwm)),
+                    _power_state(D3),
+                    _connected_device(NULL) {
+            _smcs_api = smcs::GetCameraAPI();
+            auto devices = _smcs_api->GetAllDevices();
+
+            for (int i = 0; i < devices.size(); i++) {
+                auto serial = devices[i]->GetSerialNumber();
+                if (!serial.compare(_device_info.serial)) {
+                    _connected_device = devices[i];
+
+                    if (_connected_device == NULL) {
+                        break;
+                    } else {
+                        if (!_connected_device->IsConnected()) {
+                            // try to connect to camera if not already connected
+                            if (!_connected_device->Connect()) {
+                                throw wrong_api_call_sequence_exception("Could not connect to CS device with given SN!");
+                            }
+                            else {
+                                // initialize this part (inter-packet delay) only once
+                                if (get_device_init_flag_SN(_device_info.serial) == false) { 
+                                    INT64 numOfCameraStream;
+                                    _connected_device->GetIntegerNodeValue("GevStreamChannelCount", numOfCameraStream);
+                                    for (int i = 0; i < numOfCameraStream; i++)
+                                    {
+                                        INT64 packetSize;
+                                        select_channel((cs_stream)i);
+
+                                        // set optimal inter-packet delay
+                                        _connected_device->GetIntegerNodeValue("GevSCPSPacketSize", packetSize);
+                                        int interPacketDelay = get_optimal_inter_packet_delay(packetSize);
+                                        _connected_device->SetIntegerNodeValue("GevSCPD", interPacketDelay);
+                                    }
+                                    set_device_init_flag_SN(_device_info.serial, true);
+                                }
+                            }
+                        }
+
+                        _number_of_streams = CS_STREAM_COUNT;
+                        _threads = std::vector<std::unique_ptr <std::thread>>(_number_of_streams);
+                        _is_capturing = std::vector<std::atomic<bool>>(_number_of_streams);
+                        _callbacks = std::vector<frame_callback>(_number_of_streams);
+                        _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
+                        _profiles = std::vector<stream_profile>(_number_of_streams);
+                        _cs_firmware_version = cs_firmware_version(_connected_device);
+
+                        for (int i = 0; i < _number_of_streams; i++)
+                        {
+                            _threads[i] = nullptr;
+                            _is_capturing[i] = false;
+                            _callbacks[i] = nullptr;
+
+                            // make sure stream parameters are unlocked
+                            stream_params_unlock((cs_stream)i);
+                        }
+
+                        // increment device counter for device with current SN
+                        inc_device_count_SN(_device_info.serial);
+                    }
+                    // found device with SN
+                    break;
+                }
+            }
+            if (_connected_device == NULL) {    // Could not find device with given SN
+                throw wrong_api_call_sequence_exception("Could not create CS device with given SN!");
+            }
+        }
+
+        cs_device::~cs_device() {
+            dec_device_count_SN(_device_info.serial);
+            for (int i = 0; i < _number_of_streams; i++) {
+                deinit_stream((cs_stream)i);
+            }
+            
+            if (get_device_count_SN(_device_info.serial) == 0) {
+                if (_connected_device->IsConnected()) {
+                    try {
+                        //TODO - close all streams
+                        close({ CS_STREAM_DEPTH }); // -> Source0
+                        close({ CS_STREAM_COLOR }); // -> Source1
+                    }
+                    //catch (...) {
+                    catch (const std::exception& ex) {
+                        LOG_ERROR(ex.what());
+                    }
+                    _connected_device->Disconnect();
+                }
+            }
+        }
+
         enum rs2_format cs_device::get_rgb_format()
         {
             if ((_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2)) || (_device_info.id == CS_CAMERA_MODEL_D415e))
@@ -611,7 +707,6 @@ namespace librealsense {
 
         control_range cs_device::get_pu_range(rs2_option option, cs_stream stream)
         {
-            int32_t max, min, value;
             // Auto controls range is trimed to {0,1} range
             if(option == RS2_OPTION_ENABLE_AUTO_EXPOSURE || option == RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE ||
                     option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED)
@@ -626,11 +721,13 @@ namespace librealsense {
             if (option == RS2_OPTION_ASIC_TEMPERATURE || option == RS2_OPTION_PROJECTOR_TEMPERATURE)
                 return control_range{ -40, 125, 0, 0 };
 
-            if (!get_cs_param_value(option, value, stream)) value = 0;
+            int32_t min, max, step, value;
             if (!get_cs_param_min(option, min, stream)) min = 0;
             if (!get_cs_param_max(option, max, stream)) max = 0;
+            if (!get_cs_param_step(option, step, stream)) step = 1;
+            if (!get_cs_param_value(option, value, stream)) value = 0;
 
-            control_range range(min, max, get_cs_param_step(option, stream), value);
+            control_range range(min, max, step, value);
 
             return range;
         }
@@ -650,8 +747,11 @@ namespace librealsense {
                 case RS2_OPTION_CONTRAST:
                 case RS2_OPTION_GAIN:
                 case RS2_OPTION_LASER_POWER:
-                case RS2_OPTION_HUE: return _connected_device->SetIntegerNodeValue(get_cs_param_name(option, stream),
-                                                                                    (int)value);
+                case RS2_OPTION_HUE:
+                    return _connected_device->SetIntegerNodeValue(
+                        get_cs_param_name(option, stream), 
+                        round_cs_param(option, value, stream)
+                    );
                 case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
                 case RS2_OPTION_EMITTER_ENABLED:
                 case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
@@ -692,6 +792,24 @@ namespace librealsense {
                     return true;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
+            }
+        }
+
+        int32_t cs_device::round_cs_param(rs2_option option, int32_t value, cs_stream stream)
+        {
+            int32_t min, max, step;
+            if (get_cs_param_min(option, min, stream)
+                && get_cs_param_max(option, max, stream)
+                && get_cs_param_step(option, step, stream)) 
+            {
+                auto rounded = step * std::round(value / static_cast<double>(step));
+                if (rounded < min) return min;
+                else if (rounded > max) return max;
+                else return rounded;
+            }
+            else
+            {
+                return value;
             }
         }
 
@@ -853,7 +971,7 @@ namespace librealsense {
             }
         }
 
-        int32_t cs_device::get_cs_param_step(rs2_option option, cs_stream stream)
+        bool cs_device::get_cs_param_step(rs2_option option, int32_t& step, cs_stream stream)
         {
             INT64 int_value;
 
@@ -870,21 +988,26 @@ namespace librealsense {
                 case RS2_OPTION_GAIN:
                 case RS2_OPTION_HUE:
                 {
-                    _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
-                    return static_cast<int32_t>(int_value);
+                    auto result = _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
+                    step = static_cast<int32_t>(int_value);
+                    return result;
                 }
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
-                    return 1;
-                //case RS2_OPTION_EXPOSURE: return 1;
-                //case RS2_OPTION_GAMMA: return 1;
+                {
+                    step = 1;
+                    return true;
+                }
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
-                    if (!select_channel(stream))
-                        return 1;
+                    if (!select_channel(stream)) {
+                        step = 1;
+                        return true;
+                    }
 
-                    _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
-                    return static_cast<int32_t>(int_value);
+                    auto result = _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
+                    step = static_cast<int32_t>(int_value);
+                    return true;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
@@ -1067,17 +1190,6 @@ namespace librealsense {
 
         bool cs_device::select_channel(cs_stream stream)
         {
-            //TOOD preserved to help with compatibility with older fw
-            /*if (!_connected_device->SetIntegerNodeValue("SourceControlSelector", get_stream_source(stream)))
-            return false;
-
-            INT64 stream_channel;
-            if (!_connected_device->GetIntegerNodeValue("SourceStreamChannel", stream_channel))
-            return false;
-
-            if (!_connected_device->SetIntegerNodeValue("GevStreamChannelSelector", stream_channel))
-            return false;*/
-
             UINT32 channel;
             if (get_stream_channel(stream, channel))
                 return _connected_device->SetIntegerNodeValue("GevStreamChannelSelector", static_cast<INT64>(channel));
@@ -1114,27 +1226,31 @@ namespace librealsense {
             }
         }
 
-        //TODO will these results change dynamically? consider caching them in some way... -> nodes as class members in constructor
         bool cs_device::get_stream_channel(cs_stream stream, UINT32& channel)
         {
-            if (!select_source(stream))
-                return false;
+            if (_stream_channels.find(stream) == _stream_channels.end()) {
+                
+                if (!select_source(stream))
+                    return false;
 
-            if (!select_region(stream))
-                return false;
+                if (!select_region(stream))
+                    return false;
 
-            std::string region_destination;
-            if (!_connected_device->GetStringNodeValue("RegionDestination", region_destination))
-                return false;
+                std::string region_destination;
+                if (!_connected_device->GetStringNodeValue("RegionDestination", region_destination))
+                    return false;
 
-            if (!_connected_device->SetStringNodeValue("TransferSelector", region_destination))
-                return false;
+                if (!_connected_device->SetStringNodeValue("TransferSelector", region_destination))
+                    return false;
 
-            INT64 transfer_stream_channel;
-            if (!_connected_device->GetIntegerNodeValue("TransferStreamChannel", transfer_stream_channel))
-                return false;
+                INT64 transfer_stream_channel;
+                if (!_connected_device->GetIntegerNodeValue("TransferStreamChannel", transfer_stream_channel))
+                    return false;
 
-            channel = static_cast<UINT32>(transfer_stream_channel);
+                _stream_channels[stream] = static_cast<UINT32>(transfer_stream_channel);
+            }
+
+            channel = _stream_channels[stream];
             return true;
         }
 
@@ -1161,8 +1277,21 @@ namespace librealsense {
             for (auto i = 0; i < streams.size(); ++i)
                 set_format(profiles[i], streams[i]);
 
+            if (!select_source(streams[0]))
+                throw wrong_api_call_sequence_exception("Unable to select source!");
+
+            // Temporary fix for D435e not setting the format correctly 
+            // when programmed in a specific order.
+            // Issue is reproducible when depth and left IR are selected 
+            // in realsense-viewer.
+            // Issue exists only in firmware 1.5.1.0 and earlier. 
+            // It is fixed in later firmwares versions.
+            auto left_ir = std::find(streams.begin(), streams.end(), CS_STREAM_IR_LEFT);
+            if (left_ir != streams.end())
+                _connected_device->SetStringNodeValue("RegionSelector", "Region3");
+
             stream_params_lock(streams[0]);
-            start_acquisition(streams[0]);  //TODO - initialize stream before starting acquisition?
+            start_acquisition(streams[0]);
 
             for (auto i = 0; i < streams.size(); ++i)
                 init_stream(error_handler, streams[i]);
@@ -1351,7 +1480,27 @@ namespace librealsense {
 
         std::string cs_device::get_device_version()
         {
-            return _device_version;
+            return _connected_device->GetDeviceVersion();
+        }
+
+        std::string cs_device::get_ip_address()
+        {
+            return ip_address_to_string(_connected_device->GetIpAddress());
+        }
+
+        std::string cs_device::get_subnet_mask()
+        {
+            return ip_address_to_string(_connected_device->GetSubnetMask());
+        }
+
+        std::string cs_device::ip_address_to_string(uint32_t ip_address)
+        {
+            std::stringstream stream;
+            stream << ((ip_address >> 24) & 0xFF) << "." 
+                << ((ip_address >> 16) & 0xFF) << "." 
+                << ((ip_address >> 8) & 0xFF) << "." 
+                << ((ip_address) & 0xFF);
+            return stream.str();
         }
 
         bool cs_device::is_temperature_supported()
@@ -1402,14 +1551,12 @@ namespace librealsense {
 
                         //if (cs_info::is_timestamp_supported(_device_info.id))
                         //timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
-                        timestamp = image_info_->GetCameraTimestamp();
-                        //timestamp = -1;
-                        a.header.timestamp = timestamp;
+                        timestamp = -1;
 
                         auto im = image_info_->GetRawData();
                         auto image_size = image_info_->GetRawDataSize();
 
-                        frame_object fo{ image_size, sizeof(metadata_intel_basic), im, &a, timestamp };
+                        frame_object fo{ image_size, 0, im, NULL, timestamp };
 
                         {
                             std::lock_guard<std::mutex> lock(_stream_lock);

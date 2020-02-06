@@ -235,15 +235,12 @@ namespace librealsense
                 (a.conn_spec == b.conn_spec);
         }
 
-
-
         struct cs_device_info
         {
             std::string id;
             uint16_t vid = 0;
             std::string info;
             std::string serial;
-            //uint32_t ip = 0;
 
             operator std::string()
             {
@@ -252,7 +249,6 @@ namespace librealsense
                 s << "info- " << info <<
                   "\nid- " << id <<
                   "\nvid- " << std::hex << vid <<
-                 // "\nip- " << std::hex << ip <<
                   "\nserial- " << serial;
 
                 return s.str();
@@ -644,7 +640,9 @@ namespace librealsense
             virtual std::shared_ptr<hid_device> create_hid_device(hid_device_info info) const = 0;
             virtual std::vector<hid_device_info> query_hid_devices() const = 0;
 
+#ifndef SKIP_CS_SUPPORT
             virtual std::shared_ptr<cs_device> create_cs_device(cs_device_info info) const = 0;
+#endif
             virtual std::vector<cs_device_info> query_cs_devices() const = 0;
 
             virtual std::shared_ptr<time_service> create_time_service() const = 0;

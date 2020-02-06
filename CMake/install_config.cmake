@@ -62,23 +62,10 @@ install(FILES
 )
 
 if (UNIX)
-    set(DYNAMIC_CALIBRATOR_DIR /opt/Projects/RS-D4-ETH/Software/RS-CalibrationToolAPI/linux/usr)
-    install(PROGRAMS
-        ${DYNAMIC_CALIBRATOR_DIR}/bin/DynamicCalibrator
-        DESTINATION ${CMAKE_INSTALL_BINDIR}    
-    )
     install(FILES
-        ${DYNAMIC_CALIBRATOR_DIR}/lib/libDSDynamicCalibrationAPI.so
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ${PROJECT_SOURCE_DIR}/config/99-realsense-libusb.rules 
+        DESTINATION /etc/udev/rules.d/
     )
-elseif (WIN32)
-	set(DYNAMIC_CALIBRATOR_DIR C:/SmartekVision/Projects/RS-D4-ETH/Software/RS-CalibrationToolAPI/windows/bin)
-	install(FILES 
-		${DYNAMIC_CALIBRATOR_DIR}/DynamicCalibrator.exe
-		${DYNAMIC_CALIBRATOR_DIR}/DSDynamicCalibrationAPI.dll
-		${DYNAMIC_CALIBRATOR_DIR}/freeglut.dll
-		DESTINATION ${CMAKE_INSTALL_BINDIR}
-	)
 endif()
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/librealsense2
@@ -107,18 +94,16 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/config/realsense2.pc"
 )
 
 set(CPACK_PACKAGE_NAME "FRAMOS-librealsense2")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "freeglut3")
+set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "freeglut3")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "FRAMOS GmbH")
 set(CPACK_PACKAGE_VERSION_MAJOR 2)
 set(CPACK_PACKAGE_VERSION_MINOR 29)
-set(CPACK_PACKAGE_VERSION_PATCH 2)
+set(CPACK_PACKAGE_VERSION_PATCH 5)
 
 # Workaround for path length limitation of NSIS (260 characters)
 if (WIN32)
     set(CPACK_PACKAGE_DIRECTORY C:/temp)
     set(CPACK_OUTPUT_FILE_PREFIX ${PROJECT_BINARY_DIR})
 endif()
-
-set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA ${PROJECT_SOURCE_DIR}/postinst)
 
 include(CPack)

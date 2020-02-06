@@ -159,8 +159,6 @@ namespace librealsense
         roi_sensor_interface* roi_sensor;
         if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&color_ep))
             roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
-
-        enable_time_diff_keeper(true);
     }
 
     void cs_depth::depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
@@ -245,8 +243,6 @@ namespace librealsense
 		auto depth_sensor = As<cs_depth_sensor, cs_sensor>(&depth_ep);
 		auto ext_sync_mode = std::make_shared<cs_external_sync_mode>(*_hw_monitor, *depth_sensor);
 		depth_ep.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
-
-		enable_time_diff_keeper(true);
     }
 
     std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,

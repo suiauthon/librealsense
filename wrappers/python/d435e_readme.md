@@ -1,7 +1,6 @@
 # Python Wrapper for FRAMOS D435e camera
 
 This readme file provides instructions on how to use the D435e camera with Python.
-Building the wrapper from source is currently not supported on Linux.
 
 ## Supported platforms
 
@@ -17,66 +16,90 @@ Intel® RealSense™ SDK with support for D435e camera version 2.29.1 or higher
 
 FRAMOS D435e Camera with firmware version 1.4.0.0 or higher
 
+## Notes
+
+The `pyrealsense2` wrapper that is part of this package supports the D435e camera.
+
+The `pyrealsense2` wrapper available from `pip` does not support the D435e camera.
+
+The `pybackend2` wrapper that is part of this package does not support the D435e camerea.
+
 ## Linux
 
-This is a temporary workaround for using the Python wrapper on Linux.
+Install required packages:
+```
+sudo apt install gcc g++ cmake libglfw3-dev libgtk-3-dev git libssl-dev libusb-1.0-0-dev pkg-config python3 python3-dev
+``` 
 
-1. Install Python development packages
-   
-   ```
-   sudo apt install python3 python3-dev
-   ```
+Additional packages are required on Ubuntu 18:
+```
+sudo apt install libgl1-mesa-dev libglu1-mesa-dev
+```
 
-2. Install `pyrealsense2` using `pip`
+Install Python packages required by some of the Python examples:
+```
+pip3 install --user opencv-python
+```
 
-    ```
-    sudo pip3 install pyrealsense2
-    ```
+Copy the sources to a folder with user permissions, for example home:
+```
+cp -r /usr/src/librealsense2 ~
+```
 
-3. Locate the folder in which `pyrealsense2` was installed
+Create a build folder:
+```
+cd librealsense2
+mkdir build
+cd build
+```
 
-    ```
-    cd /usr/local/lib/python3.X/dist-packages
-    ```
+Generate Makefiles with cmake:
+```
+cmake ../ -DBUILD_PYTHON_BINDINGS:bool=true -DPYTHON_EXECUTABLE=/usr/bin/python3
+```
 
-4. Delete `pyrealsense2-*` folder
+Build with make:
+```
+make -j$(nproc)
+```
 
-    ```
-    sudo rm -r pyrealsense2-*
-    ```
-
-5. Delete `pyrealsense2.*` file
-
-    ```
-    sudo rm pyrealsense2/pyrealsense2.*
-    ```
-
-6. Clone and build Intel® RealSense™ SDK 2.29.0
-
-    ```
-    cd ~
-    git clone https://github.com/IntelRealSense/librealsense.git
-    cd librealsense
-    git checkout v2.29.0
-    mkdir build
-    cd build
-    cmake ../ -DBUILD_PYTHON_BINDINGS:bool=true -DPYTHON_EXECUTABLE=/usr/bin/python3.X
-    make -j4
-    sudo make install
-    ```
-
-7. Copy the built 'pyrealsense.so' file
-
-    ```
-    sudo cp /usr/local/lib/pyrealsense2.* /usr/local/lib/python3.X/dist-packages/pyrealsense2/
-    ```
-
-8. Uninstall Intel® RealSense™ SDK 2.29.0
-
-    ```
-    sudo make uninstall
-    ```
+Copy the pyrealsense library next to the example and run it:
+```
+cd ~/librealsense2/wrappers/python/examples
+cp ~/librealsense2/build/wrappers/python/pyrealsense2* .
+python3 align-depth2color.py
+```
 
 ## Windows
 
-Follow the official instructions.
+Follow the official instructions to build the `pyrealsense` wrapper.
+
+The wrapper must be copied next to the Python script along with required dependencies.
+
+Copy the Python wrapper (name may be include additional information)
+
+- `pyrealsense2.pyd`
+
+Copy the RealSense library with suport for D435e camera from `Program Files\FRAMOS-librealsense2\bin`
+
+- `realsense2.dll`
+
+Copy the contents of `Program Files\FRAMOS\CameraSuite\bin`
+
+- `CameraSuite.dll`
+
+Copy the contents of `Program Files\FRAMOS\CameraSuite\GenICam_v3_0\bin\Win64_x64`
+
+- `GCBase_MD_VC120_v3_0.dll`
+- `GenApi_MD_VC120_v3_0.dll`
+- `Log_MD_VC120_v3_0.dll`
+- `MathParser_MD_VC120_v3_0.dll`
+- `NodeMapData_MD_VC120_v3_0.dll`
+- `XmlParser_MD_VC120_v3_0.dll`
+
+Install Python3 OpenCV package, required by some examples
+
+```
+pip3 install --user opencv-python
+```
+
