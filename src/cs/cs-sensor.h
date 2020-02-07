@@ -223,6 +223,7 @@ namespace librealsense {
             std::unordered_map<cs_stream, UINT32, std::hash<int>> _stream_channels;
             std::vector<frame_callback> _callbacks;
             cs_firmware_version _cs_firmware_version;
+            enum rs2_format _rgb_pixel_format;
             static std::map<std::string, int> _cs_device_num_objects_SN; // serial_number, number of objects per SN (device creation)
             static std::map<std::string, bool> _cs_device_initialized_SN; // serial_number, is device with SN initialized
         };
