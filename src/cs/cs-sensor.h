@@ -124,8 +124,6 @@ namespace librealsense {
 
             control_range get_pu_range(rs2_option option, cs_stream stream);
 
-            enum rs2_format get_rgb_format();
-
             std::vector <stream_profile> get_profiles(cs_stream stream);
 
             bool reset(void);
@@ -136,8 +134,9 @@ namespace librealsense {
             std::string get_ip_address();
             std::string get_subnet_mask();
 
-            bool is_temperature_supported();
+            enum rs2_format cs_device::get_rgb_format();
             bool is_infrared_supported();
+            bool is_temperature_supported();
 
 			void set_trigger_mode(float mode);
 
@@ -224,6 +223,9 @@ namespace librealsense {
             std::vector<frame_callback> _callbacks;
             cs_firmware_version _cs_firmware_version;
             enum rs2_format _rgb_pixel_format;
+            bool _infrared_supported;
+            bool _temperature_supported_checked;
+            bool _temperature_supported;
             static std::map<std::string, int> _cs_device_num_objects_SN; // serial_number, number of objects per SN (device creation)
             static std::map<std::string, bool> _cs_device_initialized_SN; // serial_number, is device with SN initialized
         };

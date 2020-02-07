@@ -462,7 +462,10 @@ namespace librealsense {
                 : _device_info(std::move(hwm)),
                     _power_state(D3),
                     _connected_device(NULL),
-                    _rgb_pixel_format(RS2_FORMAT_ANY) {
+                    _rgb_pixel_format(RS2_FORMAT_ANY),
+                    _infrared_supported(false),
+                    _temperature_supported_checked(false),
+                    _temperature_supported(false) {
             _smcs_api = smcs::GetCameraAPI();
             auto devices = _smcs_api->GetAllDevices();
 
@@ -551,20 +554,6 @@ namespace librealsense {
             }
         }
 
-        enum rs2_format cs_device::get_rgb_format()
-        {
-            if (_rgb_pixel_format != RS2_FORMAT_ANY)
-                return _rgb_pixel_format;
-
-            std::string pixelFormat;
-            if (set_region(CS_STREAM_COLOR, true) 
-                && _connected_device->GetStringNodeValue("PixelFormat", pixelFormat) 
-                && pixelFormat.compare("YUV422Packed") == 0)
-                return RS2_FORMAT_BGR8;
-            else
-                return RS2_FORMAT_RGB8;
-        }
-
         std::vector<stream_profile> cs_device::get_profiles(cs_stream stream)
         {
             std::vector<stream_profile> all_stream_profiles;
@@ -580,6 +569,22 @@ namespace librealsense {
             
             if (!set_region(stream, true))
                 throw wrong_api_call_sequence_exception("Unable to read profiles!");
+
+            if (stream == CS_STREAM_COLOR) {
+                std::string pixel_format;
+                if (_connected_device->GetStringNodeValue("PixelFormat", pixel_format)
+                    && pixel_format.compare("YUV422Packed") == 0)
+                    _rgb_pixel_format = RS2_FORMAT_BGR8;
+                else
+                    _rgb_pixel_format = RS2_FORMAT_RGB8;
+            }
+
+            if (stream == CS_STREAM_DEPTH) {
+                smcs::StringList regions;
+                _infrared_supported =
+                    _connected_device->GetEnumNodeValuesList("RegionSelector", regions)
+                    && regions.size() >= 4;
+            }
 
             smcs::StringList resolution_list;
             is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolution_list);
@@ -624,8 +629,6 @@ namespace librealsense {
                     }
                 }
             }
-            
-            set_region(stream, false);
 
             return all_stream_profiles;
         }
@@ -1490,18 +1493,24 @@ namespace librealsense {
             return stream.str();
         }
 
-        bool cs_device::is_temperature_supported()
+        enum rs2_format cs_device::get_rgb_format()
         {
-            // check DeviceTemperatureSelector
-
-            return ((_cs_firmware_version >= cs_firmware_version(1, 4, 1, 0)) || (_device_info.id == CS_CAMERA_MODEL_D415e));
+            return _rgb_pixel_format;
         }
 
         bool cs_device::is_infrared_supported()
         {
-            // check if Source0, Region2 and Region3 are available
+            return _infrared_supported;
+        }
 
-            return ((_cs_firmware_version >= cs_firmware_version(1, 5, 0, 0)) || (_device_info.id == CS_CAMERA_MODEL_D415e));
+        bool cs_device::is_temperature_supported()
+        {
+            if (!_temperature_supported_checked) {
+                _temperature_supported = _connected_device->GetNode("DeviceTemperatureSelector") != nullptr;
+                _temperature_supported_checked = true;
+            }
+
+            return _temperature_supported;
         }
 
         void cs_device::capture_loop(cs_stream stream, UINT32 channel)
