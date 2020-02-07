@@ -194,7 +194,7 @@ namespace librealsense {
             void set_rgb_ae_roi(uint32_t top, uint32_t left, uint32_t bottom, uint32_t right);
 
             std::vector<uint32_t> get_frame_rates(); 
-            std::vector<uint32_t> get_frame_rates_from_control();
+            bool get_frame_rates_from_control(std::vector<uint32_t> &frame_rates);
 
             bool is_profile_format(const smcs::IImageInfo& image_info, const stream_profile& profile);
 

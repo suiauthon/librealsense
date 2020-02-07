@@ -632,34 +632,38 @@ namespace librealsense {
 
         std::vector<uint32_t> cs_device::get_frame_rates()
         {
-            //check if FrameRate exists
-
-            if ((_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2)) || (_device_info.id == CS_CAMERA_MODEL_D415e))
-                return get_frame_rates_from_control();
+            // FrameRate does not exist on D435e with FW 1.3.4.0
+            std::vector<uint32_t> frame_rates;
+            if (get_frame_rates_from_control(frame_rates))
+                return frame_rates;
             else
-                return std::vector<uint32_t> {30};
+                return std::vector<uint32_t> {30};                
         }
 
-        std::vector<uint32_t> cs_device::get_frame_rates_from_control()
+        bool cs_device::get_frame_rates_from_control(std::vector<uint32_t> &frame_rates)
         {
             std::string frameRateValue;
-            _connected_device->GetStringNodeValue("FrameRate", frameRateValue);
+            if (!_connected_device->GetStringNodeValue("FrameRate", frameRateValue))
+                return false;
 
             smcs::StringList frameRates;
-            _connected_device->GetEnumNodeValuesList("FrameRate", frameRates);
+            if (!_connected_device->GetEnumNodeValuesList("FrameRate", frameRates))
+                return false;
 
             std::vector<uint32_t> acquisitionFrameRates;
             for (const auto& frameRate : frameRates) {
-                _connected_device->SetStringNodeValue("FrameRate", frameRate);
+                if (!_connected_device->SetStringNodeValue("FrameRate", frameRate))
+                    return false;
 
                 double acquisitionFrameRate;
                 if (_connected_device->GetFloatNodeValue("AcquisitionFrameRate", acquisitionFrameRate))
-                    acquisitionFrameRates.push_back(static_cast<uint32_t>(acquisitionFrameRate));
+                    frame_rates.push_back(static_cast<uint32_t>(acquisitionFrameRate));
+                else
+                    return false;
             }
 
-            _connected_device->SetStringNodeValue("FrameRate", frameRateValue);
-
-            return acquisitionFrameRates;
+            if (!_connected_device->SetStringNodeValue("FrameRate", frameRateValue))
+                return false;
         }
 
         bool cs_device::is_profile_format(const smcs::IImageInfo& image_info, const stream_profile& profile)
