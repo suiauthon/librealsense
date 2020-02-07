@@ -581,19 +581,15 @@ namespace librealsense {
             if (!set_region(stream, true))
                 throw wrong_api_call_sequence_exception("Unable to read profiles!");
 
-            // why check anything here?
             smcs::StringList resolution_list;
-            if ((_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2)) || (_device_info.id == CS_CAMERA_MODEL_D415e))
-                is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolution_list);
-            else
-                resolution_list.push_back("Res_1280x720");
+            is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolution_list);
 
             for (const auto& resolution : resolution_list) {
 
-                //just ignore return result
-                if ((_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2)) || (_device_info.id == CS_CAMERA_MODEL_D415e))
-                    is_successful =
-                        is_successful & _connected_device->SetStringNodeValue("Resolution", resolution);
+                // Resolution is read-only on D435e with FW 1.3.4.0
+                std::string old_resolution;
+                if (_connected_device->GetStringNodeValue("Resolution", old_resolution) && old_resolution != resolution)
+                    is_successful = is_successful & _connected_device->SetStringNodeValue("Resolution", resolution);
 
                 is_successful = is_successful & _connected_device->GetIntegerNodeValue("Width", int64_value);
                 profile.width = (uint32_t) int64_value;
@@ -1585,10 +1581,10 @@ namespace librealsense {
                 throw wrong_api_call_sequence_exception("Failed to set region!");
 
             // Resolution is read-only on D435e with FW 1.3.4.0
-            std::string newResolution = "Res_" + std::to_string(profile.width) + "x" + std::to_string(profile.height);
-            std::string oldResolution;
-            if (_connected_device->GetStringNodeValue("Resolution", oldResolution) && oldResolution != newResolution)
-                if (!_connected_device->SetStringNodeValue("Resolution", newResolution))
+            std::string new_resolution = "Res_" + std::to_string(profile.width) + "x" + std::to_string(profile.height);
+            std::string old_resolution;
+            if (_connected_device->GetStringNodeValue("Resolution", old_resolution) && old_resolution != new_resolution)
+                if (!_connected_device->SetStringNodeValue("Resolution", new_resolution))
                     throw wrong_api_call_sequence_exception("Failed to set resolution!");
 
             // FrameRate does on exist on D435e with FW 1.3.4.0
