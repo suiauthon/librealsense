@@ -1584,10 +1584,16 @@ namespace librealsense {
             if (!set_region(stream, true))
                 throw wrong_api_call_sequence_exception("Failed to set region!");
 
-            if (!_connected_device->SetStringNodeValue("Resolution", "Res_" + std::to_string(profile.width) + "x" + std::to_string(profile.height)))
-                throw wrong_api_call_sequence_exception("Failed to set resolution!");
+            // Resolution is read-only on D435e with FW 1.3.4.0
+            std::string newResolution = "Res_" + std::to_string(profile.width) + "x" + std::to_string(profile.height);
+            std::string oldResolution;
+            if (_connected_device->GetStringNodeValue("Resolution", oldResolution) && oldResolution != newResolution)
+                if (!_connected_device->SetStringNodeValue("Resolution", newResolution))
+                    throw wrong_api_call_sequence_exception("Failed to set resolution!");
 
-            if (!_connected_device->SetStringNodeValue("FrameRate", "FPS_" + std::to_string(profile.fps)))
+            // FrameRate does on exist on D435e with FW 1.3.4.0
+            if (_connected_device->GetNode("FrameRate") != nullptr 
+                && !_connected_device->SetStringNodeValue("FrameRate", "FPS_" + std::to_string(profile.fps)))
                 throw wrong_api_call_sequence_exception("Failed to set framerate!");
         }
 
