@@ -1,6 +1,6 @@
-# Python Wrapper for FRAMOS D435e camera
+# Python Wrapper for FRAMOS D400e camera series
 
-This readme file provides instructions on how to use the D435e camera with Python.
+This readme file provides instructions on how to use the D400e camera series with Python.
 
 ## Supported platforms
 
@@ -12,17 +12,15 @@ Windows x86_64
 
 FRAMOS CameraSuite version 4.1.2.0 or higher
 
-Intel® RealSense™ SDK with support for D435e camera version 2.29.1 or higher
-
-FRAMOS D435e Camera with firmware version 1.4.0.0 or higher
+Intel® RealSense™ SDK with support for D400e cameras version 2.29.1 or higher
 
 ## Notes
 
-The `pyrealsense2` wrapper that is part of this package supports the D435e camera.
+The `pyrealsense2` wrapper that is part of this package supports the D400e camera series.
 
-The `pyrealsense2` wrapper available from `pip` does not support the D435e camera.
+The `pyrealsense2` wrapper available from `pip` does not support the D400e camera series.
 
-The `pybackend2` wrapper that is part of this package does not support the D435e camerea.
+The `pybackend2` wrapper that is part of this package does not support the D400e camera series.
 
 ## Linux
 
@@ -80,7 +78,7 @@ Copy the Python wrapper (name may be include additional information)
 
 - `pyrealsense2.pyd`
 
-Copy the RealSense library with suport for D435e camera from `Program Files\FRAMOS-librealsense2\bin`
+Copy the RealSense library with support for D400e camera series from `Program Files\FRAMOS-librealsense2\bin`
 
 - `realsense2.dll`
 
