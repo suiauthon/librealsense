@@ -73,7 +73,8 @@ namespace librealsense {
             _cs_device->reset();
         }
     private:
-        std::string get_equivalent_pid(std::string id) const;
+        std::string get_equivalent_pid(std::string id) const; 
+        std::shared_ptr<platform::cs_device> _cs_device;
     };
 }
 

@@ -31,7 +31,6 @@ namespace librealsense {
                 _build = 0;
             }
         }
-
     }
 
     void cs_sensor::open(const stream_profiles& requests)
@@ -509,6 +508,12 @@ namespace librealsense {
                         _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
                         _profiles = std::vector<stream_profile>(_number_of_streams);
                         _cs_firmware_version = cs_firmware_version(_connected_device);
+
+                        constexpr double S_TO_MS_FACTOR = 1000;
+                        INT64 frequency;
+                        if (!_connected_device->GetIntegerNodeValue("GevTimestampTickFrequency", frequency))
+                            throw io_exception("Unable to read GevTimestampTickFrequency");
+                        _timestamp_to_ms_factor = S_TO_MS_FACTOR / frequency;
 
                         for (int i = 0; i < _number_of_streams; i++)
                         {
@@ -1513,6 +1518,18 @@ namespace librealsense {
             return _temperature_supported;
         }
 
+        double cs_device::get_device_timestamp_ms()
+        {
+            if (!_connected_device->CommandNodeExecute("GevTimestampControlLatch"))
+                throw io_exception("Unable to execute GevTimestampControlLatch");
+
+            INT64 timestamp;
+            if (!_connected_device->GetIntegerNodeValue("GevTimestampValue", timestamp))
+                throw io_exception("Unable to read GevTimestampValue");
+
+            return timestamp * _timestamp_to_ms_factor;
+        }
+
         void cs_device::capture_loop(cs_stream stream, UINT32 channel)
         {
             try
@@ -1550,12 +1567,13 @@ namespace librealsense {
                         }
 
                         timestamp = image_info_->GetCameraTimestamp();
+                        _metadata = {};
                         _metadata.header.timestamp = timestamp;
 
                         auto im = image_info_->GetRawData();
                         auto image_size = image_info_->GetRawDataSize();
 
-                        frame_object fo{ image_size, sizeof(metadata_intel_basic), im, &_metadata, timestamp };
+                        //frame_object fo{ image_size, sizeof(metadata_intel_basic), im, &_metadata, timestamp };
 
                         {
                             std::lock_guard<std::mutex> lock(_stream_lock);

@@ -139,7 +139,7 @@ namespace librealsense
 		return *_range;
 	}
 
-    void cs_color::color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
+    void cs_color::color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group, std::shared_ptr<platform::cs_device> cs_device)
     {
         using namespace ds;
 
@@ -160,10 +160,11 @@ namespace librealsense
         if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&color_ep))
             roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
     
+        _cs_device = cs_device;
         enable_time_diff_keeper(true);
     }
 
-    void cs_depth::depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
+    void cs_depth::depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group, std::shared_ptr<platform::cs_device> cs_device)
     {
         using namespace ds;
 
@@ -246,6 +247,7 @@ namespace librealsense
 		auto ext_sync_mode = std::make_shared<cs_external_sync_mode>(*_hw_monitor, *depth_sensor);
 		depth_ep.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
 
+        _cs_device = cs_device;
         enable_time_diff_keeper(true);
     }
 
@@ -477,8 +479,13 @@ namespace librealsense
 
     double cs_depth::get_device_time_ms()
     {
+        if (_cs_device)
+            return _cs_device->get_device_timestamp_ms();
+        else
+            throw std::runtime_error("cs_depth not initialized");
+
         // TODO: Refactor the following query with an extension.
-        if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
+        /*if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
         {
             throw not_implemented_exception("device time not supported for backend.");
         }
@@ -496,13 +503,18 @@ namespace librealsense
         }
         uint32_t dt = *(uint32_t*)res.data();
         double ts = dt * TIMESTAMP_USEC_TO_MSEC;
-        return ts;
+        return ts;*/
     }
 
     double cs_color::get_device_time_ms()
     {
+        if (_cs_device)
+            return _cs_device->get_device_timestamp_ms();
+        else 
+            throw std::runtime_error("cs_color not initialized");
+
         // TODO: Refactor the following query with an extension.
-        if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
+        /*if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
         {
             throw not_implemented_exception("device time not supported for backend.");
         }
@@ -520,7 +532,7 @@ namespace librealsense
         }
         uint32_t dt = *(uint32_t*)res.data();
         double ts = dt * TIMESTAMP_USEC_TO_MSEC;
-        return ts;
+        return ts;*/
     }
 
     std::vector<uint8_t> cs_color::get_raw_calibration_table(ds::calibration_table_id table_id) const

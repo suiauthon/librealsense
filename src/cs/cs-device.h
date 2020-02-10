@@ -52,7 +52,7 @@ namespace librealsense
         hw_monitor& _hwm;
     };
 
-    class cs_color : public virtual device,  public global_time_interface
+    class cs_color : public virtual device, public global_time_interface
     {
     public:
         cs_color(std::shared_ptr<context> ctx,
@@ -67,7 +67,7 @@ namespace librealsense
 
         cs_sensor& get_color_sensor() { return dynamic_cast<cs_sensor&>(get_sensor(_color_device_idx)); }
 
-        void color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group);
+        void color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group, std::shared_ptr<platform::cs_device> cs_device);
 
         virtual double get_device_time_ms() override;
     protected:
@@ -82,6 +82,9 @@ namespace librealsense
 
         lazy<std::vector<uint8_t>> _color_calib_table_raw;
         std::shared_ptr<lazy<rs2_extrinsics>> _color_extrinsic;
+
+    private:
+        std::shared_ptr<platform::cs_device> _cs_device;
     };
 
     class cs_depth : public virtual device, public debug_interface, public global_time_interface, public updatable
@@ -109,7 +112,7 @@ namespace librealsense
         void create_snapshot(std::shared_ptr<debug_interface>& snapshot) const override;
         void enable_recording(std::function<void(const debug_interface&)> record_action) override;
 
-        void depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group);
+        void depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group, std::shared_ptr<platform::cs_device> cs_device);
 
         virtual double get_device_time_ms() override;
         void enter_update_state() const override;
@@ -134,7 +137,6 @@ namespace librealsense
         friend class cs_depth_sensor;
 
         std::shared_ptr<hw_monitor> _hw_monitor;
-		std::shared_ptr<platform::cs_device> _cs_device;
         firmware_version            _fw_version;
         firmware_version            _recommended_fw_version;
         ds::d400_caps _device_capabilities;
@@ -143,6 +145,9 @@ namespace librealsense
         lazy<std::vector<uint8_t>> _new_calib_table_raw;
 
         std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
+
+    private:
+        std::shared_ptr<platform::cs_device> _cs_device;
     };
 
     class cs_color_sensor : public cs_sensor,

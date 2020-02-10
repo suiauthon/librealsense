@@ -81,14 +81,14 @@ namespace librealsense {
         _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
         _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
 
-        depth_init(ctx, group);
-        color_init(ctx, group);
+        depth_init(ctx, group, _cs_device);
+        color_init(ctx, group, _cs_device);
 
         environment::get_instance().get_extrinsics_graph().register_extrinsics(*_color_stream, *_depth_stream, _color_extrinsic);
 
         register_info(RS2_CAMERA_INFO_NAME, "FRAMOS " + hwm_device.id);
         register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
-        register_info(RS2_CAMERA_INFO_PRODUCT_ID, get_equivalent_pid(hwm_device.id)); //"0B07"
+        register_info(RS2_CAMERA_INFO_PRODUCT_ID, get_equivalent_pid(hwm_device.id));
         register_info(RS2_CAMERA_INFO_FIRMWARE_VERSION, cs_depth::_fw_version);
         register_info(RS2_CAMERA_INFO_DEVICE_VERSION, _cs_device->get_device_version());
         register_info(RS2_CAMERA_INFO_IP_ADDRESS, _cs_device->get_ip_address());

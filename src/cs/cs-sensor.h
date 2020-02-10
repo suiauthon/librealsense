@@ -137,6 +137,7 @@ namespace librealsense {
             enum rs2_format cs_device::get_rgb_format();
             bool is_infrared_supported();
             bool is_temperature_supported();
+            double get_device_timestamp_ms();
 
 			void set_trigger_mode(float mode);
 
@@ -226,6 +227,7 @@ namespace librealsense {
             bool _infrared_supported;
             bool _temperature_supported_checked;
             bool _temperature_supported;
+            double _timestamp_to_ms_factor;
             static std::map<std::string, int> _cs_device_num_objects_SN; // serial_number, number of objects per SN (device creation)
             static std::map<std::string, bool> _cs_device_initialized_SN; // serial_number, is device with SN initialized
 
