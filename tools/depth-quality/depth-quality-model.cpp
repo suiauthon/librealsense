@@ -1,6 +1,7 @@
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2019 Intel Corporation. All Rights Reserved.
 #include <iomanip>
+#include <regex>
 #include "depth-quality-model.h"
 #include <librealsense2/rs_advanced_mode.hpp>
 #include "model-views.h"
@@ -59,8 +60,9 @@ namespace rs2
 
             {
                 rs2::config cfg_default;
-                std::string id = devices[0].get_info(RS2_CAMERA_INFO_NAME);
-                if (devices.size() && std::string(devices[0].get_info(RS2_CAMERA_INFO_NAME)) == "FRAMOS D435e") {
+                auto camera_name = devices.size() ? std::string(devices[0].get_info(RS2_CAMERA_INFO_NAME)) : "";
+                std::regex d400e_regex("FRAMOS D4[0-9][0-9]e");
+                if (std::regex_search(camera_name, d400e_regex)) {
                     cfg_default.enable_stream(RS2_STREAM_DEPTH, -1, 1280, 720, RS2_FORMAT_Z16, 30);
                     cfg_default.enable_stream(RS2_STREAM_COLOR, -1, 1280, 720, RS2_FORMAT_RGB8, 30);
                     cfgs.emplace_back(cfg_default);

@@ -463,12 +463,12 @@ namespace librealsense
 
     void cs_depth::update_flash(const std::vector<uint8_t>& image, update_progress_callback_ptr callback, int update_mode)
     {
-        throw std::runtime_error("update_flash is not supported by D435e");
+        throw std::runtime_error("update_flash is not supported by D400e");
     }
 
     std::vector<uint8_t> cs_depth::backup_flash(update_progress_callback_ptr callback)
     {
-        throw std::runtime_error("update_flash is not supported by D435e");
+        throw std::runtime_error("update_flash is not supported by D400e");
     }
 
     double cs_depth::get_device_time_ms()

@@ -13,7 +13,7 @@ In the following snapshot we use two Framos D435e and one Intel D435i camera. Th
  - Three Depth streams (2x D435e, D435i)
  - Three Color streams (2x D435e, D435i)
 
-Alltogether the mosaic comprise of 6 simultaneous live feeds:
+Altogether the mosaic comprise of 6 simultaneous live feeds:
 
 <p align="center"><img src="./multicam_screenshot.png" alt="screenshot gif"/></p>
 

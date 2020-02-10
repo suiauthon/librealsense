@@ -461,7 +461,11 @@ namespace librealsense {
         cs_device::cs_device(cs_device_info hwm)
                 : _device_info(std::move(hwm)),
                     _power_state(D3),
-                    _connected_device(NULL) {
+                    _connected_device(NULL),
+                    _rgb_pixel_format(RS2_FORMAT_ANY),
+                    _infrared_supported(false),
+                    _temperature_supported_checked(false),
+                    _temperature_supported(false) {
             _smcs_api = smcs::GetCameraAPI();
             auto devices = _smcs_api->GetAllDevices();
 
@@ -550,14 +554,6 @@ namespace librealsense {
             }
         }
 
-        enum rs2_format cs_device::get_rgb_format()
-        {
-            if ((_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2)) || (_device_info.id == CS_CAMERA_MODEL_D415e))
-                return RS2_FORMAT_RGB8;
-            else
-                return RS2_FORMAT_BGR8;
-        }
-
         std::vector<stream_profile> cs_device::get_profiles(cs_stream stream)
         {
             std::vector<stream_profile> all_stream_profiles;
@@ -574,17 +570,31 @@ namespace librealsense {
             if (!set_region(stream, true))
                 throw wrong_api_call_sequence_exception("Unable to read profiles!");
 
+            if (stream == CS_STREAM_COLOR) {
+                std::string pixel_format;
+                if (_connected_device->GetStringNodeValue("PixelFormat", pixel_format)
+                    && pixel_format.compare("YUV422Packed") == 0)
+                    _rgb_pixel_format = RS2_FORMAT_BGR8;
+                else
+                    _rgb_pixel_format = RS2_FORMAT_RGB8;
+            }
+
+            if (stream == CS_STREAM_DEPTH) {
+                smcs::StringList regions;
+                _infrared_supported =
+                    _connected_device->GetEnumNodeValuesList("RegionSelector", regions)
+                    && regions.size() >= 4;
+            }
+
             smcs::StringList resolution_list;
-            if ((_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2)) || (_device_info.id == CS_CAMERA_MODEL_D415e))
-                is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolution_list);
-            else
-                resolution_list.push_back("Res_1280x720");
+            is_successful = is_successful & _connected_device->GetEnumNodeValuesList("Resolution", resolution_list);
 
             for (const auto& resolution : resolution_list) {
 
-                if ((_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2)) || (_device_info.id == CS_CAMERA_MODEL_D415e))
-                    is_successful =
-                        is_successful & _connected_device->SetStringNodeValue("Resolution", resolution);
+                // Resolution is read-only on D435e with FW 1.3.4.0
+                std::string old_resolution;
+                if (_connected_device->GetStringNodeValue("Resolution", old_resolution) && old_resolution != resolution)
+                    is_successful = is_successful & _connected_device->SetStringNodeValue("Resolution", resolution);
 
                 is_successful = is_successful & _connected_device->GetIntegerNodeValue("Width", int64_value);
                 profile.width = (uint32_t) int64_value;
@@ -619,40 +629,44 @@ namespace librealsense {
                     }
                 }
             }
-            
-            set_region(stream, false);
 
             return all_stream_profiles;
         }
 
         std::vector<uint32_t> cs_device::get_frame_rates()
         {
-            if ((_cs_firmware_version >= cs_firmware_version(1, 3, 4, 2)) || (_device_info.id == CS_CAMERA_MODEL_D415e))
-                return get_frame_rates_from_control();
+            // FrameRate does not exist on D435e with FW 1.3.4.0
+            std::vector<uint32_t> frame_rates;
+            if (get_frame_rates_from_control(frame_rates))
+                return frame_rates;
             else
-                return std::vector<uint32_t> {30};
+                return std::vector<uint32_t> {30};                
         }
 
-        std::vector<uint32_t> cs_device::get_frame_rates_from_control()
+        bool cs_device::get_frame_rates_from_control(std::vector<uint32_t> &frame_rates)
         {
             std::string frameRateValue;
-            _connected_device->GetStringNodeValue("FrameRate", frameRateValue);
+            if (!_connected_device->GetStringNodeValue("FrameRate", frameRateValue))
+                return false;
 
             smcs::StringList frameRates;
-            _connected_device->GetEnumNodeValuesList("FrameRate", frameRates);
+            if (!_connected_device->GetEnumNodeValuesList("FrameRate", frameRates))
+                return false;
 
             std::vector<uint32_t> acquisitionFrameRates;
             for (const auto& frameRate : frameRates) {
-                _connected_device->SetStringNodeValue("FrameRate", frameRate);
+                if (!_connected_device->SetStringNodeValue("FrameRate", frameRate))
+                    return false;
 
                 double acquisitionFrameRate;
                 if (_connected_device->GetFloatNodeValue("AcquisitionFrameRate", acquisitionFrameRate))
-                    acquisitionFrameRates.push_back(static_cast<uint32_t>(acquisitionFrameRate));
+                    frame_rates.push_back(static_cast<uint32_t>(acquisitionFrameRate));
+                else
+                    return false;
             }
 
-            _connected_device->SetStringNodeValue("FrameRate", frameRateValue);
-
-            return acquisitionFrameRates;
+            if (!_connected_device->SetStringNodeValue("FrameRate", frameRateValue))
+                return false;
         }
 
         bool cs_device::is_profile_format(const smcs::IImageInfo& image_info, const stream_profile& profile)
@@ -1094,21 +1108,9 @@ namespace librealsense {
         }
 
         void cs_device::start_acquisition(cs_stream stream)
-        {
-            if ((_cs_firmware_version <= cs_firmware_version(1, 2, 0, 0)) && (_device_info.id != CS_CAMERA_MODEL_D415e)) {
-
-                auto capturing = std::count_if(
-                    _is_capturing.begin(), _is_capturing.end(), 
-                    [](std::atomic<bool> &capturing) {
-                        return capturing == true;
-                    }
-                );
-                if (capturing != 1)
-                    return;
-            }            
-
+        {   
             // disable trigger mode
-            //_connected_device->SetStringNodeValue("TriggerMode", "Off");
+            _connected_device->SetStringNodeValue("TriggerMode", "Off");
             // set continuous acquisition mode
             _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
 
@@ -1118,18 +1120,6 @@ namespace librealsense {
 
         void cs_device::stop_acquisition(cs_stream stream)
         {
-            if ((_cs_firmware_version <= cs_firmware_version(1, 2, 0, 0)) && (_device_info.id != CS_CAMERA_MODEL_D415e)) {
-
-                auto capturing = std::find_if(
-                    _is_capturing.begin(), _is_capturing.end(), 
-                    [](std::atomic<bool> &capturing) { 
-                        return capturing == true; 
-                    }
-                );
-                if (capturing != _is_capturing.end())
-                    return;
-            }
-
             if (!select_source(stream))
                 throw wrong_api_call_sequence_exception("Unable to select source!");
 
@@ -1503,14 +1493,24 @@ namespace librealsense {
             return stream.str();
         }
 
-        bool cs_device::is_temperature_supported()
+        enum rs2_format cs_device::get_rgb_format()
         {
-            return ((_cs_firmware_version >= cs_firmware_version(1, 4, 1, 0)) || (_device_info.id == CS_CAMERA_MODEL_D415e));
+            return _rgb_pixel_format;
         }
 
         bool cs_device::is_infrared_supported()
         {
-            return ((_cs_firmware_version >= cs_firmware_version(1, 5, 0, 0)) || (_device_info.id == CS_CAMERA_MODEL_D415e));
+            return _infrared_supported;
+        }
+
+        bool cs_device::is_temperature_supported()
+        {
+            if (!_temperature_supported_checked) {
+                _temperature_supported = _connected_device->GetNode("DeviceTemperatureSelector") != nullptr;
+                _temperature_supported_checked = true;
+            }
+
+            return _temperature_supported;
         }
 
         void cs_device::capture_loop(cs_stream stream, UINT32 channel)
@@ -1593,10 +1593,16 @@ namespace librealsense {
             if (!set_region(stream, true))
                 throw wrong_api_call_sequence_exception("Failed to set region!");
 
-            if (!_connected_device->SetStringNodeValue("Resolution", "Res_" + std::to_string(profile.width) + "x" + std::to_string(profile.height)))
-                throw wrong_api_call_sequence_exception("Failed to set resolution!");
+            // Resolution is read-only on D435e with FW 1.3.4.0
+            std::string new_resolution = "Res_" + std::to_string(profile.width) + "x" + std::to_string(profile.height);
+            std::string old_resolution;
+            if (_connected_device->GetStringNodeValue("Resolution", old_resolution) && old_resolution != new_resolution)
+                if (!_connected_device->SetStringNodeValue("Resolution", new_resolution))
+                    throw wrong_api_call_sequence_exception("Failed to set resolution!");
 
-            if (!_connected_device->SetStringNodeValue("FrameRate", "FPS_" + std::to_string(profile.fps)))
+            // FrameRate does on exist on D435e with FW 1.3.4.0
+            if (_connected_device->GetNode("FrameRate") != nullptr 
+                && !_connected_device->SetStringNodeValue("FrameRate", "FPS_" + std::to_string(profile.fps)))
                 throw wrong_api_call_sequence_exception("Failed to set framerate!");
         }
 

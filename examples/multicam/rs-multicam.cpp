@@ -7,6 +7,7 @@
 
 #include <map>
 #include <vector>
+#include <regex>
 #include <librealsense2/hpp/rs_frame.hpp>
 
 
@@ -28,11 +29,12 @@ int main(int argc, char * argv[]) try
 
     for (auto&& dev : ctx.query_devices()) {
         std::string name = dev.get_info(RS2_CAMERA_INFO_NAME);
-        if (name.compare("FRAMOS D435e") == 0) {
+        std::regex d400e_regex("FRAMOS D4[0-9][0-9]e");
+        if (std::regex_search(name, d400e_regex)) {
             for (auto&& sensor : dev.query_sensors()) {
-                // adjust InterPacketDelay option on D435e camera based on PacketSize, number of cameras and number of streams
+                // adjust InterPacketDelay option on D400e camera based on PacketSize, number of cameras and number of streams
                 // assumptions: 
-                //  - Two D435e cameras are streaming to single NIC on PC
+                //  - Two D400e cameras are streaming to single NIC on PC
                 //  - only depth and color streams are enabled on all cameras
                 //  - PacketSize is the same on all cameras
                 int numParallelStreams = 3; // (2 cameras * 2 streams) - 1
@@ -112,7 +114,7 @@ catch (const std::exception & e)
 
 
 
-// calculate optimal InterPacketDelay for D435e camera based on PacketSize and number of parallel streams
+// calculate optimal InterPacketDelay for D400e camera based on PacketSize and number of parallel streams
 float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize)
 {
     float interPacketDelay = 0;
