@@ -134,7 +134,7 @@ namespace librealsense {
             std::string get_ip_address();
             std::string get_subnet_mask();
 
-            enum rs2_format cs_device::get_rgb_format();
+            enum rs2_format get_rgb_format();
             bool is_infrared_supported();
             bool is_temperature_supported();
 
