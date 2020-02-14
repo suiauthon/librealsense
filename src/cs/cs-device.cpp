@@ -479,13 +479,13 @@ namespace librealsense
 
     double cs_depth::get_device_time_ms()
     {
-        if (_cs_device)
+        /*if (_cs_device)
             return _cs_device->get_device_timestamp_ms();
         else
-            throw std::runtime_error("cs_depth not initialized");
+            throw std::runtime_error("cs_depth not initialized");*/
 
         // TODO: Refactor the following query with an extension.
-        /*if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
+        if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
         {
             throw not_implemented_exception("device time not supported for backend.");
         }
@@ -503,18 +503,18 @@ namespace librealsense
         }
         uint32_t dt = *(uint32_t*)res.data();
         double ts = dt * TIMESTAMP_USEC_TO_MSEC;
-        return ts;*/
+        return ts;
     }
 
     double cs_color::get_device_time_ms()
     {
-        if (_cs_device)
+        /*if (_cs_device)
             return _cs_device->get_device_timestamp_ms();
         else 
-            throw std::runtime_error("cs_color not initialized");
+            throw std::runtime_error("cs_color not initialized");*/
 
         // TODO: Refactor the following query with an extension.
-        /*if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
+        if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
         {
             throw not_implemented_exception("device time not supported for backend.");
         }
@@ -532,7 +532,10 @@ namespace librealsense
         }
         uint32_t dt = *(uint32_t*)res.data();
         double ts = dt * TIMESTAMP_USEC_TO_MSEC;
-        return ts;*/
+        std::stringstream ss;
+        ss << "device timestamp ms hwm " << std::fixed << ts << "\n";
+        OutputDebugStringA(ss.str().c_str());
+        return ts;
     }
 
     std::vector<uint8_t> cs_color::get_raw_calibration_table(ds::calibration_table_id table_id) const

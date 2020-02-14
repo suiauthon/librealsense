@@ -1527,6 +1527,10 @@ namespace librealsense {
             if (!_connected_device->GetIntegerNodeValue("GevTimestampValue", timestamp))
                 throw io_exception("Unable to read GevTimestampValue");
 
+            std::stringstream ss;
+            ss << "device timestamp ms " << std::fixed << (timestamp * _timestamp_to_ms_factor) << "\n";
+            OutputDebugStringA(ss.str().c_str());
+
             return timestamp * _timestamp_to_ms_factor;
         }
 
@@ -1553,7 +1557,6 @@ namespace librealsense {
         {
             smcs::IImageInfo image_info_ = nullptr;
 
-            double timestamp;
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
                 if (_connected_device->WaitForImage(1, channel))
                 {
@@ -1566,14 +1569,20 @@ namespace librealsense {
                             return;
                         }
 
-                        timestamp = image_info_->GetCameraTimestamp();
+                        double timestamp = image_info_->GetCameraTimestamp() * _timestamp_to_ms_factor * 1000;
+
+                        std::stringstream ss;
+                        ss << std::fixed << "image timestamp " << timestamp << "\n";
+                        OutputDebugStringA(ss.str().c_str());
+
                         _metadata = {};
                         _metadata.header.timestamp = timestamp;
 
                         auto im = image_info_->GetRawData();
                         auto image_size = image_info_->GetRawDataSize();
 
-                        //frame_object fo{ image_size, sizeof(metadata_intel_basic), im, &_metadata, timestamp };
+                        frame_object fo{ image_size, sizeof(metadata_intel_basic), im, &_metadata, timestamp };
+                        //frame_object fo{ image_size, 0, im, NULL, timestamp };
 
                         {
                             std::lock_guard<std::mutex> lock(_stream_lock);

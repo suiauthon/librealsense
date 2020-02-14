@@ -123,7 +123,14 @@ namespace librealsense {
         if (mode.pf->fourcc == 0x5a313620) // Z16
             pin_index = 1;
 
-        return ++counter[pin_index];
+        //return ++counter[pin_index];
+        auto res = ++counter[pin_index];
+
+        std::stringstream ss;
+        ss << res << "\n";
+        OutputDebugStringA(ss.str().c_str());
+
+        return res;
     }
 
     rs2_timestamp_domain cs_timestamp_reader::get_frame_timestamp_domain(const request_mapping &mode,
