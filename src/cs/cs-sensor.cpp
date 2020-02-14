@@ -1660,7 +1660,7 @@ namespace librealsense {
                 _cs_device_num_objects_SN.insert({serialNum, 1});
             } 
             else {
-                it->second = it->second++;
+                it->second++;
             }
 
             return result;
@@ -1675,7 +1675,7 @@ namespace librealsense {
                 result = false;
             }
             else {
-                it->second = it->second--;
+                it->second--;
             }
 
             return result;
