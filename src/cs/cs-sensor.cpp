@@ -448,9 +448,9 @@ namespace librealsense {
         }
     }
 
-	void cs_sensor::set_inter_cam_sync_mode(float value)
+	void cs_sensor::set_inter_cam_sync_mode(float value, cs_stream stream)
 	{
-        _device->set_trigger_mode(value);
+        _device->set_trigger_mode(value, stream);
 	}
 
     namespace platform
@@ -1606,39 +1606,62 @@ namespace librealsense {
                 throw wrong_api_call_sequence_exception("Failed to set framerate!");
         }
 
-		void cs_device::set_trigger_mode(float mode)
+		void cs_device::set_trigger_mode(float mode, cs_stream stream)
 		{
 			std::string sourceSelectorValue;
 			_connected_device->GetStringNodeValue("SourceControlSelector", sourceSelectorValue);
-			_connected_device->SetIntegerNodeValue("SourceControlSelector", CS_STREAM_DEPTH);
+			_connected_device->SetIntegerNodeValue("SourceControlSelector", stream);
 
 			auto sync_mode = static_cast<int>(mode);
 
-			if (sync_mode == CS_INTERCAM_SYNC_SLAVE) {
-				//select line 1 : digital output
-				_connected_device->SetStringNodeValue("LineSelector", "Line1");
-				//set UserOutput1 as digital output
-				_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
-				// slave mode : trigger is on
-				_connected_device->SetStringNodeValue("TriggerMode", "On");
+			if (stream != CS_STREAM_COLOR) {
+				if (sync_mode == CS_INTERCAM_SYNC_SLAVE) {
 
+					_connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
+					//select line 1 : digital output
+					_connected_device->SetStringNodeValue("LineSelector", "Line1");
+					//set UserOutput1 as digital output
+					_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+					// slave mode : trigger is on
+					_connected_device->SetStringNodeValue("TriggerMode", "On");
+
+				}
+				else if (sync_mode == CS_INTERCAM_SYNC_MASTER) {
+					_connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
+					//select line 1 : digital output
+					_connected_device->SetStringNodeValue("LineSelector", "Line1");
+					//set VSync as digital output
+					_connected_device->SetStringNodeValue("LineSource", "VSync");
+					// master mode : trigger is off
+					_connected_device->SetStringNodeValue("TriggerMode", "Off");
+				}
+				else if (sync_mode == CS_INTERCAM_SYNC_EXTERNAL) {
+					//select line 1 : digital output
+					_connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
+					// master mode : trigger is off
+					_connected_device->SetStringNodeValue("TriggerMode", "On");
+				}
+				//default mode - no sync signal on output
+				else {
+					_connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
+					//select line 1 : digital output
+					_connected_device->SetStringNodeValue("LineSelector", "Line1");
+					//set UserOutput1 as digital output
+					_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+					// master mode : trigger is off
+					_connected_device->SetStringNodeValue("TriggerMode", "Off");
+				}
 			}
-			else if (sync_mode == CS_INTERCAM_SYNC_MASTER) {
-				//select line 1 : digital output
-				_connected_device->SetStringNodeValue("LineSelector", "Line1");
-				//set VSync as digital output
-				_connected_device->SetStringNodeValue("LineSource", "VSync");
-				// master mode : trigger is off
-				_connected_device->SetStringNodeValue("TriggerMode", "Off");
-			}
-			//default mode - no sync signal on output
 			else {
-				//select line 1 : digital output
-				_connected_device->SetStringNodeValue("LineSelector", "Line1");
-				//set UserOutput1 as digital output
-				_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
-				// master mode : trigger is off
-				_connected_device->SetStringNodeValue("TriggerMode", "Off");
+				if (sync_mode == CS_INTERCAM_SYNC_EXTERNAL_COLOR) {
+					//select line 1 : digital output
+					_connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
+					_connected_device->SetStringNodeValue("TriggerMode", "On");
+				}
+				else {
+					_connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
+					_connected_device->SetStringNodeValue("TriggerMode", "Off");
+				}
 			}
 
 			_connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
