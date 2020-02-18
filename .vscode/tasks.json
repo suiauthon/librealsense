@@ -6,7 +6,7 @@
         {
             "type": "shell",
             "label": "build librs debug",
-            "command": "./debug_build.sh",
+            "command": "./generate_deb_package.sh Debug",
             "options": {
                 "cwd": "${workspaceFolder}"
             },

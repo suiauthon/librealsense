@@ -1,5 +1,16 @@
 #!/bin/bash -e 
 
+set_build_type() {
+
+    case "$1" in
+        "Debug" | "Release")
+            TYPE="$1"
+            ;;
+        *)
+            TYPE="Release"
+    esac
+}
+
 set_default_variables() {
 
     if [[ -z $CAMERA_SUITE_PATH  ]]; then
@@ -29,12 +40,15 @@ build_platform () {
             export CAMERA_SUITE_TARGET_SYSTEM="$PLATFORM" 
             TOOLCHAIN="$CAMERA_SUITE_PATH/CS_SDK/toolchains/Linux64_ARM_HF_Toolchain.cmake"
         fi
-        cmake ../../ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCPACK_SYSTEM_NAME=$PLATFORM
+        cmake ../../ -DCMAKE_BUILD_TYPE="$TYPE" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCPACK_SYSTEM_NAME=$PLATFORM
         make -j$(nproc)
-        cpack -G DEB 
+        if [[ "$TYPE" = "Release" ]]; then
+            cpack -G DEB 
+        fi
     )
 }
 
+set_build_type "$1"
 set_default_variables
-#build_platform Linux64_x64
-build_platform Linux64_ARM
+build_platform Linux64_x64
+#build_platform Linux64_ARM
