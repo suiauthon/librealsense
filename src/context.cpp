@@ -120,7 +120,7 @@ namespace librealsense
                 node->SetIntegerNodeValue(CS_PACKET_RESEND_GROUP_MAX_SIZE);
             }
             // set Heartbeat time
-            smcs_api->SetHeartbeatTime(CS_HEARTBEAT_TIME);    // 100sec heartbeat time
+            smcs_api->SetHeartbeatTime(CS_HEARTBEAT_TIME);
         }
 
         switch(type)
