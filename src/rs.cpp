@@ -1262,13 +1262,13 @@ HANDLE_EXCEPTIONS_AND_RETURN(, ctx)
 
 void rs2_d400e_set_heartbeat_time(double time, rs2_error** error) BEGIN_API_CALL
 {
-    librealsense::d400e::set_heartbeat_time(time);
+    librealsense::d400e::heartbeat_time::get_instance().set(time);
 }
 HANDLE_EXCEPTIONS_AND_RETURN(, time)
 
 double rs2_d400e_get_heartbeat_time(rs2_error** error) BEGIN_API_CALL
 {
-    return librealsense::d400e::get_heartbeat_time();
+    return librealsense::d400e::heartbeat_time::get_instance().get();
 }
 NOARGS_HANDLE_EXCEPTIONS_AND_RETURN(0)
 

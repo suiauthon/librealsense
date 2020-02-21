@@ -8,24 +8,25 @@ namespace librealsense
 {
     namespace d400e
     {
-        bool heartbeat_initialized = false;
-
-        void initialize_heartbeat_time()
+        heartbeat_time::heartbeat_time()
         {
-            if (!heartbeat_initialized)
-                set_heartbeat_time(3);
+            constexpr seconds DEFAULT_HEARTBEAT_TIME = 3;
+            set(DEFAULT_HEARTBEAT_TIME);
         }
 
-        void set_heartbeat_time(double time)
+        heartbeat_time& heartbeat_time::get_instance()
+        {
+            static heartbeat_time instance;
+            return instance;
+        }
+
+        void heartbeat_time::set(seconds time)
         {
             smcs::GetCameraAPI()->SetHeartbeatTime(time);
-            heartbeat_initialized = true;
         }
 
-        double get_heartbeat_time()
+        seconds heartbeat_time::get()
         {
-            if (!heartbeat_initialized)
-                initialize_heartbeat_time();
             return smcs::GetCameraAPI()->GetHeartbeatTime();
         }
     }

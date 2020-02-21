@@ -120,8 +120,8 @@ namespace librealsense
             if (node != nullptr) {
                 node->SetIntegerNodeValue(CS_PACKET_RESEND_GROUP_MAX_SIZE);
             }
-            // set Heartbeat time
-            d400e::initialize_heartbeat_time();
+            //heartbeat time set to default on the first call to get_instance()
+            d400e::heartbeat_time::get_instance();
         }
 
         switch(type)
