@@ -32,8 +32,15 @@ namespace librealsense {
         CS_INTERCAM_SYNC_DEFAULT,
         CS_INTERCAM_SYNC_MASTER,
         CS_INTERCAM_SYNC_SLAVE,
+        CS_INTERCAM_SYNC_EXTERNAL,
         CS_INTERCAM_SYNC_MAX
     } cs_inter_cam_mode;
+
+    typedef enum cs_inter_cam_sync_mode_color {
+        CS_INTERCAM_SYNC_DEFAULT_COLOR,
+        CS_INTERCAM_SYNC_EXTERNAL_COLOR,
+        CS_INTERCAM_SYNC_MAX_COLOR
+    } cs_inter_cam_mode_color;
 
     class cs_firmware_version
     {
@@ -138,7 +145,7 @@ namespace librealsense {
             bool is_infrared_supported();
             bool is_temperature_supported();
 
-			void set_trigger_mode(float mode);
+            void set_trigger_mode(float mode, cs_stream stream);
 
         protected:
             void capture_loop(cs_stream stream, UINT32 channel);
@@ -271,7 +278,7 @@ namespace librealsense {
 
         void try_register_pu(rs2_option id);
 
-		void set_inter_cam_sync_mode(float value);
+        void set_inter_cam_sync_mode(float value, cs_stream stream);
 
     private:
         void acquire_power();
