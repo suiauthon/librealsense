@@ -10,6 +10,10 @@ namespace rs2
 {
     namespace d400e
     {
+        /**
+        * set heartbeat time for d400e devices
+        * \param[in] time     heartbeat time in seconds
+        */
         void set_heartbeat_time(double time)
         {
             rs2_error* e = nullptr;
@@ -17,6 +21,10 @@ namespace rs2
             rs2::error::handle(e);
         }
 
+        /**
+        * retrieve heartbeat time for d400e devices
+        * \return             heartbeat time in seconds
+        */
         double get_heartbeat_time()
         {
             rs2_error* e = nullptr;
