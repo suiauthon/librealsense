@@ -17,7 +17,7 @@ namespace rs2
             rs2::error::handle(e);
         }
 
-        double get_heartbeat_timeout()
+        double get_heartbeat_time()
         {
             rs2_error* e = nullptr;
             auto time = rs2_d400e_get_heartbeat_time(&e);

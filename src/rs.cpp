@@ -5,6 +5,7 @@
 
 #include "api.h"
 #include "context.h"
+#include "d400e.h"
 #include "device.h"
 #include "algo.h"
 #include "core/debug.h"
@@ -1263,13 +1264,13 @@ void rs2_d400e_set_heartbeat_time(double time, rs2_error** error) BEGIN_API_CALL
 {
     librealsense::d400e::set_heartbeat_time(time);
 }
-HANDLE_EXCEPTIONS_AND_RETURN(,)
+HANDLE_EXCEPTIONS_AND_RETURN(, time)
 
 double rs2_d400e_get_heartbeat_time(rs2_error** error) BEGIN_API_CALL
 {
-    return librealsense2::d400e::get_heartbeat_time();
+    return librealsense::d400e::get_heartbeat_time();
 }
-HANDLE_EXCEPTIONS_AND_RETURN(0,)
+NOARGS_HANDLE_EXCEPTIONS_AND_RETURN(0,)
 
 const char* rs2_playback_device_get_file_path(const rs2_device* device, rs2_error** error) BEGIN_API_CALL
 {
