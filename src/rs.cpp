@@ -1270,7 +1270,7 @@ double rs2_d400e_get_heartbeat_time(rs2_error** error) BEGIN_API_CALL
 {
     return librealsense::d400e::get_heartbeat_time();
 }
-NOARGS_HANDLE_EXCEPTIONS_AND_RETURN(0,)
+NOARGS_HANDLE_EXCEPTIONS_AND_RETURN(0)
 
 const char* rs2_playback_device_get_file_path(const rs2_device* device, rs2_error** error) BEGIN_API_CALL
 {
