@@ -36,5 +36,5 @@ build_platform () {
 }
 
 set_default_variables
-#build_platform Linux64_x64
-build_platform Linux64_ARM
+build_platform Linux64_x64
+#build_platform Linux64_ARM
