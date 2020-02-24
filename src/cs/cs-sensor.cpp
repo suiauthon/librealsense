@@ -1638,6 +1638,10 @@ namespace librealsense {
 				else if (sync_mode == CS_INTERCAM_SYNC_EXTERNAL) {
 					//select line 1 : digital output
 					_connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
+                    //select line 1 : digital output
+                    _connected_device->SetStringNodeValue("LineSelector", "Line1");
+                    //set VSync as digital output
+                    _connected_device->SetStringNodeValue("LineSource", "VSync");
 					// master mode : trigger is off
 					_connected_device->SetStringNodeValue("TriggerMode", "On");
 				}
