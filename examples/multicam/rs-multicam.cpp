@@ -9,6 +9,7 @@
 #include <vector>
 #include <regex>
 #include <librealsense2/hpp/rs_frame.hpp>
+#include <librealsense2/hpp/rs_d400e.hpp>
 
 
 

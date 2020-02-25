@@ -15,6 +15,8 @@ CD build\%TARGET_SYSTEM%
 
 cmake -G "Visual Studio 14 2015 Win64" -DCMAKE_BUILD_TYPE=Release -DCPACK_SYSTEM_NAME=Win64_x64 ../../
 
+exit
+
 CALL "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86
 
 msbuild PACKAGE.vcxproj /t:Build /p:Configuration=Release
