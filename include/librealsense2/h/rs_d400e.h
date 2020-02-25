@@ -19,7 +19,7 @@ extern "C" {
 /**
 * Sets heartbeat time in seconds for D400e series devices.
 * Heartbeat time is used for device disconnect detection.
-* \param       time      New application heartbeat time in seconds for all D400e series devices. Heartbeat time on devices is set to 4x application heartbeat time
+* \param       time      New heartbeat time in seconds for all D400e devices. Heartbeat timeout is set to 4x heartbeat time
 * \param[out]  error     If non-null, receives any error that occurs during this call, otherwise, errors are ignored
 */
 void rs2_d400e_set_heartbeat_time(double time, rs2_error** error);
@@ -28,7 +28,7 @@ void rs2_d400e_set_heartbeat_time(double time, rs2_error** error);
 * Acquires heartbeat time in seconds for D400e series devices.
 * Heartbeat time is used for device disconnect detection.
 * \param[out]  error     If non-null, receives any error that occurs during this call, otherwise, errors are ignored
-* @return                Current application heartbeat time in seconds for all D400e devices. Heartbeat time on devices is 4x application heartbeat time
+* @return                Current heartbeat time in seconds for all D400e devices. Heartbeat timeout is 4x heartbeat time
 */
 double rs2_d400e_get_heartbeat_time(rs2_error** error);
 
