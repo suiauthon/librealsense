@@ -146,6 +146,7 @@ namespace librealsense {
             bool is_temperature_supported();
 
             void set_trigger_mode(float mode, cs_stream stream);
+            float get_trigger_mode(cs_stream stream);
 
         protected:
             void capture_loop(cs_stream stream, UINT32 channel);
@@ -278,7 +279,8 @@ namespace librealsense {
 
         void try_register_pu(rs2_option id);
 
-        void set_inter_cam_sync_mode(float value, cs_stream stream);
+        void set_inter_cam_sync_mode(float value);
+        float get_inter_cam_sync_mode();
 
     private:
         void acquire_power();

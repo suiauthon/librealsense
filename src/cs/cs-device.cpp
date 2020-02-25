@@ -115,23 +115,13 @@ namespace librealsense
 
 	void cs_external_sync_mode::set(float value)
 	{
-		//command cmd(ds::SET_CAM_SYNC);
-		//cmd.param1 = static_cast<int>(value);
-
-		//_hwm.send(cmd);
-		_depth.set_inter_cam_sync_mode(value, CS_STREAM_DEPTH);
-
+		_depth.set_inter_cam_sync_mode(value);
 		_record_action(*this);
 	}
 
 	float cs_external_sync_mode::query() const
 	{
-		command cmd(ds::GET_CAM_SYNC);
-		auto res = _hwm.send(cmd);
-		if (res.empty())
-			throw invalid_value_exception("external_sync_mode::query result is empty!");
-
-		return (res.front());
+        return _depth.get_inter_cam_sync_mode();
 	}
 
 	option_range cs_external_sync_mode::get_range() const
@@ -140,7 +130,7 @@ namespace librealsense
 	}
 
 	cs_external_sync_mode_color::cs_external_sync_mode_color(cs_color_sensor& color)
-		: _color(color), _value(CS_INTERCAM_SYNC_DEFAULT_COLOR)
+		: _color(color)
 	{
 		_range = [this]()
 		{
@@ -152,25 +142,13 @@ namespace librealsense
 
 	void cs_external_sync_mode_color::set(float value)
 	{
-		//command cmd(ds::SET_CAM_SYNC);
-		//cmd.param1 = static_cast<int>(value);
-
-		//_hwm.send(cmd);
-		_color.set_inter_cam_sync_mode(value, CS_STREAM_COLOR);
-		_value = value;
-
+		_color.set_inter_cam_sync_mode(value);
 		_record_action(*this);
 	}
 
 	float cs_external_sync_mode_color::query() const
 	{
-		/*command cmd(ds::GET_CAM_SYNC);
-		auto res = _hwm.send(cmd);
-		if (res.empty())
-			throw invalid_value_exception("external_sync_mode::query result is empty!");*/
-		
-		//return (res.front());
-		return _value;
+		return _color.get_inter_cam_sync_mode();
 	}
 
 	option_range cs_external_sync_mode_color::get_range() const

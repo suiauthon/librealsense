@@ -313,8 +313,6 @@ namespace librealsense
 		std::function<void(const option &)> _record_action = [](const option&) {};
 		lazy<option_range> _range;
 		cs_color_sensor& _color;
-	protected:
-		float _value;
 	};
 
 }

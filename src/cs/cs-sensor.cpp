@@ -448,10 +448,15 @@ namespace librealsense {
         }
     }
 
-	void cs_sensor::set_inter_cam_sync_mode(float value, cs_stream stream)
+	void cs_sensor::set_inter_cam_sync_mode(float value)
 	{
-        _device->set_trigger_mode(value, stream);
+        _device->set_trigger_mode(value, _cs_stream);
 	}
+
+    float cs_sensor::get_inter_cam_sync_mode()
+    {
+        return _device->get_trigger_mode(_cs_stream);
+    }
 
     namespace platform
     {
@@ -1608,68 +1613,76 @@ namespace librealsense {
 
 		void cs_device::set_trigger_mode(float mode, cs_stream stream)
 		{
-			std::string sourceSelectorValue;
-			_connected_device->GetStringNodeValue("SourceControlSelector", sourceSelectorValue);
-			_connected_device->SetIntegerNodeValue("SourceControlSelector", stream);
+            auto sync_mode = static_cast<int>(mode);
 
-			auto sync_mode = static_cast<int>(mode);
+            select_source(stream);			
 
-			if (stream != CS_STREAM_COLOR) {
-				if (sync_mode == CS_INTERCAM_SYNC_SLAVE) {
-
-					_connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-					//select line 1 : digital output
+            if (stream == CS_STREAM_COLOR) {
+                switch (sync_mode) {
+                case CS_INTERCAM_SYNC_EXTERNAL_COLOR:
+                    _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
+                    _connected_device->SetStringNodeValue("TriggerMode", "On");
+                    break;
+                default:
+                    _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
+                    _connected_device->SetStringNodeValue("TriggerMode", "Off");
+                }
+            } else {
+                switch (sync_mode) {
+                case CS_INTERCAM_SYNC_SLAVE:
+                    _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
 					_connected_device->SetStringNodeValue("LineSelector", "Line1");
-					//set UserOutput1 as digital output
 					_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
-					// slave mode : trigger is on
 					_connected_device->SetStringNodeValue("TriggerMode", "On");
-
-				}
-				else if (sync_mode == CS_INTERCAM_SYNC_MASTER) {
-					_connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-					//select line 1 : digital output
-					_connected_device->SetStringNodeValue("LineSelector", "Line1");
-					//set VSync as digital output
-					_connected_device->SetStringNodeValue("LineSource", "VSync");
-					// master mode : trigger is off
-					_connected_device->SetStringNodeValue("TriggerMode", "Off");
-				}
-				else if (sync_mode == CS_INTERCAM_SYNC_EXTERNAL) {
-					//select line 1 : digital output
-					_connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
-                    //select line 1 : digital output
+                    break;
+                case CS_INTERCAM_SYNC_MASTER:
+                    _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
                     _connected_device->SetStringNodeValue("LineSelector", "Line1");
-                    //set VSync as digital output
                     _connected_device->SetStringNodeValue("LineSource", "VSync");
-					// master mode : trigger is off
-					_connected_device->SetStringNodeValue("TriggerMode", "On");
-				}
-				//default mode - no sync signal on output
-				else {
-					_connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-					//select line 1 : digital output
-					_connected_device->SetStringNodeValue("LineSelector", "Line1");
-					//set UserOutput1 as digital output
-					_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
-					// master mode : trigger is off
-					_connected_device->SetStringNodeValue("TriggerMode", "Off");
-				}
+                    _connected_device->SetStringNodeValue("TriggerMode", "Off");
+                    break;
+                case CS_INTERCAM_SYNC_EXTERNAL:
+                    _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
+                    _connected_device->SetStringNodeValue("LineSelector", "Line1");
+                    _connected_device->SetStringNodeValue("LineSource", "VSync");
+                    _connected_device->SetStringNodeValue("TriggerMode", "On");
+                    break;
+                default:
+                    _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
+                    _connected_device->SetStringNodeValue("LineSelector", "Line1");
+                    _connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+                    _connected_device->SetStringNodeValue("TriggerMode", "Off");
+                }
 			}
-			else {
-				if (sync_mode == CS_INTERCAM_SYNC_EXTERNAL_COLOR) {
-					//select line 1 : digital output
-					_connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
-					_connected_device->SetStringNodeValue("TriggerMode", "On");
-				}
-				else {
-					_connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-					_connected_device->SetStringNodeValue("TriggerMode", "Off");
-				}
-			}
-
-			_connected_device->SetStringNodeValue("SourceControlSelector", sourceSelectorValue);
 		}
+
+        float cs_device::get_trigger_mode(cs_stream stream)
+        {
+            select_source(stream);
+
+            std::string trigger_type, line_source, trigger_mode;
+            _connected_device->GetStringNodeValue("TriggerType", trigger_type);
+            _connected_device->SetStringNodeValue("LineSelector", "Line1");
+            _connected_device->GetStringNodeValue("LineSource", line_source);
+            _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
+
+            switch (stream) {
+            case CS_STREAM_COLOR:
+                if (trigger_type == "ExternalEvent" && trigger_mode == "On")
+                    return CS_INTERCAM_SYNC_EXTERNAL_COLOR;
+                else
+                    return CS_INTERCAM_SYNC_DEFAULT_COLOR;
+            default:
+                if (trigger_type == "MultiCam_Sync" && line_source == "UserOutput1" && trigger_mode == "On")
+                    return CS_INTERCAM_SYNC_SLAVE;
+                else if (trigger_type == "MultiCam_Sync" && line_source == "VSync" && trigger_mode == "Off")
+                    return CS_INTERCAM_SYNC_MASTER;
+                else if (trigger_type == "ExternalEvent" && line_source == "VSync" && trigger_mode == "On")
+                    return CS_INTERCAM_SYNC_EXTERNAL;
+                else
+                    return CS_INTERCAM_SYNC_DEFAULT;
+            }
+        }
 
         int cs_device::get_optimal_inter_packet_delay(int packetSize)
         {
