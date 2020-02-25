@@ -27,7 +27,7 @@ The `pybackend2` wrapper that is part of this package does not support the D400e
 Install required packages:
 ```
 sudo apt install gcc g++ cmake libglfw3-dev libgtk-3-dev git libssl-dev libusb-1.0-0-dev pkg-config python3 python3-dev
-``` 
+```
 
 Additional packages are required on Ubuntu 18:
 ```
@@ -53,7 +53,7 @@ cd build
 
 Generate Makefiles with cmake:
 ```
-cmake ../ -DBUILD_PYTHON_BINDINGS:bool=true -DPYTHON_EXECUTABLE=/usr/bin/python3
+cmake ../ -DBUILD_PYTHON_BINDINGS:bool=true -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=Release
 ```
 
 Build with make:
