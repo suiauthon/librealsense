@@ -169,10 +169,6 @@ namespace librealsense
 
         auto& color_ep = get_color_sensor();
 
-        /*roi_sensor_interface* roi_sensor;
-        if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_ep))
-            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor));*/
-
         roi_sensor_interface* roi_sensor;
         if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&color_ep))
             roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
