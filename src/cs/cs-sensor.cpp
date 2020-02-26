@@ -781,7 +781,8 @@ namespace librealsense {
                 }
                 case RS2_OPTION_PACKET_SIZE:
                 {
-                    //TODO explicit exception here if streaming
+                    if (_is_capturing[stream])
+                        throw wrong_api_call_sequence_exception("Unable to set Packet Size while streaming!");
 
                     auto enabled = value == 0;
 
