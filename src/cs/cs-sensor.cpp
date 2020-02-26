@@ -1114,8 +1114,6 @@ namespace librealsense {
 
         void cs_device::start_acquisition(cs_stream stream)
         {   
-            // disable trigger mode
-            _connected_device->SetStringNodeValue("TriggerMode", "Off");
             // set continuous acquisition mode
             _connected_device->SetStringNodeValue("AcquisitionMode", "Continuous");
 
@@ -1605,7 +1603,7 @@ namespace librealsense {
                 if (!_connected_device->SetStringNodeValue("Resolution", new_resolution))
                     throw wrong_api_call_sequence_exception("Failed to set resolution!");
 
-            // FrameRate does on exist on D435e with FW 1.3.4.0
+            // FrameRate does not exist on D435e with FW 1.3.4.0
             if (_connected_device->GetNode("FrameRate") != nullptr 
                 && !_connected_device->SetStringNodeValue("FrameRate", "FPS_" + std::to_string(profile.fps)))
                 throw wrong_api_call_sequence_exception("Failed to set framerate!");
