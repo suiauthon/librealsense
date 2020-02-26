@@ -11,6 +11,7 @@
 namespace librealsense {
 
     cs_firmware_version::cs_firmware_version(smcs::IDevice &device)
+        : _major(0), _minor(0), _patch(0), _build(0)
     {
         auto device_version = device->GetDeviceVersion();
         std::smatch match;
@@ -25,10 +26,7 @@ namespace librealsense {
             }
             catch (...)
             {
-                _major = 0;
-                _minor = 0;
-                _patch = 0;
-                _build = 0;
+
             }
         }
 
@@ -450,6 +448,9 @@ namespace librealsense {
 
 	void cs_sensor::set_inter_cam_sync_mode(float value)
 	{
+        if (_is_streaming)
+            throw wrong_api_call_sequence_exception("Unable to set Inter Cam Sync Mode while streaming!");
+
         _device->set_trigger_mode(value, _cs_stream);
 	}
 
@@ -726,7 +727,7 @@ namespace librealsense {
 
         control_range cs_device::get_pu_range(rs2_option option, cs_stream stream)
         {
-            // Auto controls range is trimed to {0,1} range
+            // Auto controls range is trimmed to {0,1} range
             if(option == RS2_OPTION_ENABLE_AUTO_EXPOSURE || option == RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE ||
                     option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED)
             {
@@ -778,17 +779,10 @@ namespace librealsense {
                     if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "On");
                     else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "Off");
                 }
-                /*case RS2_OPTION_EXPOSURE: return _connected_device->SetFloatNodeValue(get_cs_param_name(option, stream),
-                                                                                      (double)value);
-                case RS2_OPTION_GAMMA: return _connected_device->SetFloatNodeValue(get_cs_param_name(option),
-                                                                                   (double)value);
-                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
-                {
-                    if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option), "Continuous");
-                    else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option), "Off");
-                }*/
                 case RS2_OPTION_PACKET_SIZE:
                 {
+                    //TODO explicit exception here if streaming
+
                     auto enabled = value == 0;
 
                     auto node = _connected_device->GetStatisticsNode("DetectOptimalPacketSize");
@@ -873,9 +867,6 @@ namespace librealsense {
                 case RS2_OPTION_PACKET_SIZE: return std::string("GevSCPSPacketSize");
                 case RS2_OPTION_ASIC_TEMPERATURE: return std::string("IntelASIC");
                 case RS2_OPTION_PROJECTOR_TEMPERATURE: return std::string("DepthModule");
-                //case RS2_OPTION_EXPOSURE: return std::string("ExposureTime");
-                //case RS2_OPTION_GAMMA: return std::string("Gamma");
-                //case RS2_OPTION_ENABLE_AUTO_EXPOSURE: return std::string("ExposureAuto");
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -900,7 +891,6 @@ namespace librealsense {
                 case RS2_OPTION_GAIN:
                 case RS2_OPTION_HUE:
                 {
-                    //if (_connected_device->IsImplemented(get_cs_param_name(option, stream))
                     status = _connected_device->GetIntegerNodeMin(get_cs_param_name(option, stream), int_value);
                     value = static_cast<int32_t>(int_value);
                     return status;
@@ -909,18 +899,6 @@ namespace librealsense {
                     status = _connected_device->GetEnumNodeValuesList(get_cs_param_name(option, stream), node_value_list);
                     value = 0;
                     return status;
-                /*case RS2_OPTION_EXPOSURE:
-                {
-                    status = _connected_device->GetFloatNodeMin(get_cs_param_name(option, stream), double_value);
-                    value = static_cast<int32_t>(double_value);
-                    return status;
-                }
-                case RS2_OPTION_GAMMA:
-                {
-                    status = _connected_device->GetFloatNodeMin(get_cs_param_name(option), double_value);
-                    value = static_cast<int32_t>(double_value);
-                    return status;
-                }*/
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
