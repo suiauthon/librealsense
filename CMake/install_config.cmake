@@ -58,6 +58,7 @@ install(FILES
     ${PROJECT_SOURCE_DIR}/NOTICE
     ${PROJECT_SOURCE_DIR}/package.xml
     ${PROJECT_SOURCE_DIR}/readme.md
+    ${PROJECT_SOURCE_DIR}/d400e_api_extensions.md
     DESTINATION ${SOURCE_DEST}
 )
 

@@ -83,7 +83,7 @@ Same API calls are used to set both normal and extended options.
 
 C++
 
-```c++
+```cpp
 rs2::sensor sensor; //obtain rs2::sensor from rs2::device or rs2::context
 sensor.set_option(RS2_OPTION_INTER_PACKET_DELAY, 65.f);
 ```
