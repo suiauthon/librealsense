@@ -32,7 +32,8 @@ rs2_d400e_set_heartbeat_time(3.f, e);
 Python
 
 ```python
-#TODO
+heartbeat_time_s = rs.d400e.get_heartbeat_time()
+rs.d400e.set_heartbeat_time(3)
 ```
 
 ## Camera information
@@ -51,7 +52,7 @@ C++
 
 ```c++
 rs2::device device; //obtain rs2::device from rs2::context or rs2::pipeline_profile
-const char* device_info = device.get_info(RS2_CAMERA_INFO_IP_ADDRESS);
+const char* ip_address = device.get_info(RS2_CAMERA_INFO_IP_ADDRESS);
 ```
 
 C
@@ -59,14 +60,15 @@ C
 ```c
 rs2_device* dev; //obtain rs2_device* using rs2_create_device()
 rs2_error* e = 0;
-const char* device_info;
-device_info = rs2_get_device_info(device, RS2_CAMERA_INFO_IP_ADDRESS, e);
+const char* ip_address;
+ip_address = rs2_get_device_info(device, RS2_CAMERA_INFO_IP_ADDRESS, e);
 ```
 
 Python
 
 ```python
-#TODO
+#obtain device from rs.context() or rs.pipeline()
+ip_address = device.get_info(rs.camera_info.ip_address)
 ```
 
 ## Sensor Options
@@ -97,5 +99,6 @@ rs2_set_option(sensor, RS2_OPTION_INTER_PACKET_DELAY, 65.f, e);
 Python
 
 ```python
-#TODO
+#obtain sensor from device or rs.context()
+sensor.set_option(rs.option.inter_packet_delay, 65)
 ```
