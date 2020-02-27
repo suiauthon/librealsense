@@ -4,7 +4,7 @@ This readme file provides an overview of extensions to the librealsense2 API imp
 
 ## Heartbeat time
 
-Heartbeat mechanism is used to detect disconnect between the host and an D400e camera. Host sends the heartbeat command to the camera in regular intervals and the camera sends a response. If the camera does not respond in a certain interval, the host considers the camera disconnected. If the camera doest not receive a heartbeat command in the same interval, it considers the host disconnected. Length of the interval in which the host sends the heartbeat command is called heartbeat time. Length of the interval after which the host considers the camera disconnected and vice versa is called heartbeat timeout.
+Heartbeat mechanism is used to detect disconnect between the host and an D400e camera. Host sends the heartbeat command to the camera in regular intervals and the camera sends a response. If the camera does not respond in a certain interval, the host considers the camera disconnected. If the camera does not receive a heartbeat command in the same interval, it considers the host disconnected. Length of the interval in which the host sends the heartbeat command is called heartbeat time. Length of the interval after which the host considers the camera disconnected and vice versa is called heartbeat timeout.
 
 Heartbeat time in seconds can be acquired and set using the extended librealsense2 API. Heartbeat timeout is implemented as 4x heartbeat time. All D400e cameras connected to a single application have the same heartbeat time. Setting heartbeat time affects all connected D400e cameras.
 
