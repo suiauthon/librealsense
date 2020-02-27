@@ -4,16 +4,16 @@ This readme file provides an overview of extensions to the librealsense2 API imp
 
 ## Heartbeat time
 
-Heartbeat mechanism is used to detect disconnect between the host and the Ethernet camera. Host sends the heartbeat command to the camera in regular intervals and the camera sends a response. If the camera does not respond in a certain interval, the host considers the camera disconnected. If the camera doest not receive a heartbeat command in the same interval, it considers the host disconnected. Length of the interval in which the host sends the heartbeat command is called heartbeat time. Length of the interval after which the host considers the camera disconnected and vice versa is called heartbeat timeout.
+Heartbeat mechanism is used to detect disconnect between the host and an D400e camera. Host sends the heartbeat command to the camera in regular intervals and the camera sends a response. If the camera does not respond in a certain interval, the host considers the camera disconnected. If the camera doest not receive a heartbeat command in the same interval, it considers the host disconnected. Length of the interval in which the host sends the heartbeat command is called heartbeat time. Length of the interval after which the host considers the camera disconnected and vice versa is called heartbeat timeout.
 
 Heartbeat time in seconds can be acquired and set using the extended librealsense2 API. Heartbeat timeout is implemented as 4x heartbeat time. All D400e cameras connected to a single application have the same heartbeat time. Setting heartbeat time affects all connected D400e cameras.
 
 C++
 
-```c++
+```cpp
 #include <librealsense2/rs.hpp>
 ```
-```c++
+```cpp
 float heartbeat_time_s = rs2::d400e::get_heartbeat_time();
 rs2::d400e::set_heartbeat_time(3.f);
 ```
@@ -51,7 +51,7 @@ C++
 
 ```c++
 rs2::device device; //obtain rs2::device from rs2::context or rs2::pipeline_profile
-const char* device_info = device.get_info(RS2_CAMERA_INFO_DEVICE_VERSION);
+const char* device_info = device.get_info(RS2_CAMERA_INFO_IP_ADDRESS);
 ```
 
 C
@@ -60,7 +60,7 @@ C
 rs2_device* dev; //obtain rs2_device* using rs2_create_device()
 rs2_error* e = 0;
 const char* device_info;
-device_info = rs2_get_device_info(device, RS2_CAMERA_INFO_DEVICE_VERSION, e);
+device_info = rs2_get_device_info(device, RS2_CAMERA_INFO_IP_ADDRESS, e);
 ```
 
 Python
@@ -73,9 +73,9 @@ Python
 
 Available sensor options in the librealsense2 API are listed in the `rs2_option` enumeration available in the `librealsense2/h/rs_option.h` header file. This enumeration was extended to provide options specific to D400e cameras.
 
-The `RS2_OPTION_INTER_PACKET_DELAY` enumerator represents the delay in microseconds between packets that the camera sends to the host. The library automatically detects optimal value for this option on initialization.
+The `RS2_OPTION_INTER_PACKET_DELAY` enumerator represents the delay in microseconds between stream packets that the camera sends to the host. The library automatically detects optimal value for this option on initialization.
 
-The `RS2_OPTION_PACKET_SIZE` enumerator represents the size of Ethernet packets in bytes that the camera uses to stream images. The library automatically detects optimal value for this option on initialization. This option cannot be set while the sensor is streaming.
+The `RS2_OPTION_PACKET_SIZE` enumerator represents the size of stream packets in bytes that the camera uses to stream images. The library automatically detects optimal value for this option on initialization. This option cannot be set while the sensor is streaming.
 
 Same API calls are used to set both normal and extended options.
 
