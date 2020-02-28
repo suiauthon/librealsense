@@ -274,7 +274,7 @@ namespace librealsense
 		virtual void set(float value) override;
 		virtual float query() const override;
 		virtual option_range get_range() const override;
-		virtual bool is_enabled() const override { return true; }
+		virtual bool is_enabled() const override { return !_depth.is_streaming(); }
 
 		const char* get_description() const override
 		{
@@ -299,7 +299,7 @@ namespace librealsense
 		virtual void set(float value) override;
 		virtual float query() const override;
 		virtual option_range get_range() const override;
-		virtual bool is_enabled() const override { return true; }
+		virtual bool is_enabled() const override { return !_color.is_streaming(); }
 
 		const char* get_description() const override
 		{
