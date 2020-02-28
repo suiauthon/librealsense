@@ -4,9 +4,9 @@ services:
         build: .
         volumes: 
         - .:/realsense
-    realsense-arm:
-        build: 
+    realsense_arm64:
+        build:
             context: .
-            dockerfile: DockerfileArm
+            dockerfile: DockerfileArm64
         volumes:
         - .:/realsense
