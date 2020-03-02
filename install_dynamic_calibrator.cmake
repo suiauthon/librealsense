@@ -2,7 +2,7 @@ if (UNIX)
     set(DYNAMIC_CALIBRATOR_DIR /opt/Projects/RS-D4-ETH/Software/RS-CalibrationToolAPI/linux/usr)
     install(PROGRAMS
         ${DYNAMIC_CALIBRATOR_DIR}/bin/DynamicCalibrator
-        DESTINATION ${CMAKE_INSTALL_BINDIR}    
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
     install(FILES
         ${DYNAMIC_CALIBRATOR_DIR}/lib/libDSDynamicCalibrationAPI.so

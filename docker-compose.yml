@@ -2,8 +2,9 @@ version: '3'
 services:
     realsense:
         build: .
-        volumes: 
+        volumes:
         - .:/realsense
+        - {CAMERA_SUITE_PACKAGE_PATH}:/camerasuite_package
     realsense_arm64:
         build:
             context: .
