@@ -19,6 +19,8 @@ services:
         environment:
             DOCKER_BUILD: 1
             CAMERA_SUITE_PACKAGE_PATH: /camerasuite_package
+            ROS_WRAPPER_PATH: /ros_wrapper
         volumes:
         - .:/realsense
         - ${CAMERA_SUITE_PACKAGE_PATH}:/camerasuite_package
+        - ${ROS_WRAPPER_PATH}:/ros_wrapper

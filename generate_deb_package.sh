@@ -27,10 +27,11 @@ build_platform () {
         mkdir -p build/$PLATFORM
         cd build/$PLATFORM
         if [[ "$PLATFORM" = "Linux64_ARM" ]]; then
-            export CAMERA_SUITE_TARGET_SYSTEM="$PLATFORM" 
+            export CAMERA_SUITE_TARGET_SYSTEM="$PLATFORM"
             TOOLCHAIN="Linux64_ARM_HF_Toolchain.cmake"
+            CMAKE_FLAGS="-DINSTALL_DYNAMIC_CALIBRATOR=OFF"
         fi
-        cmake ../../ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCPACK_SYSTEM_NAME=$PLATFORM
+        cmake ../../ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCPACK_SYSTEM_NAME=$PLATFORM $CMAKE_FLAGS
         make -j$(nproc)
         cpack -G DEB
     )
