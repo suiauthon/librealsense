@@ -2,12 +2,23 @@ version: '3'
 services:
     realsense:
         build: .
+        environment:
+            DOCKER_BUILD: 1
+            CAMERA_SUITE_PACKAGE_PATH: /camerasuite_package
+            DYNAMIC_CALIBRATOR_PATH: /dynamic_calibrator
+            ROS_WRAPPER_PATH: /ros_wrapper
         volumes:
         - .:/realsense
-        - {CAMERA_SUITE_PACKAGE_PATH}:/camerasuite_package
+        - ${CAMERA_SUITE_PACKAGE_PATH}:/camerasuite_package
+        - ${DYNAMIC_CALIBRATOR_PATH}:/dynamic_calibrator
+        - ${ROS_WRAPPER_PATH}:/ros_wrapper
     realsense_arm64:
         build:
             context: .
             dockerfile: DockerfileArm64
+        environment:
+            DOCKER_BUILD: 1
+            CAMERA_SUITE_PACKAGE_PATH: /camerasuite_package
         volumes:
         - .:/realsense
+        - ${CAMERA_SUITE_PACKAGE_PATH}:/camerasuite_package

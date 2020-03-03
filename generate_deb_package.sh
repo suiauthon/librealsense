@@ -2,12 +2,12 @@
 
 set_build_environment() {
 
-    if [[ -z $CAMERA_SUITE_PACKAGE_PATH ]]; then
+    if [[ -z $DOCKER_BUILD ]]; then
         export CAMERA_SUITE_PATH=/opt/Projects/CameraSuite
         export CAMERA_SUITE_PACKAGE=/opt/Projects/CameraSuite/CS_SDK/cmake_packages
         export LD_LIBRARY_PATH=/media/L/GenICam/V3_0_2/bin/$PLATFORM
     else
-        DEBIAN_FRONTENT=noninteractive apt-get install --assume-yes ./"$CAMERA_SUITE_PACKAGE_PATH"/FRAMOS_CameraSuite_*-Linux64_x64.deb
+        DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes /camerasuite_package/FRAMOS_CameraSuite_*-Linux64_x64.deb
         source /etc/profile.d/camerasuite.sh
     fi
 }
@@ -19,7 +19,7 @@ build_platform () {
             PLATFORM="$1"
             ;;
         *)
-            echo "Attempting to build unsupported platform $1" 
+            echo "Attempting to build unsupported platform $1"
             exit
     esac
 
