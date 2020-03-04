@@ -328,7 +328,7 @@ namespace librealsense
 
         color_ep->register_option(RS2_OPTION_SOFTWARE_TRIGGER,
             std::make_shared<cs_software_trigger_option>(*color_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_DEPTH,
-                std::map<float, std::string>{ { 1.f, "Execute!" }}));
+                std::map<float, std::string>{ { 1.f, "Trigger" }}));
 
         return color_ep;
     }
