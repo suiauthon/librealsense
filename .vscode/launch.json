@@ -8,11 +8,20 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tools/realsense-viewer/realsense-viewer",
+            "program": "${workspaceFolder}/build/Linux64_x64/tools/realsense-viewer/realsense-viewer",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
+            "environment": [ 
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "/media/L/GenICam/V3_0_2/bin/Linux64_x64"
+                },
+                {
+                    "name": "CAMERA_SUITE_GENICAM_ROOT_V3_0",
+                    "value": "/media/L/GenICam/V3_0_2"
+                }
+            ],
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [

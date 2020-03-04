@@ -107,34 +107,51 @@ namespace librealsense
 	{
 		_range = [this]()
 		{
-			return option_range{ ds::inter_cam_sync_mode::INTERCAM_SYNC_DEFAULT,
-				ds::inter_cam_sync_mode::INTERCAM_SYNC_MAX - 1,
-				ds::inter_cam_sync_mode::INTERCAM_SYNC_DEFAULT, 1 };
+			return option_range{ cs_inter_cam_mode::CS_INTERCAM_SYNC_DEFAULT,
+				cs_inter_cam_mode::CS_INTERCAM_SYNC_MAX - 1,
+				cs_inter_cam_mode::CS_INTERCAM_SYNC_DEFAULT, 1 };
 		};
 	}
 
 	void cs_external_sync_mode::set(float value)
 	{
-		//command cmd(ds::SET_CAM_SYNC);
-		//cmd.param1 = static_cast<int>(value);
-
-		//_hwm.send(cmd);
 		_depth.set_inter_cam_sync_mode(value);
-
 		_record_action(*this);
 	}
 
 	float cs_external_sync_mode::query() const
 	{
-		command cmd(ds::GET_CAM_SYNC);
-		auto res = _hwm.send(cmd);
-		if (res.empty())
-			throw invalid_value_exception("external_sync_mode::query result is empty!");
-
-		return (res.front());
+        return _depth.get_inter_cam_sync_mode();
 	}
 
 	option_range cs_external_sync_mode::get_range() const
+	{
+		return *_range;
+	}
+
+	cs_external_sync_mode_color::cs_external_sync_mode_color(cs_color_sensor& color)
+		: _color(color)
+	{
+		_range = [this]()
+		{
+			return option_range{ cs_inter_cam_mode_color::CS_INTERCAM_SYNC_DEFAULT_COLOR,
+				cs_inter_cam_mode_color::CS_INTERCAM_SYNC_MAX_COLOR - 1,
+				cs_inter_cam_mode_color::CS_INTERCAM_SYNC_DEFAULT_COLOR, 1 };
+		};
+	}
+
+	void cs_external_sync_mode_color::set(float value)
+	{
+		_color.set_inter_cam_sync_mode(value);
+		_record_action(*this);
+	}
+
+	float cs_external_sync_mode_color::query() const
+	{
+		return _color.get_inter_cam_sync_mode();
+	}
+
+	option_range cs_external_sync_mode_color::get_range() const
 	{
 		return *_range;
 	}
@@ -151,10 +168,6 @@ namespace librealsense
         register_stream_to_extrinsic_group(*_color_stream, 0);
 
         auto& color_ep = get_color_sensor();
-
-        /*roi_sensor_interface* roi_sensor;
-        if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_ep))
-            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor));*/
 
         roi_sensor_interface* roi_sensor;
         if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&color_ep))
@@ -304,51 +317,12 @@ namespace librealsense
         auto packetSizeOption = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_COLOR);
         color_ep->register_option(RS2_OPTION_PACKET_SIZE, packetSizeOption);
 
+		auto color_sensor = As<cs_color_sensor, cs_sensor>(color_ep);
+		auto ext_sync_mode = std::make_shared<cs_external_sync_mode_color>(*color_sensor);
+		color_ep->register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
+
         return color_ep;
     }
-
-    //std::shared_ptr<cs_sensor> cs_mono::create_mono_device(std::shared_ptr<context> ctx,
-    //                                                         std::shared_ptr<platform::cs_device> cs_device)
-    //{
-    //    auto mono_ep = std::make_shared<cs_mono_sensor>(this, cs_device,
-    //                                                      std::unique_ptr<cs_timestamp_reader>(new cs_timestamp_reader(environment::get_instance().get_time_service())),
-    //                                                      ctx);
-
-    //    mono_ep->register_pixel_format(pf_raw8);
-
-    //    /*color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
-    //    color_ep->try_register_pu(RS2_OPTION_CONTRAST);
-    //    color_ep->try_register_pu(RS2_OPTION_HUE);
-    //    color_ep->try_register_pu(RS2_OPTION_SATURATION);
-    //    color_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
-    //    /*color_ep->try_register_pu(RS2_OPTION_GAMMA);
-
-    //    auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE);
-    //    auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
-    //    color_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
-    //    color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
-    //    color_ep->register_option(RS2_OPTION_EXPOSURE,
-    //                              std::make_shared<auto_disabling_control>(
-    //                                      exposure_option,
-    //                                      auto_exposure_option));*/
-
-    //    /*auto gain_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_GAIN);
-    //    color_ep->register_option(RS2_OPTION_GAIN,
-    //                              std::make_shared<auto_disabling_control>(
-    //                                      gain_option,
-    //                                      auto_exposure_option));
-
-    //    auto white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE);
-    //    auto auto_white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
-    //    color_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
-    //    color_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
-    //    color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
-    //                              std::make_shared<auto_disabling_control>(
-    //                                      white_balance_option,
-    //                                      auto_white_balance_option));*/
-
-    //    return mono_ep;
-    //}
 
     std::shared_ptr<cs_sensor> cs_depth::create_depth_device(std::shared_ptr<context> ctx,
                                                              std::shared_ptr<platform::cs_device> cs_device)
@@ -363,12 +337,6 @@ namespace librealsense
                                                           ctx);
 
         depth_ep->try_register_pu(RS2_OPTION_GAIN);
-        /*depth_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
-        depth_ep->try_register_pu(RS2_OPTION_CONTRAST);
-        depth_ep->try_register_pu(RS2_OPTION_HUE);
-        depth_ep->try_register_pu(RS2_OPTION_SATURATION);
-        depth_ep->try_register_pu(RS2_OPTION_SHARPNESS);*/
-        //depth_ep->try_register_pu(RS2_OPTION_GAMMA);
 
         auto exposure_option = std::make_shared<cs_depth_exposure_option>(*depth_ep, RS2_OPTION_EXPOSURE, CS_STREAM_DEPTH);
         auto auto_exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_DEPTH);
@@ -391,22 +359,6 @@ namespace librealsense
 
 
         depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
-
-
-        /*auto gain_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_GAIN);
-        depth_ep->register_option(RS2_OPTION_GAIN,
-                                  std::make_shared<auto_disabling_control>(
-                                          gain_option,
-                                          auto_exposure_option));
-
-        auto white_balance_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_WHITE_BALANCE);
-        auto auto_white_balance_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
-        depth_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
-        depth_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
-        depth_ep->register_option(RS2_OPTION_WHITE_BALANCE,
-                                  std::make_shared<auto_disabling_control>(
-                                          white_balance_option,
-                                          auto_white_balance_option));*/
         
         depth_ep->register_pixel_format(pf_z16);
         depth_ep->register_pixel_format(pf_y8);

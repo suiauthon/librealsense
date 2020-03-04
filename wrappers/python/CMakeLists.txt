@@ -16,6 +16,7 @@ set(PYRS_CPP
     c_files.cpp
     pyrs_advanced_mode.cpp
     pyrs_context.cpp
+	pyrs_d400e.cpp
     pyrs_device.cpp
     pyrs_export.cpp
     pyrs_frame.cpp
