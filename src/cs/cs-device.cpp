@@ -256,6 +256,11 @@ namespace librealsense
 		auto depth_sensor = As<cs_depth_sensor, cs_sensor>(&depth_ep);
 		auto ext_sync_mode = std::make_shared<cs_external_sync_mode>(*_hw_monitor, *depth_sensor);
 		depth_ep.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
+
+        depth_ep.register_option(RS2_OPTION_SOFTWARE_TRIGGER,
+            std::make_shared<cs_software_trigger_option>(depth_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_DEPTH,
+                std::map<float, std::string>{{ 1.f, "Trigger" }}));
+
     }
 
     std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
@@ -320,6 +325,10 @@ namespace librealsense
 		auto color_sensor = As<cs_color_sensor, cs_sensor>(color_ep);
 		auto ext_sync_mode = std::make_shared<cs_external_sync_mode_color>(*color_sensor);
 		color_ep->register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
+
+        color_ep->register_option(RS2_OPTION_SOFTWARE_TRIGGER,
+            std::make_shared<cs_software_trigger_option>(*color_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_DEPTH,
+                std::map<float, std::string>{ { 1.f, "Execute!" }}));
 
         return color_ep;
     }
