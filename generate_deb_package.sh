@@ -15,19 +15,19 @@ set_platform() {
 }
 
 set_build_environment() {
-    if [[ -z $DOCKER_BUILD ]]; then
+    if [[ $DOCKER_BUILD = true ]]; then
+        DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes /camerasuite_package/FRAMOS_CameraSuite_*-Linux64_x64.deb
+        source /etc/profile.d/camerasuite.sh
+    elif [[ -d /opt/Projects/CameraSuite ]]; then
         export CAMERA_SUITE_PATH=/opt/Projects/CameraSuite
         export CAMERA_SUITE_PACKAGE=/opt/Projects/CameraSuite/CS_SDK/cmake_packages
         export LD_LIBRARY_PATH=/media/L/GenICam/V3_0_2/bin/$PLATFORM
         export DYNAMIC_CALIBRATOR_PATH=/opt/Projects/RS-D4-ETH/Software/RS-CalibrationToolAPI/linux/usr
         export ROS_WRAPPER_PATH=/opt/Projects/RS-D4-ETH/Software/RS-ROS-Wrapper
-    else
-        DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes /camerasuite_package/FRAMOS_CameraSuite_*-Linux64_x64.deb
-        source /etc/profile.d/camerasuite.sh
     fi
 }
 
-build_platform () {    
+build_platform () {
     mkdir -p build/$PLATFORM
     pushd build/$PLATFORM
     if [[ "$PLATFORM" = "Linux64_ARM" ]]; then
