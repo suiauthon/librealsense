@@ -729,7 +729,7 @@ namespace librealsense {
         {
             // Auto controls range is trimmed to {0,1} range
             if(option == RS2_OPTION_ENABLE_AUTO_EXPOSURE || option == RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE ||
-                    option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED)
+                    option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED || option == RS2_OPTION_OUTPUT_TRIGGER_ENABLED)
             {
                 static const int32_t min = 0, max = 1, step = 1, def = 1;
                 control_range range(min, max, step, def);
