@@ -250,7 +250,8 @@ namespace librealsense {
                   _timestamp_reader(std::move(timestamp_reader)),
                   _device(std::move(cs_device)),
                   _cs_stream(stream),
-                  _user_count(0)
+                  _user_count(0),
+                  _is_software_trigger(false)
         {
             register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
         }
@@ -283,6 +284,7 @@ namespace librealsense {
 
         void set_inter_cam_sync_mode(float value);
         float get_inter_cam_sync_mode();
+        bool query_inter_cam_sync_mode();
 
     private:
         void acquire_power();
@@ -329,6 +331,7 @@ namespace librealsense {
         std::vector<cs_stream> _cs_selected_streams;
         std::unique_ptr<power> _power;
         std::shared_ptr<platform::cs_device> _device;
+        bool _is_software_trigger;
     };
 
     class cs_pu_option : public option
@@ -395,18 +398,33 @@ namespace librealsense {
             : cs_pu_option(ep, id, stream) {}
 
         cs_software_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
-            : cs_pu_option(ep, id, stream, description_per_value)
+            : cs_pu_option(ep, id, stream, description_per_value), _is_enabled(true), _stream(stream), _id(id)
         {
         }
 
-        bool is_enabled() const override
-        {
-            return true;
-        }
+        float query() const override {
+            if (_is_enabled) {
+                _is_enabled = false;
+            }
+            return static_cast<float>(_ep.invoke_powered(
+                [this](platform::cs_device& dev)
+                {
+                    int32_t value = 0;
+                    if (!dev.get_pu(_id, value, _stream))
+                        throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
+                    return static_cast<float>(value);
+                }));
+        };
+
+        bool is_enabled() const override { return ((_ep.query_inter_cam_sync_mode() && _ep.is_streaming()) || _is_enabled ) ; }
 
         option_range get_range() const override { return option_range{ 1,1,1,1 }; };
 
         const char* get_description() const override { return "Software Trigger"; }
+    private:
+        mutable bool _is_enabled;
+        cs_stream _stream;
+        rs2_option _id;
     };
 
     class cs_readonly_option : public cs_pu_option

@@ -450,13 +450,67 @@ namespace librealsense {
 	{
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("Unable to set Inter Cam Sync Mode while streaming!");
+       
+        switch (_cs_stream)
+        {
+        case CS_STREAM_COLOR:
+            if (value == 2.0) {
+                _is_software_trigger = true;
+            }
+            else {
+                _is_software_trigger = false;
+            }
+            break;
+        case CS_STREAM_DEPTH:
+        case CS_STREAM_IR_LEFT:
+        case CS_STREAM_IR_RIGHT:
+            if (value == 4.0) {
+                _is_software_trigger = true;
+            }
+            else {
+                _is_software_trigger = false;
+            }
+            break;
+        default: throw linux_backend_exception(to_string() << "wrong stream cid ");
+        }
 
         _device->set_trigger_mode(value, _cs_stream);
 	}
 
     float cs_sensor::get_inter_cam_sync_mode()
     {
-        return _device->get_trigger_mode(_cs_stream);
+        auto value = _device->get_trigger_mode(_cs_stream);
+
+        switch (_cs_stream)
+        {
+        case CS_STREAM_COLOR:
+            if (value == 2.0) {
+                _is_software_trigger = true;
+            }
+            else {
+                _is_software_trigger = false;
+            }
+            break;
+        case CS_STREAM_DEPTH:
+        case CS_STREAM_IR_LEFT:
+        case CS_STREAM_IR_RIGHT:
+            if (value == 4.0) {
+                _is_software_trigger = true;
+            }
+            else {
+                _is_software_trigger = false;
+            }
+            break;
+        default: throw linux_backend_exception(to_string() << "wrong stream cid ");
+        }
+
+        return value;
+    }
+
+
+    bool cs_sensor::query_inter_cam_sync_mode()
+    {
+        return _is_software_trigger;
     }
 
     namespace platform
@@ -1099,6 +1153,7 @@ namespace librealsense {
                 }
                 case RS2_OPTION_SOFTWARE_TRIGGER:
                 {
+                    value = 1;
                     return true;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
@@ -1612,13 +1667,13 @@ namespace librealsense {
                 switch (sync_mode) {
                 case CS_INTERCAM_SYNC_EXTERNAL_COLOR:
                     _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
-                    _connected_device->SetStringNodeValue("TriggerSource", "Line1");
                     _connected_device->SetStringNodeValue("TriggerMode", "On");
+                    _connected_device->SetStringNodeValue("TriggerSource", "Line1");
                     break;
                 case CS_INTERCAM_SYNC_SOFTWARE_COLOR:
                     _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
-                    _connected_device->SetStringNodeValue("TriggerSource", "Software");
                     _connected_device->SetStringNodeValue("TriggerMode", "On");
+                    _connected_device->SetStringNodeValue("TriggerSource", "Software");
                     break;
                 default:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
@@ -1628,35 +1683,34 @@ namespace librealsense {
                 switch (sync_mode) {
                 case CS_INTERCAM_SYNC_SLAVE:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-                    _connected_device->SetStringNodeValue("TriggerSource", "Line1");
 					_connected_device->SetStringNodeValue("LineSelector", "Line1");
 					_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
 					_connected_device->SetStringNodeValue("TriggerMode", "On");
+                    _connected_device->SetStringNodeValue("TriggerSource", "Line1");
                     break;
                 case CS_INTERCAM_SYNC_MASTER:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-                    _connected_device->SetStringNodeValue("TriggerSource", "Line1");
                     _connected_device->SetStringNodeValue("LineSelector", "Line1");
                     _connected_device->SetStringNodeValue("LineSource", "VSync");
                     _connected_device->SetStringNodeValue("TriggerMode", "Off");
+                    
                     break;
                 case CS_INTERCAM_SYNC_EXTERNAL:
                     _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
-                    _connected_device->SetStringNodeValue("TriggerSource", "Line1");
                     _connected_device->SetStringNodeValue("LineSelector", "Line1");
                     _connected_device->SetStringNodeValue("LineSource", "VSync");
                     _connected_device->SetStringNodeValue("TriggerMode", "On");
+                    _connected_device->SetStringNodeValue("TriggerSource", "Line1");
                     break;
                 case CS_INTERCAM_SYNC_SOFTWARE:
                     _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
-                    _connected_device->SetStringNodeValue("TriggerSource", "Software");
                     _connected_device->SetStringNodeValue("LineSelector", "Line1");
                     _connected_device->SetStringNodeValue("LineSource", "VSync");
                     _connected_device->SetStringNodeValue("TriggerMode", "On");
+                    _connected_device->SetStringNodeValue("TriggerSource", "Software");
                     break;
                 default:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-                    _connected_device->SetStringNodeValue("TriggerSource", "Line1");
                     _connected_device->SetStringNodeValue("LineSelector", "Line1");
                     _connected_device->SetStringNodeValue("LineSource", "UserOutput1");
                     _connected_device->SetStringNodeValue("TriggerMode", "Off");
@@ -1670,10 +1724,13 @@ namespace librealsense {
 
             std::string trigger_type, trigger_source, line_source, trigger_mode;
             _connected_device->GetStringNodeValue("TriggerType", trigger_type);
-            _connected_device->GetStringNodeValue("TriggerSource", trigger_source);
+            
             _connected_device->SetStringNodeValue("LineSelector", "Line1");
             _connected_device->GetStringNodeValue("LineSource", line_source);
             _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
+            if (trigger_mode == "On") {
+                _connected_device->GetStringNodeValue("TriggerSource", trigger_source);
+            }
 
             switch (stream) {
             case CS_STREAM_COLOR:
@@ -1686,7 +1743,7 @@ namespace librealsense {
             default:
                 if (trigger_type == "MultiCam_Sync" && trigger_source == "Line1" && line_source == "UserOutput1" && trigger_mode == "On")
                     return CS_INTERCAM_SYNC_SLAVE;
-                else if (trigger_type == "MultiCam_Sync" && trigger_source == "Line1" && line_source == "VSync" && trigger_mode == "Off")
+                else if (trigger_type == "MultiCam_Sync" && line_source == "VSync" && trigger_mode == "Off")
                     return CS_INTERCAM_SYNC_MASTER;
                 else if (trigger_type == "ExternalEvent" && trigger_source == "Line1" && line_source == "VSync" && trigger_mode == "On")
                     return CS_INTERCAM_SYNC_EXTERNAL;
