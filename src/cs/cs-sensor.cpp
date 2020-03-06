@@ -450,67 +450,33 @@ namespace librealsense {
 	{
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("Unable to set Inter Cam Sync Mode while streaming!");
-       
-        switch (_cs_stream)
-        {
-        case CS_STREAM_COLOR:
-            if (value == 2.0) {
-                _is_software_trigger = true;
-            }
-            else {
-                _is_software_trigger = false;
-            }
-            break;
-        case CS_STREAM_DEPTH:
-        case CS_STREAM_IR_LEFT:
-        case CS_STREAM_IR_RIGHT:
-            if (value == 4.0) {
-                _is_software_trigger = true;
-            }
-            else {
-                _is_software_trigger = false;
-            }
-            break;
-        default: throw linux_backend_exception(to_string() << "wrong stream cid ");
-        }
 
         _device->set_trigger_mode(value, _cs_stream);
 	}
 
     float cs_sensor::get_inter_cam_sync_mode()
     {
-        auto value = _device->get_trigger_mode(_cs_stream);
-
-        switch (_cs_stream)
-        {
-        case CS_STREAM_COLOR:
-            if (value == 2.0) {
-                _is_software_trigger = true;
-            }
-            else {
-                _is_software_trigger = false;
-            }
-            break;
-        case CS_STREAM_DEPTH:
-        case CS_STREAM_IR_LEFT:
-        case CS_STREAM_IR_RIGHT:
-            if (value == 4.0) {
-                _is_software_trigger = true;
-            }
-            else {
-                _is_software_trigger = false;
-            }
-            break;
-        default: throw linux_backend_exception(to_string() << "wrong stream cid ");
-        }
-
-        return value;
+        return _device->get_trigger_mode(_cs_stream);
     }
 
 
     bool cs_sensor::query_inter_cam_sync_mode()
     {
-        return _is_software_trigger;
+        bool status;
+        switch (_cs_stream)
+        {
+        case CS_STREAM_COLOR:
+            if (get_inter_cam_sync_mode() == 2.0) status = true; else status = false;
+            break;
+        case CS_STREAM_DEPTH:
+        case CS_STREAM_IR_LEFT:
+        case CS_STREAM_IR_RIGHT:
+            if (get_inter_cam_sync_mode() == 4.0) status = true; else status = false;
+            break;
+        default: throw linux_backend_exception(to_string() << "wrong stream cid ");
+        }
+
+        return status;
     }
 
     namespace platform

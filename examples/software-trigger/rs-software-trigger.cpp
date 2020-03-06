@@ -32,17 +32,18 @@ int main(int argc, char * argv[]) try
     rs2::sensor sensorDepth;
     rs2::sensor sensorColor;
 
+    rs2::pipeline_profile active_profile;
+
     for (auto&& dev : ctx.query_devices()) {
         std::string name = dev.get_info(RS2_CAMERA_INFO_NAME);
         std::regex d400e_regex("FRAMOS D4[0-9][0-9]e");
         if (std::regex_search(name, d400e_regex)) {
             for (auto&& sensor : dev.query_sensors()) {
                 if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
-                    sensorDepth = sensor;
                     sensor.set_option(RS2_OPTION_INTER_CAM_SYNC_MODE , 4);
+                    //sensorDepth = sensor;
                 }
                 else {
-                    sensorColor = sensor;
                     sensor.set_option(RS2_OPTION_INTER_CAM_SYNC_MODE, 2);
                 }
                 // adjust InterPacketDelay option on D400e camera based on PacketSize, number of cameras and number of streams
@@ -76,7 +77,7 @@ int main(int argc, char * argv[]) try
 
         cfg.enable_device(dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
 
-        pipe.start(cfg);
+        active_profile = pipe.start(cfg);
         pipelines.emplace_back(pipe);
         // Map from each device's serial number to a different colorizer
         colorizers[dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER)] = rs2::colorizer();
@@ -85,14 +86,23 @@ int main(int argc, char * argv[]) try
     // We'll keep track of the last frame of each stream available to make the presentation persistent
     std::map<int, rs2::frame> render_frames;
 
+
+    // get sensor from the active profile, where _is_streaming is correctly updated
+    for (auto&& sensor : active_profile.get_device().query_sensors()) {
+        if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
+            sensorDepth = sensor;
+        }
+    }
+
     // Main app loop
     while (app)
     {
         if (_kbhit()) {
             int key = _getch() & 255;
             if (key = 27 || key == 'q' || key == 'Q') {
-                sensorDepth.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
-                //sensorColor.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
+                if (sensorDepth.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
+                    sensorDepth.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
+                } 
             }
         }
 
