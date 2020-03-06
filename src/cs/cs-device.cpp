@@ -378,6 +378,9 @@ namespace librealsense
             depth_ep->register_option(RS2_OPTION_PROJECTOR_TEMPERATURE, projector_temperature_option);
         }
 
+        auto output_trigger_enabled_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_OUTPUT_TRIGGER_ENABLED, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_OUTPUT_TRIGGER_ENABLED, output_trigger_enabled_option);
+
         return depth_ep;
     }
 
