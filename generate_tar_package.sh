@@ -22,7 +22,7 @@ generate_tar_package() {
     cp "${CAMERA_SUITE_CHANGELOG}" FRAMOS_CameraSuite_Changelog.txt
     package_version=$(head -n 1 FRAMOS_D400e_Software_Package_Changelog.txt | cut -d " " -f1 | tr . -)
     popd
-    tar czf FRAMOS_D400e_Software_Package_${package_version}_$1.tar.gz FRAMOS_D400e_Software_Package
+    tar czf FRAMOS_D400e_Software_Package_${package_version}_$1.tar.gz FRAMOS_D400e_Software_Package --owner=0 --group=0
 }
 
 check_params
