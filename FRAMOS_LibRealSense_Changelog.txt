@@ -1,0 +1,73 @@
+v2.29.6 (2020-02-28)
+=====================
+    - added - support for D415e cameras
+    - added - support for external hardware trigger on D400e cameras
+    - added - setting heartbeat time for D400e cameras
+    - changed - exception thrown when setting Inter Cam Sync Mode during stream
+
+v2.29.5 (2020-02-14)
+=====================
+    - added - ROS wrapper with support for multiple D400e cameras
+    - fixed - camera not disconnecting when camera object is destroyed
+
+v2.29.4 (2020-02-03)
+=====================
+    - added - support for reading camera IP address and subnet information
+    - fixed - incorrect streaming when both depth and left infrared streams are enabled
+    - changed - option value is rounded with respect to step, min and max properties
+    - changed - CameraSuite version 4.1.5.0
+    - removed - [LINUX] deploying pyrealsense2 wrapper binary
+
+v2.29.3 (2019-12-19)
+=====================
+    - added - [LINUX] automatic Python wrapper installation
+    - fixed - crash when image with an unexpected format is received
+    - fixed - infrared streams switching places in viewer
+    - fixed - [LINUX] installation stuck when UVC devices are plugged in
+    - fixed - [LINUX] building pyrealsense wrapper
+    - changed - exception is thrown when starting the stream if the GigE filter driver is not loaded
+    - changed - enabled frame synchronization in viewer
+    - changed - [LINUX] reduced library size by stripping symbols
+
+v2.29.2 (2019-11-29)
+=====================
+    - added - support for Infrared streams
+    - added - DynamicCalibrator tool
+    - added - support for hardware synchronization between multiple D435e cameras
+    - added - support for ASIC Temperature and Projector Temperature options
+    - added - optimal packet size and inter-packet delay detection
+    - added - CameraSuite tool for managing calibration tables on D435e cameras
+    - fixed - support for ROS Wrapper 2.2.9
+    - fixed - clash with libglfw3-dev package
+    - changed - disabled frame synchronization in viewer
+
+v2.29.1 (2019-10-29)
+=====================
+    - added - support for D435e firmware 1.4.0.0
+    - added - inter-packet delay and packet size controls
+    - fixed - support for ROS, Python and C# wrappers
+    - fixed - high CPU load when acquiring images
+    - changed - base Intel® RealSense™ version 2.29
+
+v2.28.1 (2019-10-10)
+=====================
+    - added - support for multiple resolutions on D435e camera
+    - added - sources for modified Intel® RealSense™ SDK
+    - changed - base Intel® RealSense™ SDK version 2.28
+
+v2.20.3 (2019-08-30)
+=====================
+    - fixed - software crash when camera unplugged while streaming
+    - fixed - some Intel® RealSense™ examples not working with D435e
+    - fixed - issues with depth and color alignment
+    - added - DeviceVersion property
+    - added - support for D435e firmware 1.3.0.0 and above
+    - added - sources for Intel® RealSense™ examples and tools
+
+v2.20.1 (2019-07-22)
+=====================
+    - added - support for Advanced Mode parameters and Visual Presets
+    
+v2.20.0 (2019-07-10)
+=====================
+    - initial release
