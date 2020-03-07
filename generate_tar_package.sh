@@ -3,11 +3,11 @@
 check_params() {
     if [[ ! -d $CAMERA_SUITE_PACKAGE_PATH ]]; then
         echo "Variable CAMERA_SUITE_PACKAGE_PATH does not point to a valid folder"
-        exit
+        exit 1
     fi
     if [[ ! -f $CAMERA_SUITE_CHANGELOG ]]; then
         echo "Variable CAMERA_SUITE_CHANGELOG does not point to a valid file"
-        exit
+        exit 1
     fi
 }
 
