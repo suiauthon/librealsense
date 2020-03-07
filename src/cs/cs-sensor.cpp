@@ -729,7 +729,7 @@ namespace librealsense {
         {
             // Auto controls range is trimmed to {0,1} range
             if(option == RS2_OPTION_ENABLE_AUTO_EXPOSURE || option == RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE ||
-                    option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED)
+                    option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED || option == RS2_OPTION_OUTPUT_TRIGGER_ENABLED)
             {
                 static const int32_t min = 0, max = 1, step = 1, def = 1;
                 control_range range(min, max, step, def);
@@ -805,6 +805,11 @@ namespace librealsense {
                     
                     return true;
                 }
+                case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
+                {
+                    if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "VSync");
+                    else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "UserOutput1");
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -868,6 +873,7 @@ namespace librealsense {
                 case RS2_OPTION_PACKET_SIZE: return std::string("GevSCPSPacketSize");
                 case RS2_OPTION_ASIC_TEMPERATURE: return std::string("IntelASIC");
                 case RS2_OPTION_PROJECTOR_TEMPERATURE: return std::string("DepthModule");
+                case RS2_OPTION_OUTPUT_TRIGGER_ENABLED: return std::string("LineSource");
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -910,6 +916,10 @@ namespace librealsense {
                     value = static_cast<int32_t>(int_value);
                     return status;
                 }
+                case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
+                    status = _connected_device->GetEnumNodeValuesList(get_cs_param_name(option, stream), node_value_list);
+                    value = 0;
+                    return status;
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -965,6 +975,10 @@ namespace librealsense {
                     value = static_cast<int32_t>(int_value);
                     return status;
                 }
+                case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
+                    status = _connected_device->GetEnumNodeValuesList(get_cs_param_name(option, stream), node_value_list);
+                    value = 1;
+                    return status;
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -1005,6 +1019,11 @@ namespace librealsense {
 
                     auto result = _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
                     step = static_cast<int32_t>(int_value);
+                    return true;
+                }
+                case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
+                {
+                    step = 1;
                     return true;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
@@ -1086,6 +1105,13 @@ namespace librealsense {
                         }
                     }
                     return false;
+                }
+                case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
+                {
+                    status = _connected_device->GetStringNodeValue(get_cs_param_name(option, stream), string_value);
+                    if (string_value == "VSync") value = 1;
+                    else value = 0;
+                    return status;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
