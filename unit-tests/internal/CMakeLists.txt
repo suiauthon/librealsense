@@ -9,7 +9,9 @@ set (INTERNAL_TESTS_SOURCES
     internal-tests-main.cpp
     internal-tests-usb.cpp
     internal-tests-extrinsic.cpp
-	internal-tests-types.cpp
+    internal-tests-types.cpp
+    internal-tests-uv-map.cpp
+    internal-tests-class-logic.cpp
 )
 
 add_executable(${PROJECT_NAME} ${INTERNAL_TESTS_SOURCES})
