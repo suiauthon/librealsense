@@ -3,8 +3,8 @@ if (UNIX)
         message( FATAL_ERROR "ROS_WRAPPER_PATH not defined" )
     endif()
     install(DIRECTORY
-		PATTERN ".git" EXCLUDE
         $ENV{ROS_WRAPPER_PATH}/
         DESTINATION src/librealsense2/wrappers/ros/
+		PATTERN ".git" EXCLUDE
     )
 endif()
