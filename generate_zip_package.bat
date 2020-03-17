@@ -17,6 +17,7 @@ COPY "%CAMERA_SUITE_PACKAGE_PATH%\*_x64.exe" . > nul
 COPY ..\build\Win64_x64\*.exe . > nul
 COPY ..\FRAMOS_D400e_Software_Package_Changelog.txt . > nul
 COPY ..\FRAMOS_LibRealSense_Changelog.txt . > nul
+SET CAMERA_SUITE_CHANGELOG=%CAMERA_SUITE_CHANGELOG:/=\%
 COPY "%CAMERA_SUITE_CHANGELOG%" FRAMOS_CameraSuite_Changelog.txt > nul
 SET /p VERSION_AND_DATE=< FRAMOS_D400e_Software_Package_Changelog.txt
 FOR /F %%a in ("%VERSION_AND_DATE%") do SET VERSION=%%a
