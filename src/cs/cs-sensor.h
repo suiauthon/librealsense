@@ -340,7 +340,12 @@ namespace librealsense {
 
         bool is_enabled() const override
         {
-            return true;
+            if (_id == RS2_OPTION_PACKET_SIZE) {
+                return !_ep.is_streaming();
+            }
+            else {
+                return true;
+            }
         }
 
         cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream)
