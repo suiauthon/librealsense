@@ -8,11 +8,55 @@
 #include "ds5/ds5-private.h"
 #include "global_timestamp_reader.h"
 #include "core/advanced_mode.h"
+#include <map>
 #include "stream.h"
 #include "fw-update/fw-update-device-interface.h"
 
 namespace librealsense
 {
+    std::map<uint32_t, rs2_format> cs_depth_fourcc_to_rs2_format = {
+            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
+            {rs_fourcc('Y','U','Y','V'), RS2_FORMAT_YUYV},
+            {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY},
+            {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
+            {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
+            {rs_fourcc('W','1','0',' '), RS2_FORMAT_W10},
+            {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
+            {rs_fourcc('Y','1','2','I'), RS2_FORMAT_Y12I},
+            {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16},
+            {rs_fourcc('Z','1','6','H'), RS2_FORMAT_Z16H},
+            {rs_fourcc('R','G','B','2'), RS2_FORMAT_BGR8}
+
+    };
+    std::map<uint32_t, rs2_stream> cs_depth_fourcc_to_rs2_stream = {
+            {rs_fourcc('Y','U','Y','2'), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','U','Y','V'), RS2_STREAM_INFRARED},
+            {rs_fourcc('U','Y','V','Y'), RS2_STREAM_INFRARED},
+            {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
+            {rs_fourcc('W','1','0',' '), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','1','2','I'), RS2_STREAM_INFRARED},
+            {rs_fourcc('R','G','B','2'), RS2_STREAM_INFRARED},
+            {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH},
+            {rs_fourcc('Z','1','6','H'), RS2_STREAM_DEPTH}
+    };
+
+    std::map<uint32_t, rs2_format> cs_color_fourcc_to_rs2_format = {
+            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
+            {rs_fourcc('Y','U','Y','V'), RS2_FORMAT_YUYV},
+            {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY},
+            {rs_fourcc('M','J','P','G'), RS2_FORMAT_MJPEG},
+            {rs_fourcc('B','Y','R','2'), RS2_FORMAT_RAW16}
+    };
+    std::map<uint32_t, rs2_stream> cs_color_fourcc_to_rs2_stream = {
+            {rs_fourcc('Y','U','Y','2'), RS2_STREAM_COLOR},
+            {rs_fourcc('Y','U','Y','V'), RS2_STREAM_COLOR},
+            {rs_fourcc('U','Y','V','Y'), RS2_STREAM_COLOR},
+            {rs_fourcc('B','Y','R','2'), RS2_STREAM_COLOR},
+            {rs_fourcc('M','J','P','G'), RS2_STREAM_COLOR},
+    };
+
     class cs_auto_exposure_roi_method : public region_of_interest_method
     {
     public:
@@ -62,8 +106,8 @@ namespace librealsense
                   _color_stream(new stream(RS2_STREAM_COLOR))
         {};
 
-        std::shared_ptr<cs_sensor> create_color_device(std::shared_ptr<context> ctx,
-                                                       std::shared_ptr<platform::cs_device> cs_device);
+        std::shared_ptr<synthetic_sensor> create_color_device(std::shared_ptr<context> ctx,
+                                                              std::shared_ptr<platform::cs_device> cs_device);
 
         cs_sensor& get_color_sensor() { return dynamic_cast<cs_sensor&>(get_sensor(_color_device_idx)); }
 
@@ -84,7 +128,7 @@ namespace librealsense
         std::shared_ptr<lazy<rs2_extrinsics>> _color_extrinsic;
     };
 
-    class cs_depth : public virtual device, public debug_interface, public global_time_interface, public updatable
+    class cs_depth : public virtual device, public debug_interface, public global_time_interface, public updatable //public auto_calibrated
     {
     public:
         cs_depth(std::shared_ptr<context> ctx,
@@ -92,6 +136,7 @@ namespace librealsense
                  bool register_device_notifications)
                 : device(ctx, group, register_device_notifications),
                   global_time_interface(),
+                  //auto_calibrated(_hw_monitor),
                   _depth_stream(new stream(RS2_STREAM_DEPTH)),
                   _left_ir_stream(new stream(RS2_STREAM_INFRARED, 1)),
                   _right_ir_stream(new stream(RS2_STREAM_INFRARED, 2)),
@@ -99,11 +144,11 @@ namespace librealsense
         {
         }
 
-        std::shared_ptr<cs_sensor> create_depth_device(std::shared_ptr<context> ctx,
-                                                       std::shared_ptr<platform::cs_device> cs_device);
+        std::shared_ptr<synthetic_sensor> create_depth_device(std::shared_ptr<context> ctx,
+                                                              std::shared_ptr<platform::cs_device> cs_device);
 
-        cs_sensor& get_depth_sensor() { return dynamic_cast<cs_sensor&>(get_sensor(_depth_device_idx)); }
-
+        synthetic_sensor& get_depth_sensor() { return dynamic_cast<synthetic_sensor&>(get_sensor(_depth_device_idx)); }
+        cs_sensor& get_raw_depth_sensor() { return dynamic_cast<cs_sensor&>(get_sensor(_depth_device_idx)); };
         std::vector<uint8_t> send_receive_raw_data(const std::vector<uint8_t>& input) override;
 
         void create_snapshot(std::shared_ptr<debug_interface>& snapshot) const override;
@@ -145,117 +190,51 @@ namespace librealsense
         std::shared_ptr<lazy<rs2_extrinsics>> _depth_extrinsic;
     };
 
-    class cs_color_sensor : public cs_sensor,
+    class cs_color_sensor : public synthetic_sensor,
                             public video_sensor_interface,
-                            public roi_sensor_base
+                            public roi_sensor_base,
+                            public color_sensor
     {
     public:
-        explicit cs_color_sensor(cs_color* owner, std::shared_ptr<platform::cs_device> cs_device,
-                                 std::unique_ptr<frame_timestamp_reader> timestamp_reader,
-                                 std::shared_ptr<context> ctx)
-                : cs_sensor("RGB Camera", cs_device, move(timestamp_reader), owner, CS_STREAM_COLOR),
+        explicit cs_color_sensor(cs_color* owner,
+                                 std::shared_ptr<cs_sensor> cs_sensor)
+                : synthetic_sensor("RGB Camera", cs_sensor, owner, cs_color_fourcc_to_rs2_format, cs_color_fourcc_to_rs2_stream),
                   _owner(owner)
         {};
 
-        stream_profiles init_stream_profiles() override
-        {
-            auto lock = environment::get_instance().get_extrinsics_graph().lock();
-
-            auto results = cs_sensor::init_stream_profiles();
-
-            for (auto p : results)
-            {
-                // Register stream types
-                if (p->get_stream_type() == RS2_STREAM_COLOR)
-                {
-                    assign_stream(_owner->_color_stream, p);
-                }
-
-                auto video = dynamic_cast<video_stream_profile_interface*>(p.get());
-                auto profile = to_profile(p.get());
-
-                std::weak_ptr<cs_color_sensor> wp =
-                        std::dynamic_pointer_cast<cs_color_sensor>(this->shared_from_this());
-                video->set_intrinsics([profile, wp]()
-                                      {
-                                          auto sp = wp.lock();
-                                          if (sp)
-                                              return sp->get_intrinsics(profile);
-                                          else
-                                              return rs2_intrinsics{};
-                                      });
-            }
-
-            return results;
-        };
-
+        stream_profiles init_stream_profiles() override;
         rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
         processing_blocks get_recommended_processing_blocks() const override;
     private:
         const cs_color* _owner;
     };
 
-    class cs_depth_sensor : public cs_sensor,
+    class cs_depth_sensor : public synthetic_sensor,
                             public roi_sensor_base,
                             public video_sensor_interface,
                             public depth_stereo_sensor
     {
     public:
-        explicit cs_depth_sensor(cs_depth* owner, std::shared_ptr<platform::cs_device> cs_device,
-                                 std::unique_ptr<frame_timestamp_reader> timestamp_reader,
-                                 std::shared_ptr<context> ctx)
-                : cs_sensor("Stereo Module", cs_device, move(timestamp_reader), owner, CS_STREAM_DEPTH),
+        explicit cs_depth_sensor(cs_depth* owner,
+                                 std::shared_ptr<cs_sensor> cs_sensor)
+                : synthetic_sensor("Stereo Module", cs_sensor, owner, cs_depth_fourcc_to_rs2_format, cs_depth_fourcc_to_rs2_stream),
                   _owner(owner),
                   _depth_units(-1)
         {};
-
-        stream_profiles init_stream_profiles() override
-        {
-            auto lock = environment::get_instance().get_extrinsics_graph().lock();
-
-            auto results = cs_sensor::init_stream_profiles();
-
-            for (auto p : results)
-            {
-                // Register stream types
-                if (p->get_stream_type() == RS2_STREAM_DEPTH)
-                {
-                    assign_stream(_owner->_depth_stream, p);
-                }
-                else if (p->get_stream_type() == RS2_STREAM_INFRARED && p->get_stream_index() < 2)
-                {
-                    assign_stream(_owner->_left_ir_stream, p);
-                }
-                else if (p->get_stream_type() == RS2_STREAM_INFRARED  && p->get_stream_index() == 2)
-                {
-                    assign_stream(_owner->_right_ir_stream, p);
-                }
-                auto vid_profile = dynamic_cast<video_stream_profile_interface*>(p.get());
-
-                // Register intrinsics
-                if (p->get_format() != RS2_FORMAT_Y16) // Y16 format indicate unrectified images, no intrinsics are available for these
-                {
-                    auto profile = to_profile(p.get());
-                    std::weak_ptr<cs_depth_sensor> wp =
-                            std::dynamic_pointer_cast<cs_depth_sensor>(this->shared_from_this());
-                    vid_profile->set_intrinsics([profile, wp]()
-                                                {
-                                                    auto sp = wp.lock();
-                                                    if (sp)
-                                                        return sp->get_intrinsics(profile);
-                                                    else
-                                                        return rs2_intrinsics{};
-                                                });
-                }
-            }
-
-            return results;
-        }
-
+        //TODO zamijeniti stereo module s macro
+        stream_profiles init_stream_profiles() override;
+        void open(const stream_profiles& requests) override;
         rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
         processing_blocks get_recommended_processing_blocks() const override;
-        float get_depth_scale() const override { if (_depth_units < 0) _depth_units = get_option(RS2_OPTION_DEPTH_UNITS).query(); return _depth_units; }
-        void set_depth_scale(float val){ _depth_units = val; }
+
+        float get_depth_scale() const override
+        {
+            if (_depth_units < 0)
+                _depth_units = get_option(RS2_OPTION_DEPTH_UNITS).query();
+            return _depth_units;
+        };
+
+        void set_depth_scale(float val){ _depth_units = val; };
         float get_stereo_baseline_mm() const override { return _owner->get_stereo_baseline_mm(); }
         void enable_recording(std::function<void(const depth_stereo_sensor&)> recording_function) override;
         void enable_recording(std::function<void(const depth_sensor&)> recording_function) override;

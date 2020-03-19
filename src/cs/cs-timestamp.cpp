@@ -10,18 +10,22 @@ namespace librealsense {
         reset();
     }
 
-    bool cs_timestamp_reader_from_metadata::has_metadata(const request_mapping& mode, const void * metadata, size_t metadata_size)
+    bool cs_timestamp_reader_from_metadata::has_metadata(const std::shared_ptr<frame_interface>& frame)
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
 
-        if(metadata == nullptr || metadata_size == 0)
+        auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+        if (!f)
         {
+            LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
             return false;
         }
+        auto md = f->additional_data.metadata_blob;
+        auto mds = f->additional_data.metadata_size;
 
-        for(uint32_t i=0; i<metadata_size; i++)
+        for(uint32_t i = 0; i < mds; i++)
         {
-            if(((byte*)metadata)[i] != 0)
+            if(md[i] != 0)
             {
                 return true;
             }
@@ -29,19 +33,27 @@ namespace librealsense {
         return false;
     }
 
-    rs2_time_t cs_timestamp_reader_from_metadata::get_frame_timestamp(const request_mapping& mode, const platform::frame_object& fo)
+    rs2_time_t cs_timestamp_reader_from_metadata::get_frame_timestamp(const std::shared_ptr<frame_interface>& frame)
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
-        auto pin_index = 0;
-        if (mode.pf->fourcc == 0x5a313620) // Z16
+
+        auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+        if (!f)
+        {
+            LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
+            return 0;
+        }
+        size_t pin_index = 0;
+
+        if (frame->get_stream()->get_format() == RS2_FORMAT_Z16)
             pin_index = 1;
 
         if(!_has_metadata[pin_index])
         {
-            _has_metadata[pin_index] = has_metadata(mode, fo.metadata, fo.metadata_size);
+            _has_metadata[pin_index] = has_metadata(frame);
         }
 
-        auto md = (librealsense::metadata_intel_basic*)(fo.metadata);
+        auto md = (librealsense::metadata_intel_basic*)(f->additional_data.metadata_blob.data());
         if(_has_metadata[pin_index] && md)
         {
             return (double)(md->header.timestamp)*TIMESTAMP_USEC_TO_MSEC;
@@ -53,25 +65,33 @@ namespace librealsense {
                 LOG_WARNING("CS metadata payloads not available.");
                 one_time_note = true;
             }
-            return _backup_timestamp_reader->get_frame_timestamp(mode, fo);
+            return _backup_timestamp_reader->get_frame_timestamp(frame);
         }
     }
 
-    unsigned long long cs_timestamp_reader_from_metadata::get_frame_counter(const request_mapping & mode, const platform::frame_object& fo) const
+    unsigned long long cs_timestamp_reader_from_metadata::get_frame_counter(const std::shared_ptr<frame_interface>& frame) const
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
-        auto pin_index = 0;
-        if (mode.pf->fourcc == 0x5a313620) // Z16
+
+        auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+        if (!f)
+        {
+            LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
+            return 0;
+        }
+        size_t pin_index = 0;
+
+        if (frame->get_stream()->get_format() == RS2_FORMAT_Z16)
             pin_index = 1;
 
-        if(_has_metadata[pin_index] && fo.metadata_size > platform::uvc_header_size)
+        if(_has_metadata[pin_index] && f->additional_data.metadata_size > platform::uvc_header_size)
         {
-            auto md = (librealsense::metadata_intel_basic*)(fo.metadata);
+            auto md = (librealsense::metadata_intel_basic*)(f->additional_data.metadata_blob.data());
             if (md->capture_valid())
                 return md->payload.frame_counter;
         }
 
-        return _backup_timestamp_reader->get_frame_counter(mode, fo);
+        return _backup_timestamp_reader->get_frame_counter(frame);
     }
 
     void cs_timestamp_reader_from_metadata::reset()
@@ -84,15 +104,15 @@ namespace librealsense {
         }
     }
 
-    rs2_timestamp_domain cs_timestamp_reader_from_metadata::get_frame_timestamp_domain(const request_mapping & mode, const platform::frame_object& fo) const
+    rs2_timestamp_domain cs_timestamp_reader_from_metadata::get_frame_timestamp_domain(const std::shared_ptr<frame_interface>& frame) const
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
         auto pin_index = 0;
-        if (mode.pf->fourcc == 0x5a313620) // Z16
+        if (frame->get_stream()->get_format() == RS2_FORMAT_Z16)
             pin_index = 1;
 
         return _has_metadata[pin_index] ? RS2_TIMESTAMP_DOMAIN_HARDWARE_CLOCK :
-               _backup_timestamp_reader->get_frame_timestamp_domain(mode,fo);
+               _backup_timestamp_reader->get_frame_timestamp_domain(frame);
     }
 
     cs_timestamp_reader::cs_timestamp_reader(std::shared_ptr <platform::time_service> ts)
@@ -109,25 +129,22 @@ namespace librealsense {
         }
     }
 
-    rs2_time_t cs_timestamp_reader::get_frame_timestamp(const request_mapping &mode, const platform::frame_object &fo) {
+    rs2_time_t cs_timestamp_reader::get_frame_timestamp(const std::shared_ptr<frame_interface>& frame) {
         std::lock_guard <std::recursive_mutex> lock(_mtx);
-
         return _ts->get_time();
-
     }
 
     unsigned long long
-    cs_timestamp_reader::get_frame_counter(const request_mapping &mode, const platform::frame_object &fo) const {
+    cs_timestamp_reader::get_frame_counter(const std::shared_ptr<frame_interface>& frame) const {
         std::lock_guard <std::recursive_mutex> lock(_mtx);
         auto pin_index = 0;
-        if (mode.pf->fourcc == 0x5a313620) // Z16
+        if (frame->get_stream()->get_format() == RS2_FORMAT_Z16) // Z16
             pin_index = 1;
 
         return ++counter[pin_index];
     }
 
-    rs2_timestamp_domain cs_timestamp_reader::get_frame_timestamp_domain(const request_mapping &mode,
-                                                                         const platform::frame_object &fo) const {
+    rs2_timestamp_domain cs_timestamp_reader::get_frame_timestamp_domain(const std::shared_ptr<frame_interface>& frame) const {
         return RS2_TIMESTAMP_DOMAIN_SYSTEM_TIME;
     }
 }

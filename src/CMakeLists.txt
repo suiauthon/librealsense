@@ -16,13 +16,13 @@ include(${_rel_path}/cs/CMakeLists.txt)
 
 message(STATUS "using ${BACKEND}")
 
-if(UNIX OR FORCE_LIBUVC)
+if(UNIX OR (ANDROID_NDK_TOOLCHAIN_INCLUDED AND (${BACKEND} STREQUAL RS2_USE_V4L2_BACKEND)))
     include(${_rel_path}/libusb/CMakeLists.txt)
 endif()
-    
+
 if(WIN32)
     include(${_rel_path}/win/CMakeLists.txt)
-    include(${_rel_path}/winusb/CMakeLists.txt)    
+    include(${_rel_path}/winusb/CMakeLists.txt)
 endif()
 
 if(${BACKEND} STREQUAL RS2_USE_ANDROID_BACKEND)
@@ -42,8 +42,10 @@ if(${BACKEND} STREQUAL RS2_USE_WINUSB_UVC_BACKEND)
     include(${_rel_path}/win7/CMakeLists.txt)
 endif()
 
-if(${BACKEND} STREQUAL RS2_USE_LIBUVC_BACKEND OR ${BACKEND} STREQUAL RS2_USE_ANDROID_BACKEND)
+if(${BACKEND} STREQUAL RS2_USE_LIBUVC_BACKEND OR ${BACKEND} STREQUAL RS2_USE_ANDROID_BACKEND OR ${BACKEND} STREQUAL RS2_USE_WINUSB_UVC_BACKEND)
     include(${_rel_path}/hid/CMakeLists.txt)
+    include(${_rel_path}/uvc/CMakeLists.txt)
+    include(${_rel_path}/rsusb-backend/CMakeLists.txt)
 endif()
 
 if(${BACKEND} STREQUAL RS2_USE_LIBUVC_BACKEND)
@@ -72,7 +74,6 @@ target_sources(${LRS_TARGET}
         "${CMAKE_CURRENT_LIST_DIR}/archive.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/backend.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/context.cpp"
-		"${CMAKE_CURRENT_LIST_DIR}/d400e.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/device.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/device_hub.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/environment.cpp"
@@ -99,7 +100,6 @@ target_sources(${LRS_TARGET}
         "${CMAKE_CURRENT_LIST_DIR}/backend.h"
         "${CMAKE_CURRENT_LIST_DIR}/concurrency.h"
         "${CMAKE_CURRENT_LIST_DIR}/context.h"
-		"${CMAKE_CURRENT_LIST_DIR}/d400e.h"
         "${CMAKE_CURRENT_LIST_DIR}/device.h"
         "${CMAKE_CURRENT_LIST_DIR}/device_hub.h"
         "${CMAKE_CURRENT_LIST_DIR}/environment.h"
@@ -121,4 +121,6 @@ target_sources(${LRS_TARGET}
         "${CMAKE_CURRENT_LIST_DIR}/types.h"
         "${CMAKE_CURRENT_LIST_DIR}/command_transfer.h"
         "${CMAKE_CURRENT_LIST_DIR}/frame-validator.h"
+        "${CMAKE_CURRENT_LIST_DIR}/auto-calibrated-device.h"
+        "${CMAKE_CURRENT_LIST_DIR}/serializable-interface.h"
 )

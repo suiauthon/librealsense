@@ -12,7 +12,7 @@
 #include <thread>
 
 #define DEFAULT_TIMEOUT 100
-
+#define FW_UPDATE_INTERFACE_NUMBER 0
 namespace librealsense
 {
     std::string get_formatted_fw_version(uint32_t fw_last_version)
@@ -111,13 +111,23 @@ namespace librealsense
     update_device::update_device(const std::shared_ptr<context>& ctx, bool register_device_notifications, std::shared_ptr<platform::usb_device> usb_device)
         : _context(ctx), _usb_device(usb_device)
     {
-        auto messenger = _usb_device->open();
+        if (auto messenger = _usb_device->open(FW_UPDATE_INTERFACE_NUMBER))
+        {
+            auto state = get_dfu_state(messenger);
+            LOG_DEBUG("DFU state is: " << state);
+            if (state != RS2_DFU_STATE_DFU_IDLE)
+                detach(messenger);
 
-        auto state = get_dfu_state(messenger);
-        if (state != RS2_DFU_STATE_DFU_IDLE)
-            detach(messenger);
-
-        read_device_info(messenger);
+            read_device_info(messenger);
+        }
+        else
+        {
+            std::stringstream s;
+            s << "access failed for " << std::hex <<  _usb_device->get_info().vid << ":"
+              <<_usb_device->get_info().pid << " uid: " <<  _usb_device->get_info().id << std::dec;
+            LOG_ERROR(s.str().c_str());
+            throw std::runtime_error(s.str().c_str());
+        }
     }
 
     update_device::~update_device()
@@ -127,7 +137,7 @@ namespace librealsense
 
     void update_device::update(const void* fw_image, int fw_image_size, update_progress_callback_ptr update_progress_callback) const
     {
-        auto messenger = _usb_device->open();
+        auto messenger = _usb_device->open(FW_UPDATE_INTERFACE_NUMBER);
 
         const size_t transfer_size = 1024;
 

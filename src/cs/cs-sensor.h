@@ -253,6 +253,8 @@ namespace librealsense {
             register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
         }
 
+        ~cs_sensor();
+
         rs2_extension stream_to_frame_types(rs2_stream stream);
 
         virtual stream_profiles init_stream_profiles() override;

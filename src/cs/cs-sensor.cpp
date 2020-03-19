@@ -32,6 +32,22 @@ namespace librealsense {
 
     }
 
+    cs_sensor::~cs_sensor()
+    {
+        try
+        {
+            if (_is_streaming)
+                cs_sensor::stop();
+
+            if (_is_opened)
+                cs_sensor::close();
+        }
+        catch(...)
+        {
+            LOG_ERROR("An error has occurred while stop_streaming()!");
+        }
+    }
+
     void cs_sensor::open(const stream_profiles& requests)
     {
         std::lock_guard<std::mutex> lock(_configure_lock);
@@ -42,105 +58,78 @@ namespace librealsense {
 
         auto on = std::unique_ptr<power>(new power(std::dynamic_pointer_cast<cs_sensor>(shared_from_this())));
 
+        //TODO
+        //Maknuti to od tud
         if (!smcs::GetCameraAPI()->IsUsingKernelDriver())
             throw wrong_api_call_sequence_exception("GigE filter driver not loaded! Please make sure that the driver is installed and available.");
 
         _source.init(_metadata_parsers);
-        _source.set_sensor(this->shared_from_this());
-        auto mapping = resolve_requests(requests);
-
-        auto timestamp_reader = _timestamp_reader.get();
+        _source.set_sensor(_source_owner->shared_from_this());
 
         std::vector<platform::stream_profile> commited;
 
         _cs_selected_streams.clear();
-        for (auto&& mode : mapping)
+
+        for (auto&& req_profile : requests)
         {
-            auto selected_stream = get_stream(mode.original_requests);
-
-            auto infrared_stream = selected_stream == CS_STREAM_IR_LEFT || selected_stream == CS_STREAM_IR_RIGHT;
-            if (infrared_stream && !_device->is_infrared_supported())
-                throw wrong_api_call_sequence_exception("Device does not support infrared streams!");
-
-            unsigned long long last_frame_number = 0;
-            rs2_time_t last_timestamp = 0;
-            _device->probe_and_commit(mode.profile,
-                [this, mode, timestamp_reader, requests, last_frame_number, last_timestamp]
-            (platform::stream_profile p, platform::frame_object f,
-                std::function<void()> continuation) mutable
+            auto&& req_profile_base = std::dynamic_pointer_cast<stream_profile_base>(req_profile);
+            try
             {
-                auto system_time = environment::get_instance().get_time_service()->get_time();
-                if (!this->is_streaming())
+                //TODO provjeriti
+                auto selected_stream = get_stream(req_profile);
+
+                auto infrared_stream = selected_stream == CS_STREAM_IR_LEFT || selected_stream == CS_STREAM_IR_RIGHT;
+                if (infrared_stream && !_device->is_infrared_supported())
+                    throw wrong_api_call_sequence_exception("Device does not support infrared streams!");
+
+                unsigned long long last_frame_number = 0;
+                rs2_time_t last_timestamp = 0;
+                _device->probe_and_commit(req_profile_base->get_backend_profile(),
+                                          [this, req_profile_base, req_profile, last_frame_number, last_timestamp](platform::stream_profile p, platform::frame_object f, std::function<void()> continuation) mutable
                 {
-                    LOG_WARNING("Frame received with streaming inactive,"
-                        << librealsense::get_string(mode.unpacker->outputs.front().stream_desc.type)
-                        << mode.unpacker->outputs.front().stream_desc.index
-                        << ", Arrived," << std::fixed << f.backend_time << " " << system_time);
-                    return;
-                }
-                frame_continuation release_and_enqueue(continuation, f.pixels);
+                    const auto&& system_time = environment::get_instance().get_time_service()->get_time();
+                    const auto&& fr = generate_frame_from_data(f, _timestamp_reader.get(), last_timestamp, last_frame_number, req_profile_base);
+                    const auto&& requires_processing = true; // TODO - Ariel add option
+                    const auto&& timestamp_domain = _timestamp_reader->get_frame_timestamp_domain(fr);
+                    const auto&& bpp = get_image_bpp(req_profile_base->get_format());
+                    auto&& frame_counter = fr->additional_data.frame_number;
+                    auto&& timestamp = fr->additional_data.timestamp;
 
-                // Ignore any frames which appear corrupted or invalid
-                // Determine the timestamp for this frame
-                auto timestamp = timestamp_reader->get_frame_timestamp(mode, f);
-                auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(mode, f);
-                auto frame_counter = timestamp_reader->get_frame_counter(mode, f);
-
-                auto requires_processing = mode.requires_processing();
-
-                std::vector<byte *> dest;
-                std::vector<frame_holder> refs;
-
-                auto&& unpacker = *mode.unpacker;
-                for (auto&& output : unpacker.outputs)
-                {
-                    LOG_DEBUG("FrameAccepted," << librealsense::get_string(output.stream_desc.type)
-                        << ",Counter," << std::dec << frame_counter
-                        << ",Index," << output.stream_desc.index
-                        << ",BackEndTS," << std::fixed << f.backend_time
-                        << ",SystemTime," << std::fixed << system_time
-                        << " ,diff_ts[Sys-BE]," << system_time - f.backend_time
-                        << ",TS," << std::fixed << timestamp << ",TS_Domain," << rs2_timestamp_domain_to_string(timestamp_domain)
-                        << ",last_frame_number," << last_frame_number << ",last_timestamp," << last_timestamp);
-
-                    std::shared_ptr<stream_profile_interface> request = nullptr;
-                    for (auto&& original_prof : mode.original_requests)
+                    if (!this->is_streaming())
                     {
-                        if (original_prof->get_format() == output.format &&
-                            original_prof->get_stream_type() == output.stream_desc.type &&
-                            original_prof->get_stream_index() == output.stream_desc.index)
-                        {
-                            request = original_prof;
-                        }
+                        LOG_WARNING("Frame received with streaming inactive,"
+                                            << librealsense::get_string(req_profile_base->get_stream_type())
+                                            << req_profile_base->get_stream_index()
+                                            << ", Arrived," << std::fixed << f.backend_time << " " << system_time);
+                        return;
                     }
 
-                    auto bpp = get_image_bpp(output.format);
-                    frame_additional_data additional_data(timestamp,
-                        frame_counter,
-                        system_time,
-                        static_cast<uint8_t>(f.metadata_size),
-                        (const uint8_t*)f.metadata,
-                        f.backend_time,
-                        last_timestamp,
-                        last_frame_number,
-                        false);
+                    frame_continuation release_and_enqueue(continuation, f.pixels);
+
+                    LOG_DEBUG("FrameAccepted," << librealsense::get_string(req_profile_base->get_stream_type())
+                                               << ",Counter," << std::dec << fr->additional_data.frame_number
+                                               << ",Index," << req_profile_base->get_stream_index()
+                                               << ",BackEndTS," << std::fixed << f.backend_time
+                                               << ",SystemTime," << std::fixed << system_time
+                                               << " ,diff_ts[Sys-BE]," << system_time - f.backend_time
+                                               << ",TS," << std::fixed << timestamp << ",TS_Domain," << rs2_timestamp_domain_to_string(timestamp_domain)
+                                               << ",last_frame_number," << last_frame_number << ",last_timestamp," << last_timestamp);
 
                     last_frame_number = frame_counter;
                     last_timestamp = timestamp;
 
-                    auto res = output.stream_resolution({ mode.profile.width, mode.profile.height });
-                    auto width = res.width;
-                    auto height = res.height;
+                    const auto&& vsp = As<video_stream_profile, stream_profile_interface>(req_profile);
+                    int width = vsp ? vsp->get_width() : 0;
+                    int height = vsp ? vsp->get_height() : 0;
 
-                    frame_holder frame = _source.alloc_frame(stream_to_frame_types(output.stream_desc.type), width * height * bpp / 8, additional_data, requires_processing);
-                    if (frame.frame)
+                    frame_holder fh = _source.alloc_frame(stream_to_frame_types(req_profile_base->get_stream_type()), width * height * bpp / 8, fr->additional_data, requires_processing);
+                    if (fh.frame)
                     {
-                        auto video = (video_frame*)frame.frame;
+                        memcpy((void*)fh->get_frame_data(), fr->data.data(), sizeof(byte)*fr->data.size());
+                        auto&& video = (video_frame*)fh.frame;
                         video->assign(width, height, width * bpp / 8, bpp);
                         video->set_timestamp_domain(timestamp_domain);
-                        dest.push_back(const_cast<byte*>(video->get_frame_data()));
-                        frame->set_stream(request);
-                        refs.push_back(std::move(frame));
+                        fh->set_stream(req_profile_base);
                     }
                     else
                     {
@@ -148,38 +137,28 @@ namespace librealsense {
                         return;
                     }
 
-                }
-
-                // Unpack the frame
-                if (requires_processing && (dest.size() > 0))
-                {
-                    unpacker.unpack(dest.data(), reinterpret_cast<const byte *>(f.pixels), mode.profile.width, mode.profile.height, f.frame_size);
-                }
-
-                // If any frame callbacks were specified, dispatch them now
-                for (auto&& pref : refs)
-                {
                     if (!requires_processing)
                     {
-                        pref->attach_continuation(std::move(release_and_enqueue));
+                        fh->attach_continuation(std::move(release_and_enqueue));
                     }
 
-                    if (_on_before_frame_callback)
+                    if (fh->get_stream().get())
                     {
-                        //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
-                        auto callback = _source.begin_callback();
-                        auto stream_type = pref->get_stream()->get_stream_type();
-                        _on_before_frame_callback(stream_type, pref, std::move(callback));
+                        _source.invoke_callback(std::move(fh));
                     }
-                    if (pref->get_stream().get())
-                    {
-                        //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
-                        _source.invoke_callback(std::move(pref));
-                    }
+
+                }, selected_stream);
+            }
+            catch (...)
+            {
+                for (auto&& commited_profile : commited)
+                {
+                    _device->close(commited_profile);
                 }
-            }, selected_stream);
+                throw;
+            }
             _cs_selected_streams.push_back(selected_stream);
-            commited.push_back(mode.profile);
+            commited.push_back(req_profile_base->get_backend_profile());
         }
 
         _internal_config = commited;
@@ -198,14 +177,23 @@ namespace librealsense {
         }
         catch (...)
         {
-            try {
-                _device->close(_cs_selected_streams);
+            std::stringstream error_msg;
+            error_msg << "\tFormats: \n";
+            for (auto&& profile : _internal_config)
+            {
+                rs2_format fmt = fourcc_to_rs2_format(profile.format);
+                error_msg << "\t " << std::string(rs2_format_to_string(fmt)) << std::endl;
+                try {
+                    _device->close(_cs_selected_streams);
+                }
+                catch (...) {}
             }
-            catch (...) {}
+            error_msg << std::endl;
             reset_streaming();
             _power.reset();
             _is_opened = false;
-            throw;
+
+            throw std::runtime_error(error_msg.str());
         }
         if (Is<librealsense::global_time_interface>(_owner))
         {
@@ -218,10 +206,7 @@ namespace librealsense {
     {
         auto lock = environment::get_instance().get_extrinsics_graph().lock();
 
-        std::unordered_set<std::shared_ptr<video_stream_profile>> results;
-        std::set<uint32_t> unregistered_formats;
-        std::set<uint32_t> supported_formats;
-
+        std::unordered_set<std::shared_ptr<video_stream_profile>> profiles;
         power on(std::dynamic_pointer_cast<cs_sensor>(shared_from_this()));
 
         if (_uvc_profiles.empty()){}
@@ -229,76 +214,21 @@ namespace librealsense {
 
         for (auto&& p : _uvc_profiles)
         {
-            supported_formats.insert(p.format);
-            native_pixel_format pf{};
-            if (try_get_pf(p, pf))
-            {
-                for (auto&& unpacker : pf.unpackers)
-                {
-                    for (auto&& output : unpacker.outputs)
-                    {
-                        auto profile = std::make_shared<video_stream_profile>(p);
-                        auto res = output.stream_resolution({ p.width, p.height });
-                        profile->set_dims(res.width, res.height);
-                        profile->set_stream_type(output.stream_desc.type);
-                        profile->set_stream_index(output.stream_desc.index);
-                        profile->set_format(output.format);
-                        profile->set_framerate(p.fps);
-                        results.insert(profile);
-                    }
-                }
-            }
-            else
-            {
-                unregistered_formats.insert(p.format);
-            }
+            const auto&& rs2_fmt = fourcc_to_rs2_format(p.format);
+            if (rs2_fmt == RS2_FORMAT_ANY)
+                continue;
+
+            auto&& profile = std::make_shared<video_stream_profile>(p);
+            profile->set_dims(p.width, p.height);
+            profile->set_stream_type(fourcc_to_rs2_stream(p.format));
+            profile->set_stream_index(0);
+            profile->set_format(rs2_fmt);
+            profile->set_framerate(p.fps);
+            profiles.insert(profile);
         }
 
-        if (unregistered_formats.size())
-        {
-            std::stringstream ss;
-            ss << "Unregistered Media formats : [ ";
-            for (auto& elem : unregistered_formats)
-            {
-                uint32_t device_fourcc = reinterpret_cast<const big_endian<uint32_t>&>(elem);
-                char fourcc[sizeof(device_fourcc) + 1];
-                librealsense::copy(fourcc, &device_fourcc, sizeof(device_fourcc));
-                fourcc[sizeof(device_fourcc)] = 0;
-                ss << fourcc << " ";
-            }
-
-            ss << "]; Supported: [ ";
-            for (auto& elem : supported_formats)
-            {
-                uint32_t device_fourcc = reinterpret_cast<const big_endian<uint32_t>&>(elem);
-                char fourcc[sizeof(device_fourcc) + 1];
-                librealsense::copy(fourcc, &device_fourcc, sizeof(device_fourcc));
-                fourcc[sizeof(device_fourcc)] = 0;
-                ss << fourcc << " ";
-            }
-            ss << "]";
-            LOG_INFO(ss.str());
-        }
-
-        auto rgbFormat = _device->get_rgb_format();
-
-        // Sort the results to make sure that the user will receive predictable deterministic output from the API
-        stream_profiles res{ begin(results), end(results) };
-        std::sort(res.begin(), res.end(), [&rgbFormat](const std::shared_ptr<stream_profile_interface>& ap,
-                                             const std::shared_ptr<stream_profile_interface>& bp)
-        {
-            auto a = to_profile(ap.get());
-            auto b = to_profile(bp.get());
-
-            // stream == RS2_STREAM_COLOR && format == rgbFormat element works around the fact that Y16 gets priority over RGB8 when both
-            // are available for pipeline stream resolution
-            auto at = std::make_tuple(a.stream, a.width, a.height, a.fps, a.stream == RS2_STREAM_COLOR && a.format == rgbFormat, a.format);
-            auto bt = std::make_tuple(b.stream, b.width, b.height, b.fps, b.stream == RS2_STREAM_COLOR && b.format == rgbFormat, b.format);
-
-            return at > bt;
-        });
-
-        return res;
+        stream_profiles result{ profiles.begin(), profiles.end() };
+        return result;
     }
 
     rs2_extension cs_sensor::stream_to_frame_types(rs2_stream stream)
@@ -319,11 +249,14 @@ namespace librealsense {
         else if (!_is_opened)
             throw wrong_api_call_sequence_exception("close() failed. CS device was not opened!");
 
-        try // Handle disconnect event
+        for (auto&& profile : _internal_config)
         {
-            _device->close(_cs_selected_streams);
+            try // Handle disconnect event
+            {
+                _device->close(_cs_selected_streams);
+            }
+            catch (...) {}
         }
-        catch (...) {}
         reset_streaming();
         if (Is<librealsense::global_time_interface>(_owner))
         {
@@ -342,9 +275,9 @@ namespace librealsense {
         else if(!_is_opened)
             throw wrong_api_call_sequence_exception("start_streaming(...) failed. CS device was not opened!");
 
+        raise_on_before_streaming_changes(true); //Required to be just before actual start allow recording to work
         _source.set_callback(callback);
         _is_streaming = true;
-        raise_on_before_streaming_changes(true); //Required to be just before actual start allow recording to work
     }
 
     void cs_sensor::stop()
@@ -364,6 +297,7 @@ namespace librealsense {
         {
             if (_device->set_power_state(platform::D0) != platform::D0)
                 throw wrong_api_call_sequence_exception("set power state(...) failed. CS device cannot be turned on!");
+            //for (auto&& xu : _xus) _device->init_xu(xu);
         }
     }
 
