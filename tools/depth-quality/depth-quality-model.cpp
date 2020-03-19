@@ -1,7 +1,6 @@
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2019 Intel Corporation. All Rights Reserved.
 #include <iomanip>
-#include <regex>
 #include "depth-quality-model.h"
 #include <librealsense2/rs_advanced_mode.hpp>
 #include "model-views.h"
@@ -12,8 +11,11 @@ namespace rs2
 {
     namespace depth_quality
     {
-        tool_model::tool_model()
-            : _update_readonly_options_timer(std::chrono::seconds(6)), _roi_percent(0.4f),
+        tool_model::tool_model(rs2::context &ctx)
+            : _ctx(ctx),
+              _pipe(ctx),
+              _viewer_model(ctx),
+              _update_readonly_options_timer(std::chrono::seconds(6)), _roi_percent(0.4f),
               _roi_located(std::chrono::seconds(4)),
               _too_close(std::chrono::seconds(4)),
               _too_far(std::chrono::seconds(4)),
@@ -55,23 +57,14 @@ namespace rs2
             else
                 return valid_config;
 
-
             int requested_fps = usb3_device ? 30 : 15;
 
             {
                 rs2::config cfg_default;
-                auto camera_name = devices.size() ? std::string(devices[0].get_info(RS2_CAMERA_INFO_NAME)) : "";
-                std::regex d400e_regex("FRAMOS D4[0-9][0-9]e");
-                if (std::regex_search(camera_name, d400e_regex)) {
-                    cfg_default.enable_stream(RS2_STREAM_DEPTH, -1, 1280, 720, RS2_FORMAT_Z16, 30);
-                    cfg_default.enable_stream(RS2_STREAM_COLOR, -1, 1280, 720, RS2_FORMAT_RGB8, 30);
-                    cfgs.emplace_back(cfg_default);
-                }
-                else {   // Preferred configuration Depth + Synthetic Color
-                    cfg_default.enable_stream(RS2_STREAM_DEPTH, -1, 0, 0, RS2_FORMAT_Z16, requested_fps);
-                    cfg_default.enable_stream(RS2_STREAM_INFRARED, -1, 0, 0, RS2_FORMAT_RGB8, requested_fps);
-                    cfgs.emplace_back(cfg_default);
-                }
+                // Preferred configuration Depth + Synthetic Color
+                cfg_default.enable_stream(RS2_STREAM_DEPTH, -1, 0, 0, RS2_FORMAT_Z16, requested_fps);
+                cfg_default.enable_stream(RS2_STREAM_INFRARED, -1, 0, 0, RS2_FORMAT_RGB8, requested_fps);
+                cfgs.emplace_back(cfg_default);
             }
             // Use Infrared luminocity as a secondary video in case synthetic chroma is not supported
             {
@@ -1194,14 +1187,17 @@ namespace rs2
             {
 
                 // Snapshot the color-augmented version of the frame
-                if (auto colorized_frame = _colorize.colorize(frame).as<video_frame>())
+                if (auto df = frame.as<depth_frame>())
                 {
+                    if (auto colorized_frame = _colorize.colorize(frame).as<video_frame>())
+                    {
 
-                    auto stream_desc = rs2_stream_to_string(colorized_frame.get_profile().stream_type());
-                    auto filename_png = filename_base + "_" + stream_desc + "_" + fn.str() + ".png";
-                    save_to_png(filename_png.data(), colorized_frame.get_width(), colorized_frame.get_height(), colorized_frame.get_bytes_per_pixel(),
-                        colorized_frame.get_data(), colorized_frame.get_width() * colorized_frame.get_bytes_per_pixel());
+                        auto stream_desc = rs2_stream_to_string(colorized_frame.get_profile().stream_type());
+                        auto filename_png = filename_base + "_" + stream_desc + "_" + fn.str() + ".png";
+                        save_to_png(filename_png.data(), colorized_frame.get_width(), colorized_frame.get_height(), colorized_frame.get_bytes_per_pixel(),
+                            colorized_frame.get_data(), colorized_frame.get_width() * colorized_frame.get_bytes_per_pixel());
 
+                    }
                 }
                 auto original_frame = frame.as<video_frame>();
 
@@ -1240,8 +1236,13 @@ namespace rs2
                     }
                 }
 
-                if (ply_texture )
-                    export_to_ply(filename_base + "_" + fn.str() + "_3d_mesh.ply", _viewer_model.not_model, frames, ply_texture, false);
+                if (ply_texture)
+                {
+                    auto fname = filename_base + "_" + fn.str() + "_3d_mesh.ply";
+                    std::unique_ptr<rs2::filter> exporter;
+                    exporter = std::unique_ptr<rs2::filter>(new rs2::save_to_ply(fname));
+                    export_frame(fname, std::move(exporter), _viewer_model.not_model, frames, false);
+                }
             }
         }
 

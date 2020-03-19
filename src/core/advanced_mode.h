@@ -9,6 +9,8 @@
 #define RS400_ADVANCED_MODE_HPP
 #include "ds5/advanced_mode/presets.h"
 #include "../../include/librealsense2/h/rs_advanced_mode_command.h"
+#include "serializable-interface.h"
+
 #undef RS400_ADVANCED_MODE_HPP
 
 
@@ -56,7 +58,7 @@ namespace librealsense
     MAP_ADVANCED_MODE(STAFactor, etAFactor);
 
 
-    class ds5_advanced_mode_interface : public recordable<ds5_advanced_mode_interface>
+    class ds5_advanced_mode_interface : public serializable_interface, public recordable<ds5_advanced_mode_interface>
     {
     public:
         virtual bool is_enabled() const = 0;
@@ -95,9 +97,6 @@ namespace librealsense
         virtual void set_census_radius(const STCensusRadius& val) = 0;
         virtual void set_amp_factor(const STAFactor& val) = 0;
 
-        virtual std::vector<uint8_t> serialize_json() const = 0;
-        virtual void load_json(const std::string& json_content) = 0;
-
         virtual ~ds5_advanced_mode_interface() = default;
     };
 
@@ -109,7 +108,7 @@ namespace librealsense
     {
     public:
         explicit ds5_advanced_mode_base(std::shared_ptr<hw_monitor> hwm,
-                                        uvc_sensor& depth_sensor);
+            synthetic_sensor& depth_sensor);
 
         void create_snapshot(std::shared_ptr<ds5_advanced_mode_interface>& snapshot) const override {};
         void enable_recording(std::function<void(const ds5_advanced_mode_interface&)> recording_function) override {};
@@ -157,10 +156,11 @@ namespace librealsense
         static const uint16_t HW_MONITOR_BUFFER_SIZE = 1024;
 
     private:
-        void set_exposure(uvc_sensor& sensor, const exposure_control& val);
-        void set_auto_exposure(uvc_sensor& sensor, const auto_exposure_control& val);
-        void get_exposure(uvc_sensor& sensor, exposure_control* ptr) const;
-        void get_auto_exposure(uvc_sensor& sensor, auto_exposure_control* ptr) const;
+        friend class auto_calibrated;
+        void set_exposure(synthetic_sensor& sensor, const exposure_control& val);
+        void set_auto_exposure(synthetic_sensor& sensor, const auto_exposure_control& val);
+        void get_exposure(synthetic_sensor& sensor, exposure_control* ptr) const;
+        void get_auto_exposure(synthetic_sensor& sensor, auto_exposure_control* ptr) const;
 
         void get_laser_power(laser_power_control* ptr) const;
         void get_laser_state(laser_state_control* ptr) const;
@@ -202,10 +202,10 @@ namespace librealsense
         void set_color_auto_white_balance(const auto_white_balance_control& val);
         void set_color_power_line_frequency(const power_line_frequency_control& val);
 
-        bool supports_option(const uvc_sensor& sensor, rs2_option opt) const;
+        bool supports_option(const synthetic_sensor& sensor, rs2_option opt) const;
 
         std::shared_ptr<hw_monitor> _hw_monitor;
-        uvc_sensor& _depth_sensor;
+        synthetic_sensor& _depth_sensor;
         lazy<ds5_color_sensor*> _color_sensor;
         lazy<bool> _enabled;
         std::shared_ptr<advanced_mode_preset_option> _preset_opt;
@@ -259,7 +259,7 @@ namespace librealsense
     class advanced_mode_preset_option : public option_base
     {
     public:
-        advanced_mode_preset_option(ds5_advanced_mode_base& advanced, uvc_sensor& ep,
+        advanced_mode_preset_option(ds5_advanced_mode_base& advanced, synthetic_sensor& ep,
                                     const option_range& opt_range);
 
         static rs2_rs400_visual_preset to_preset(float x);
@@ -274,7 +274,7 @@ namespace librealsense
         firmware_version get_firmware_version(const uvc_sensor& sensor) const;
 
         std::mutex _mtx;
-        uvc_sensor& _ep;
+        synthetic_sensor& _ep;
         ds5_advanced_mode_base& _advanced;
         rs2_rs400_visual_preset _last_preset;
     };
@@ -286,7 +286,7 @@ namespace librealsense
     public:
         explicit cs_advanced_mode_base();
 
-        void cs_advanced_mode_init(std::shared_ptr<hw_monitor> hwm, cs_sensor* depth_sensor);
+        void cs_advanced_mode_init(std::shared_ptr<hw_monitor> hwm, synthetic_sensor* depth_sensor);
 
         void create_snapshot(std::shared_ptr<ds5_advanced_mode_interface>& snapshot) const override {};
         void enable_recording(std::function<void(const ds5_advanced_mode_interface&)> recording_function) override {};
@@ -334,10 +334,11 @@ namespace librealsense
         static const uint16_t HW_MONITOR_BUFFER_SIZE = 1024;
 
     private:
-        void set_exposure(cs_sensor& sensor, const exposure_control& val);
-        void set_auto_exposure(cs_sensor& sensor, const auto_exposure_control& val);
-        void get_exposure(cs_sensor& sensor, exposure_control* ptr) const;
-        void get_auto_exposure(cs_sensor& sensor, auto_exposure_control* ptr) const;
+        friend class auto_calibrated;
+        void set_exposure(synthetic_sensor& sensor, const exposure_control& val);
+        void set_auto_exposure(synthetic_sensor& sensor, const auto_exposure_control& val);
+        void get_exposure(synthetic_sensor& sensor, exposure_control* ptr) const;
+        void get_auto_exposure(synthetic_sensor& sensor, auto_exposure_control* ptr) const;
 
         void get_laser_power(laser_power_control* ptr) const;
         void get_laser_state(laser_state_control* ptr) const;
@@ -379,10 +380,10 @@ namespace librealsense
         void set_color_auto_white_balance(const auto_white_balance_control& val);
         void set_color_power_line_frequency(const power_line_frequency_control& val);
 
-        bool supports_option(const cs_sensor& sensor, rs2_option opt) const;
+        bool supports_option(const synthetic_sensor& sensor, rs2_option opt) const;
 
         std::shared_ptr<hw_monitor> _hw_monitor;
-        cs_sensor* _depth_sensor;
+        synthetic_sensor* _depth_sensor;
         lazy<cs_color_sensor*> _color_sensor;
         lazy<bool> _enabled;
         std::shared_ptr<cs_advanced_mode_preset_option> _preset_opt;
@@ -436,7 +437,7 @@ namespace librealsense
     class cs_advanced_mode_preset_option : public option_base
     {
     public:
-        cs_advanced_mode_preset_option(cs_advanced_mode_base& advanced, cs_sensor& ep,
+        cs_advanced_mode_preset_option(cs_advanced_mode_base& advanced, synthetic_sensor& ep,
                                     const option_range& opt_range);
 
         static rs2_rs400_visual_preset to_preset(float x);
@@ -451,7 +452,7 @@ namespace librealsense
         firmware_version get_firmware_version(const cs_sensor& sensor) const;
 
         std::mutex _mtx;
-        cs_sensor& _ep;
+        synthetic_sensor& _ep;
         cs_advanced_mode_base& _advanced;
         rs2_rs400_visual_preset _last_preset;
     };
