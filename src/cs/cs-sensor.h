@@ -416,7 +416,7 @@ namespace librealsense {
         
         option_range get_range() const override { return option_range{ 1,2,1,1 }; };
 
-        const char* get_description() const override { return "External Trigger Type"; }
+        const char* get_description() const override { return "External Trigger Source"; }
     private:
         mutable bool _is_enabled;
         cs_stream _stream;
