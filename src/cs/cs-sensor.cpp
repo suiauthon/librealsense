@@ -486,7 +486,7 @@ namespace librealsense {
                         if (!_connected_device->IsConnected()) {
                             // try to connect to camera if not already connected
                             if (!_connected_device->Connect()) {
-                                throw wrong_api_call_sequence_exception("Could not connect to CS device with given SN!");
+                                throw wrong_api_call_sequence_exception(std::string("Could not connect to device with serial number ") + _connected_device->GetSerialNumber());
                             }
                             else {
                                 // initialize this part (inter-packet delay) only once
