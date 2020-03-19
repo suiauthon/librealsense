@@ -448,7 +448,7 @@ namespace librealsense {
                 }));
         };
 
-        bool is_enabled() const override { return ((_ep.query_inter_cam_sync_mode() && _ep.is_streaming() && _ep.get_option(RS2_OPTION_EXTERNAL_TRIGGER_SOURCE).query() == 2.f) || _is_enabled );}
+        bool is_enabled() const override { return ((_ep.query_inter_cam_sync_mode() && _ep.is_streaming() && _ep.get_option(RS2_OPTION_EXT_TRIGGER_SOURCE).query() == 2.f) || _is_enabled );}
         option_range get_range() const override { return option_range{ 1,1,1,1 }; };
 
         const char* get_description() const override { return "Software Trigger"; }

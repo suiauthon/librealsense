@@ -841,7 +841,7 @@ namespace librealsense {
                     return true;
                 }
 
-                case RS2_OPTION_EXTERNAL_TRIGGER_SOURCE:
+                case RS2_OPTION_EXT_TRIGGER_SOURCE:
                 {
                     std::string trigger_mode;
                     _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
@@ -1161,7 +1161,7 @@ namespace librealsense {
                     value = 1;
                     return true;
                 }
-                case RS2_OPTION_EXTERNAL_TRIGGER_SOURCE:
+                case RS2_OPTION_EXT_TRIGGER_SOURCE:
                 {
                     std::string trigger_mode, trigger_source;
                     status = _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);

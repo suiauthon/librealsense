@@ -92,11 +92,11 @@ int main(int argc, char * argv[]) try
     for (auto&& sensor : pipe.get_active_profile().get_device().query_sensors()) {
         if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
             sensorDepth = sensor;
-            sensor.set_option(RS2_OPTION_EXTERNAL_TRIGGER_SOURCE, 2);
+            sensor.set_option(RS2_OPTION_EXT_TRIGGER_SOURCE, 2);
         }
         else {
             sensorColor = sensor;
-            sensor.set_option(RS2_OPTION_EXTERNAL_TRIGGER_SOURCE, 2);
+            sensor.set_option(RS2_OPTION_EXT_TRIGGER_SOURCE, 2);
         }
     }
 
