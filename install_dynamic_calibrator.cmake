@@ -1,11 +1,13 @@
 if (UNIX)
-    set(DYNAMIC_CALIBRATOR_DIR /opt/Projects/RS-D4-ETH/Software/RS-CalibrationToolAPI/linux/usr)
+    if ( NOT DEFINED ENV{DYNAMIC_CALIBRATOR_PATH} )
+        message( FATAL_ERROR "DYNAMIC_CALIBRATOR_PATH not deinfed" )
+    endif()
     install(PROGRAMS
-        ${DYNAMIC_CALIBRATOR_DIR}/bin/DynamicCalibrator
-        DESTINATION ${CMAKE_INSTALL_BINDIR}    
+        $ENV{DYNAMIC_CALIBRATOR_PATH}/bin/DynamicCalibrator
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
     install(FILES
-        ${DYNAMIC_CALIBRATOR_DIR}/lib/libDSDynamicCalibrationAPI.so
+        $ENV{DYNAMIC_CALIBRATOR_PATH}/lib/libDSDynamicCalibrationAPI.so
         DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
 elseif (WIN32)

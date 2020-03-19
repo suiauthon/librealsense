@@ -1,8 +1,9 @@
 if (UNIX)
-    set(ROS_WRAPPER_DIR /opt/Projects/RS-D4-ETH/Software/RS-ROS-Wrapper)
-    set(SOURCE_DEST src/librealsense2)
+    if ( NOT DEFINED ENV{ROS_WRAPPER_PATH} )
+        message( FATAL_ERROR "ROS_WRAPPER_PATH not deinfed" )
+    endif()
     install(DIRECTORY
-        ${ROS_WRAPPER_DIR}/
-        DESTINATION ${SOURCE_DEST}/wrappers/ros/
+        $ENV{ROS_WRAPPER_PATH}/
+        DESTINATION src/librealsense2/wrappers/ros/
     )
 endif()
