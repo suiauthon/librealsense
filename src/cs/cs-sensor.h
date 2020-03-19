@@ -33,14 +33,12 @@ namespace librealsense {
         CS_INTERCAM_SYNC_MASTER,
         CS_INTERCAM_SYNC_SLAVE,
         CS_INTERCAM_SYNC_EXTERNAL,
-        CS_INTERCAM_SYNC_SOFTWARE,
         CS_INTERCAM_SYNC_MAX
     } cs_inter_cam_mode;
 
     typedef enum cs_inter_cam_sync_mode_color {
         CS_INTERCAM_SYNC_DEFAULT_COLOR,
         CS_INTERCAM_SYNC_EXTERNAL_COLOR,
-        CS_INTERCAM_SYNC_SOFTWARE_COLOR,
         CS_INTERCAM_SYNC_MAX_COLOR
     } cs_inter_cam_mode_color;
 
@@ -389,6 +387,42 @@ namespace librealsense {
         const char* get_description() const override { return "Depth Exposure (usec)"; }
     };
 
+    class cs_external_trigger_option : public cs_pu_option
+    {
+    public:
+        cs_external_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+            : cs_pu_option(ep, id, stream) {}
+
+        cs_external_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
+            : cs_pu_option(ep, id, stream, description_per_value), _is_enabled(true), _stream(stream), _id(id)
+        {
+        }
+
+        float query() const override {
+            if (_is_enabled) {
+                _is_enabled = false;
+            }
+            return static_cast<float>(_ep.invoke_powered(
+                [this](platform::cs_device& dev)
+                {
+                    int32_t value = 0;
+                    if (!dev.get_pu(_id, value, _stream))
+                        throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
+                    return static_cast<float>(value);
+                }));
+        };
+
+        bool is_enabled() const override { return ((_ep.query_inter_cam_sync_mode() && _ep.is_streaming()) || _is_enabled); }
+        
+        option_range get_range() const override { return option_range{ 1,2,1,1 }; };
+
+        const char* get_description() const override { return "External Trigger Type"; }
+    private:
+        mutable bool _is_enabled;
+        cs_stream _stream;
+        rs2_option _id;
+    };
+
     class cs_software_trigger_option : public cs_pu_option
     {
     public:
@@ -414,8 +448,7 @@ namespace librealsense {
                 }));
         };
 
-        bool is_enabled() const override { return ((_ep.query_inter_cam_sync_mode() && _ep.is_streaming()) || _is_enabled ) ; }
-
+        bool is_enabled() const override { return ((_ep.query_inter_cam_sync_mode() && _ep.is_streaming() && _ep.get_option(RS2_OPTION_EXTERNAL_TRIGGER_SOURCE).query() == 2.f) || _is_enabled );}
         option_range get_range() const override { return option_range{ 1,1,1,1 }; };
 
         const char* get_description() const override { return "Software Trigger"; }

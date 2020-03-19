@@ -288,6 +288,7 @@ namespace librealsense
             CASE(INTER_PACKET_DELAY)
             CASE(PACKET_SIZE)
             CASE(SOFTWARE_TRIGGER)
+            CASE(EXTERNAL_TRIGGER_SOURCE)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 #undef CASE

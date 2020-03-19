@@ -278,7 +278,7 @@ namespace librealsense
 
 		const char* get_description() const override
 		{
-			return "Inter-camera synchronization mode: 0:Default, 1:Master, 2:Slave, 3:External Trigger, 4:Software Trigger";
+			return "Inter-camera synchronization mode: 0:Default, 1:Master, 2:Slave, 3:External Trigger";
 		}
 		void enable_recording(std::function<void(const option &)> record_action) override
 		{
@@ -303,7 +303,7 @@ namespace librealsense
 
 		const char* get_description() const override
 		{
-			return "Inter-camera synchronization mode: 0:Default, 1:External Trigger, 2:Software Trigger";
+			return "Inter-camera synchronization mode: 0:Default, 1:External Trigger";
 		}
 		void enable_recording(std::function<void(const option &)> record_action) override
 		{

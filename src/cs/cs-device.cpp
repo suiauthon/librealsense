@@ -261,6 +261,11 @@ namespace librealsense
             std::make_shared<cs_software_trigger_option>(depth_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_DEPTH,
                 std::map<float, std::string>{{ 1.f, "Trigger" }}));
 
+        depth_ep.register_option(RS2_OPTION_EXTERNAL_TRIGGER_SOURCE,
+            std::make_shared<cs_external_trigger_option>(depth_ep, RS2_OPTION_EXTERNAL_TRIGGER_SOURCE, CS_STREAM_DEPTH,
+                std::map<float, std::string>{{ 1.f, "Hardware" },
+                                             { 2.f, "Software" }}));
+
     }
 
     std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
@@ -329,6 +334,11 @@ namespace librealsense
         color_ep->register_option(RS2_OPTION_SOFTWARE_TRIGGER,
             std::make_shared<cs_software_trigger_option>(*color_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_DEPTH,
                 std::map<float, std::string>{ { 1.f, "Trigger" }}));
+
+        color_ep->register_option(RS2_OPTION_EXTERNAL_TRIGGER_SOURCE,
+            std::make_shared<cs_external_trigger_option>(*color_ep, RS2_OPTION_EXTERNAL_TRIGGER_SOURCE, CS_STREAM_DEPTH,
+                std::map<float, std::string>{ { 1.f, "Hardware" },
+                                              { 2.f, "Software" }}));
 
         return color_ep;
     }

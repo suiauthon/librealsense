@@ -21,7 +21,7 @@ float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize);
 int main(int argc, char * argv[]) try
 {
     // Create a simple OpenGL window for rendering:
-    window app(1280, 960, "CPP Multi-Camera Example");
+    window app(1280, 960, "CPP Software-Trigger Example");
 
     rs2::context                          ctx;        // Create librealsense context for managing devices
 
@@ -33,6 +33,7 @@ int main(int argc, char * argv[]) try
     rs2::sensor sensorColor;
 
     rs2::pipeline_profile active_profile;
+    rs2::pipeline pipe(ctx);
 
     for (auto&& dev : ctx.query_devices()) {
         std::string name = dev.get_info(RS2_CAMERA_INFO_NAME);
@@ -40,11 +41,11 @@ int main(int argc, char * argv[]) try
         if (std::regex_search(name, d400e_regex)) {
             for (auto&& sensor : dev.query_sensors()) {
                 if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
-                    sensor.set_option(RS2_OPTION_INTER_CAM_SYNC_MODE , 4);
+                    sensor.set_option(RS2_OPTION_INTER_CAM_SYNC_MODE , 3);
                     //sensorDepth = sensor;
                 }
                 else {
-                    sensor.set_option(RS2_OPTION_INTER_CAM_SYNC_MODE, 2);
+                    sensor.set_option(RS2_OPTION_INTER_CAM_SYNC_MODE, 1);
                 }
                 // adjust InterPacketDelay option on D400e camera based on PacketSize, number of cameras and number of streams
                 // assumptions: 
@@ -67,17 +68,17 @@ int main(int argc, char * argv[]) try
     // Start a streaming pipe per each connected device
     for (auto&& dev : ctx.query_devices())
     {
-        rs2::pipeline pipe(ctx);
         rs2::config cfg;
 
         // enable only depth and infrared streams
         cfg.enable_stream(RS2_STREAM_DEPTH, -1, 640, 480, RS2_FORMAT_Z16, 30);        
         cfg.enable_stream(RS2_STREAM_INFRARED, 1, 640, 480, RS2_FORMAT_Y8, 30);
         cfg.enable_stream(RS2_STREAM_INFRARED, 2, 640, 480, RS2_FORMAT_Y8, 30);
+        cfg.enable_stream(RS2_STREAM_COLOR, -1, 640, 480, RS2_FORMAT_RGB8, 30);
 
         cfg.enable_device(dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
 
-        active_profile = pipe.start(cfg);
+        pipe.start(cfg);
         pipelines.emplace_back(pipe);
         // Map from each device's serial number to a different colorizer
         colorizers[dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER)] = rs2::colorizer();
@@ -88,9 +89,14 @@ int main(int argc, char * argv[]) try
 
 
     // get sensor from the active profile, where _is_streaming is correctly updated
-    for (auto&& sensor : active_profile.get_device().query_sensors()) {
+    for (auto&& sensor : pipe.get_active_profile().get_device().query_sensors()) {
         if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
             sensorDepth = sensor;
+            sensor.set_option(RS2_OPTION_EXTERNAL_TRIGGER_SOURCE, 2);
+        }
+        else {
+            sensorColor = sensor;
+            sensor.set_option(RS2_OPTION_EXTERNAL_TRIGGER_SOURCE, 2);
         }
     }
 
@@ -102,7 +108,10 @@ int main(int argc, char * argv[]) try
             if (key = 27 || key == 'q' || key == 'Q') {
                 if (sensorDepth.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
                     sensorDepth.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
-                } 
+                }
+                if (sensorColor.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
+                    sensorColor.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
+                }
             }
         }
 
