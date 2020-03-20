@@ -42,7 +42,7 @@ int main(int argc, char * argv[]) try
             for (auto&& sensor : dev.query_sensors()) {
                 if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
                     sensor.set_option(RS2_OPTION_INTER_CAM_SYNC_MODE , 3);
-                    //sensorDepth = sensor;
+                    sensor.set_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, 1);
                 }
                 else {
                     sensor.set_option(RS2_OPTION_INTER_CAM_SYNC_MODE, 1);
@@ -93,7 +93,7 @@ int main(int argc, char * argv[]) try
         if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
             sensorDepth = sensor;
             sensor.set_option(RS2_OPTION_EXT_TRIGGER_SOURCE, 2);
-            sensor.set_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, 1);
+            
         }
         else {
             sensorColor = sensor;
@@ -114,7 +114,7 @@ int main(int argc, char * argv[]) try
                     sensorColor.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
                 }
             }
-            else if (key == 't' || key == 'T') {
+            /*else if (key == 't' || key == 'T') {
                 auto _trigg_all_sources = sensorDepth.get_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS);
                 if (_trigg_all_sources == 1)
                     _trigg_all_sources = 0;
@@ -127,7 +127,7 @@ int main(int argc, char * argv[]) try
                 else
                     std::cout << sensorDepth.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER) << ", Software trigger separate sources = " << _trigg_all_sources << std::endl;
 
-            }
+            }*/
             else if (key == 'd' || key == 'D') {
                 if (sensorDepth.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
                     sensorDepth.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
