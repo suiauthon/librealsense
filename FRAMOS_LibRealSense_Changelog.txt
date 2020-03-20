@@ -1,3 +1,16 @@
+v2.29.8 (2020-03-31)
+=====================
+	- added - support for Jetson TX2
+	- added - support for software trigger
+	- added - filtering cameras by IP in ROS wrapper
+	- fixed - errors logged during normal operation
+	- changed - Inter Cam Sync Mode and Packet Size controls disabled during stream
+	- changed - connection failure error message contains camera serial number
+
+v2.29.7 (2020-03-10)
+=====================
+    - added - support for Output Trigger Enabled control
+
 v2.29.6 (2020-02-28)
 =====================
     - added - support for D415e cameras
