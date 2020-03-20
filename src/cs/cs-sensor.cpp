@@ -451,32 +451,40 @@ namespace librealsense {
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("Unable to set Inter Cam Sync Mode while streaming!");
 
+        update_external_trigger_mode_flag(value);
+
         _device->set_trigger_mode(value, _cs_stream);
 	}
 
     float cs_sensor::get_inter_cam_sync_mode()
     {
-        return _device->get_trigger_mode(_cs_stream);
+        float inter_cam_sync_mode = _device->get_trigger_mode(_cs_stream);
+
+        update_external_trigger_mode_flag(inter_cam_sync_mode);
+
+        return inter_cam_sync_mode;
     }
 
 
     bool cs_sensor::query_inter_cam_sync_mode()
     {
-        bool status;
+        return _external_trigger_mode;
+    }
+
+    void cs_sensor::update_external_trigger_mode_flag(float value)
+    {
         switch (_cs_stream)
         {
         case CS_STREAM_COLOR:
-            if (get_inter_cam_sync_mode() == CS_INTERCAM_SYNC_EXTERNAL_COLOR) status = true; else status = false;
+            if (value == 1.f) _external_trigger_mode = true; else _external_trigger_mode = false;
             break;
         case CS_STREAM_DEPTH:
         case CS_STREAM_IR_LEFT:
         case CS_STREAM_IR_RIGHT:
-            if (get_inter_cam_sync_mode() == CS_INTERCAM_SYNC_EXTERNAL) status = true; else status = false;
+            if (value == 3.f) _external_trigger_mode = true; else _external_trigger_mode = false;
             break;
         default: throw linux_backend_exception(to_string() << "wrong stream cid ");
         }
-
-        return status;
     }
 
     namespace platform
@@ -749,7 +757,7 @@ namespace librealsense {
         {
             // Auto controls range is trimmed to {0,1} range
             if(option == RS2_OPTION_ENABLE_AUTO_EXPOSURE || option == RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE ||
-                    option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED || option == RS2_OPTION_OUTPUT_TRIGGER_ENABLED)
+                    option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED || option == RS2_OPTION_OUTPUT_TRIGGER_ENABLED || option == RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS)
             {
                 static const int32_t min = 0, max = 1, step = 1, def = 1;
                 control_range range(min, max, step, def);
@@ -827,12 +835,15 @@ namespace librealsense {
                 }
                 case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
                 {
+                    if (!select_source(stream))
+                        return false;
+
                     if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "VSync");
                     else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "UserOutput1");
                 }                
 				case RS2_OPTION_SOFTWARE_TRIGGER:
                 {
-                    if (!select_channel(stream))
+                    if (!select_source(stream))
                         return false;
 
                     if (!_connected_device->CommandNodeExecute("TriggerSoftware"))
@@ -840,9 +851,19 @@ namespace librealsense {
                         
                     return true;
                 }
+                case RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS:
+                {
+                    if (!select_source(stream))
+                        return false;
 
+                    if (value == 1) return _connected_device->SetBooleanNodeValue("TriggerSoftwareAllSources", true);
+                    else if (value == 0) return _connected_device->SetBooleanNodeValue("TriggerSoftwareAllSources", false);
+                }
                 case RS2_OPTION_EXT_TRIGGER_SOURCE:
                 {
+                    if (!select_source(stream))
+                        return false;
+
                     std::string trigger_mode;
                     _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
                     if (trigger_mode == "Off") 
@@ -1151,6 +1172,9 @@ namespace librealsense {
                 }
                 case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
                 {
+                    if (!select_source(stream))
+                        return false;
+
                     status = _connected_device->GetStringNodeValue(get_cs_param_name(option, stream), string_value);
                     if (string_value == "VSync") value = 1;
                     else value = 0;
@@ -1158,11 +1182,27 @@ namespace librealsense {
                 }
                 case RS2_OPTION_SOFTWARE_TRIGGER:
                 {
+                    if (!select_source(stream))
+                        return false;
                     value = 1;
                     return true;
                 }
+                case RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS:
+                {
+                    if (!select_source(stream))
+                        return false;
+
+                    bool trigger_all_sensors;
+                    status = _connected_device->GetBooleanNodeValue("TriggerSoftwareAllSources", trigger_all_sensors);
+                    if (trigger_all_sensors == false) value = 0;
+                    else value = 1;
+                    return status;
+                }
                 case RS2_OPTION_EXT_TRIGGER_SOURCE:
                 {
+                    if (!select_source(stream))
+                        return false;
+
                     std::string trigger_mode, trigger_source;
                     status = _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
                     if (trigger_mode == "Off")
@@ -1695,7 +1735,6 @@ namespace librealsense {
                 case CS_INTERCAM_SYNC_EXTERNAL_COLOR:
                     _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
                     _connected_device->SetStringNodeValue("TriggerMode", "On");
-                    _connected_device->SetStringNodeValue("TriggerSource", "Line1");
                     break;
                 default:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
@@ -1708,7 +1747,6 @@ namespace librealsense {
 					_connected_device->SetStringNodeValue("LineSelector", "Line1");
 					_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
 					_connected_device->SetStringNodeValue("TriggerMode", "On");
-                    _connected_device->SetStringNodeValue("TriggerSource", "Line1");
                     break;
                 case CS_INTERCAM_SYNC_MASTER:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
@@ -1722,7 +1760,6 @@ namespace librealsense {
                     _connected_device->SetStringNodeValue("LineSelector", "Line1");
                     _connected_device->SetStringNodeValue("LineSource", "VSync");
                     _connected_device->SetStringNodeValue("TriggerMode", "On");
-                    _connected_device->SetStringNodeValue("TriggerSource", "Line1");
                     break;
                 default:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
@@ -1758,7 +1795,7 @@ namespace librealsense {
                     return CS_INTERCAM_SYNC_SLAVE;
                 else if (trigger_type == "MultiCam_Sync" && line_source == "VSync" && trigger_mode == "Off")
                     return CS_INTERCAM_SYNC_MASTER;
-                else if (trigger_type == "ExternalEvent" && (trigger_source == "Line1" || trigger_source == "Software") && line_source == "VSync" && trigger_mode == "On")
+                else if (trigger_type == "ExternalEvent" && (trigger_source == "Line1" || trigger_source == "Software") && (line_source == "VSync" || line_source == "UserOutput1") && trigger_mode == "On")
                     return CS_INTERCAM_SYNC_EXTERNAL;
                 else
                     return CS_INTERCAM_SYNC_DEFAULT;

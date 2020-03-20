@@ -66,6 +66,7 @@ extern "C" {
         RS2_OPTION_INTER_CAM_SYNC_MODE, /**< Impose Inter-camera HW synchronization mode. Applicable for D400/Rolling Shutter SKUs */
         RS2_OPTION_EXT_TRIGGER_SOURCE, /**Select external trigger type for eth cameras*/
         RS2_OPTION_SOFTWARE_TRIGGER, /**< Execute software trigger for eth cameras*/
+        RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, /**< Execute software trigger for eth cameras*/
         RS2_OPTION_STREAM_FILTER, /**< Select a stream to process */
         RS2_OPTION_STREAM_FORMAT_FILTER, /**< Select a stream format to process */
         RS2_OPTION_STREAM_INDEX_FILTER, /**< Select a stream index to process */

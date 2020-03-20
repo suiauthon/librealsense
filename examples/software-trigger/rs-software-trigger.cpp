@@ -93,6 +93,7 @@ int main(int argc, char * argv[]) try
         if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
             sensorDepth = sensor;
             sensor.set_option(RS2_OPTION_EXT_TRIGGER_SOURCE, 2);
+            sensor.set_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, 1);
         }
         else {
             sensorColor = sensor;
@@ -105,10 +106,34 @@ int main(int argc, char * argv[]) try
     {
         if (_kbhit()) {
             int key = _getch() & 255;
-            if (key = 27 || key == 'q' || key == 'Q') {
+            if (key == 'q' || key == 'Q') {
                 if (sensorDepth.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
                     sensorDepth.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
                 }
+                if (sensorColor.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
+                    sensorColor.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
+                }
+            }
+            else if (key == 't' || key == 'T') {
+                auto _trigg_all_sources = sensorDepth.get_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS);
+                if (_trigg_all_sources == 1)
+                    _trigg_all_sources = 0;
+                else 
+                    _trigg_all_sources = 1;
+                
+                sensorDepth.set_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, _trigg_all_sources);
+                if (_trigg_all_sources == 1)
+                    std::cout << sensorDepth.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER) << ", Software trigger all sources = " << _trigg_all_sources << std::endl;
+                else
+                    std::cout << sensorDepth.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER) << ", Software trigger separate sources = " << _trigg_all_sources << std::endl;
+
+            }
+            else if (key == 'd' || key == 'D') {
+                if (sensorDepth.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
+                    sensorDepth.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
+                }
+            }
+            else if (key == 'r' || key == 'R') {
                 if (sensorColor.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
                     sensorColor.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
                 }

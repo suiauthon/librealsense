@@ -289,6 +289,7 @@ namespace librealsense
             CASE(PACKET_SIZE)
             CASE(SOFTWARE_TRIGGER)
             CASE(EXT_TRIGGER_SOURCE)
+            CASE(SOFTWARE_TRIGGER_ALL_SENSORS)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 #undef CASE
