@@ -956,16 +956,17 @@ namespace librealsense
                                                                                      1,
                                                                                      RS2_RS400_VISUAL_PRESET_CUSTOM });
         _depth_sensor->register_option(RS2_OPTION_VISUAL_PRESET, _preset_opt);
+
         _color_sensor = [this]() {
             auto& dev = _depth_sensor->get_device();
             for (size_t i = 0; i < dev.get_sensors_count(); ++i)
             {
-                if (auto s = dynamic_cast<const cs_color_sensor*>(&(dev.get_sensor(i))))
+                if (auto s = dynamic_cast<const synthetic_sensor*>(&(dev.get_sensor(i))))
                 {
-                    return const_cast<cs_color_sensor*>(s);
+                    return const_cast<synthetic_sensor*>(s);
                 }
             }
-            return (cs_color_sensor*)nullptr;
+            return (synthetic_sensor*)nullptr;
         };
         _amplitude_factor_support = [this]() {
             auto fw_ver = firmware_version(_depth_sensor->get_device().get_info(rs2_camera_info::RS2_CAMERA_INFO_FIRMWARE_VERSION));

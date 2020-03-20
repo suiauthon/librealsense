@@ -73,10 +73,10 @@ namespace librealsense {
         for (auto&& req_profile : requests)
         {
             auto&& req_profile_base = std::dynamic_pointer_cast<stream_profile_base>(req_profile);
+            auto selected_stream = _cs_stream;//get_stream(_cs_stream, 0);
             try
             {
                 //TODO provjeriti
-                auto selected_stream = get_stream(req_profile);
 
                 auto infrared_stream = selected_stream == CS_STREAM_IR_LEFT || selected_stream == CS_STREAM_IR_RIGHT;
                 if (infrared_stream && !_device->is_infrared_supported())
@@ -151,10 +151,7 @@ namespace librealsense {
             }
             catch (...)
             {
-                for (auto&& commited_profile : commited)
-                {
-                    _device->close(commited_profile);
-                }
+                _device->close(_cs_selected_streams);
                 throw;
             }
             _cs_selected_streams.push_back(selected_stream);
@@ -637,7 +634,7 @@ namespace librealsense {
 
         uint32_t cs_device::native_pixel_format_to_cs_pixel_format(uint32_t native_format)
         {
-            if (native_format == pf_y8i.fourcc || native_format == pf_z16.fourcc)
+            /*if (native_format == pf_y8i.fourcc || native_format == pf_z16.fourcc)
                 return GVSP_PIX_MONO16;
             else if (native_format == pf_raw8.fourcc)
                 return GVSP_PIX_MONO8;
@@ -646,7 +643,8 @@ namespace librealsense {
             else if (native_format == pf_uyvyl.fourcc)
                 return GVSP_PIX_YUV422_PACKED;
             else
-                throw wrong_api_call_sequence_exception("Unable to map Realsense pixel format to CameraSuite pixel format!");
+                throw wrong_api_call_sequence_exception("Unable to map Realsense pixel format to CameraSuite pixel format!");*/
+            return GVSP_PIX_MONO8;
         }
 
         bool cs_device::get_pu(rs2_option opt, int32_t& value, cs_stream stream)
@@ -713,7 +711,7 @@ namespace librealsense {
                     if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "On");
                     else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "Off");
                 }
-                case RS2_OPTION_PACKET_SIZE:
+                /*case RS2_OPTION_PACKET_SIZE:
                 {
                     if (_is_capturing[stream])
                         throw wrong_api_call_sequence_exception("Unable to set Packet Size while streaming!");
@@ -738,7 +736,7 @@ namespace librealsense {
                     }
                     
                     return true;
-                }
+                }*/
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -798,8 +796,8 @@ namespace librealsense {
                     if (stream == CS_STREAM_DEPTH) return std::string("STR_LaserEnable");
                 case RS2_OPTION_LASER_POWER:
                     if (stream == CS_STREAM_DEPTH) return std::string("STR_LaserPower");
-                case RS2_OPTION_INTER_PACKET_DELAY: return std::string("GevSCPD");
-                case RS2_OPTION_PACKET_SIZE: return std::string("GevSCPSPacketSize");
+                //case RS2_OPTION_INTER_PACKET_DELAY: return std::string("GevSCPD");
+                //case RS2_OPTION_PACKET_SIZE: return std::string("GevSCPSPacketSize");
                 case RS2_OPTION_ASIC_TEMPERATURE: return std::string("IntelASIC");
                 case RS2_OPTION_PROJECTOR_TEMPERATURE: return std::string("DepthModule");
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
@@ -834,7 +832,7 @@ namespace librealsense {
                     status = _connected_device->GetEnumNodeValuesList(get_cs_param_name(option, stream), node_value_list);
                     value = 0;
                     return status;
-                case RS2_OPTION_INTER_PACKET_DELAY:
+                /*case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
                     if (!select_channel(stream))
@@ -843,7 +841,7 @@ namespace librealsense {
                     status = _connected_device->GetIntegerNodeMin(get_cs_param_name(option, stream), int_value);
                     value = static_cast<int32_t>(int_value);
                     return status;
-                }
+                }*/
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -889,7 +887,7 @@ namespace librealsense {
                     value = static_cast<int32_t>(double_value);
                     return status;
                 }*/
-                case RS2_OPTION_INTER_PACKET_DELAY:
+                /*case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
                     if (!select_channel(stream))
@@ -898,7 +896,7 @@ namespace librealsense {
                     status = _connected_device->GetIntegerNodeMax(get_cs_param_name(option, stream), int_value);
                     value = static_cast<int32_t>(int_value);
                     return status;
-                }
+                }*/
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -929,7 +927,7 @@ namespace librealsense {
                     step = 1;
                     return true;
                 }
-                case RS2_OPTION_INTER_PACKET_DELAY:
+                /*case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
                     if (!select_channel(stream)) {
@@ -940,7 +938,7 @@ namespace librealsense {
                     auto result = _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
                     step = static_cast<int32_t>(int_value);
                     return true;
-                }
+                }*/
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -999,7 +997,7 @@ namespace librealsense {
                     else if (string_value.compare(std::string("Continuous")) == 0) value = 1;
                     return true;
                 }*/
-                case RS2_OPTION_INTER_PACKET_DELAY:
+                /*case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
                     if (!select_channel(stream))
@@ -1008,7 +1006,7 @@ namespace librealsense {
                     status = _connected_device->GetIntegerNodeValue(get_cs_param_name(option, stream), int_value);
                     value = static_cast<int32_t>(int_value);
                     return status;
-                }
+                }*/
                 case RS2_OPTION_ASIC_TEMPERATURE:
                 case RS2_OPTION_PROJECTOR_TEMPERATURE:
                 {
@@ -1746,8 +1744,8 @@ namespace librealsense {
             case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE: return "Enable / disable auto-white-balance";
             case RS2_OPTION_POWER_LINE_FREQUENCY: return "Power Line Frequency";
             case RS2_OPTION_AUTO_EXPOSURE_PRIORITY: return "Limit exposure time when auto-exposure is ON to preserve constant fps rate";
-            case RS2_OPTION_INTER_PACKET_DELAY: return "Inter-packet delay";
-            case RS2_OPTION_PACKET_SIZE: return "Packet size";
+            //case RS2_OPTION_INTER_PACKET_DELAY: return "Inter-packet delay";
+            //case RS2_OPTION_PACKET_SIZE: return "Packet size";
             case RS2_OPTION_ASIC_TEMPERATURE: return "Current Asic Temperature (degree celsius)";
             case RS2_OPTION_PROJECTOR_TEMPERATURE: return "Current Projector Temperature (degree celsius)";
             default: return _ep.get_option_name(_id);

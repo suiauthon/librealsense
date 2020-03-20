@@ -14,49 +14,6 @@
 
 namespace librealsense
 {
-    std::map<uint32_t, rs2_format> cs_depth_fourcc_to_rs2_format = {
-            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
-            {rs_fourcc('Y','U','Y','V'), RS2_FORMAT_YUYV},
-            {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY},
-            {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
-            {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
-            {rs_fourcc('W','1','0',' '), RS2_FORMAT_W10},
-            {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
-            {rs_fourcc('Y','1','2','I'), RS2_FORMAT_Y12I},
-            {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16},
-            {rs_fourcc('Z','1','6','H'), RS2_FORMAT_Z16H},
-            {rs_fourcc('R','G','B','2'), RS2_FORMAT_BGR8}
-
-    };
-    std::map<uint32_t, rs2_stream> cs_depth_fourcc_to_rs2_stream = {
-            {rs_fourcc('Y','U','Y','2'), RS2_STREAM_INFRARED},
-            {rs_fourcc('Y','U','Y','V'), RS2_STREAM_INFRARED},
-            {rs_fourcc('U','Y','V','Y'), RS2_STREAM_INFRARED},
-            {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
-            {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
-            {rs_fourcc('W','1','0',' '), RS2_STREAM_INFRARED},
-            {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
-            {rs_fourcc('Y','1','2','I'), RS2_STREAM_INFRARED},
-            {rs_fourcc('R','G','B','2'), RS2_STREAM_INFRARED},
-            {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH},
-            {rs_fourcc('Z','1','6','H'), RS2_STREAM_DEPTH}
-    };
-
-    std::map<uint32_t, rs2_format> cs_color_fourcc_to_rs2_format = {
-            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
-            {rs_fourcc('Y','U','Y','V'), RS2_FORMAT_YUYV},
-            {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY},
-            {rs_fourcc('M','J','P','G'), RS2_FORMAT_MJPEG},
-            {rs_fourcc('B','Y','R','2'), RS2_FORMAT_RAW16}
-    };
-    std::map<uint32_t, rs2_stream> cs_color_fourcc_to_rs2_stream = {
-            {rs_fourcc('Y','U','Y','2'), RS2_STREAM_COLOR},
-            {rs_fourcc('Y','U','Y','V'), RS2_STREAM_COLOR},
-            {rs_fourcc('U','Y','V','Y'), RS2_STREAM_COLOR},
-            {rs_fourcc('B','Y','R','2'), RS2_STREAM_COLOR},
-            {rs_fourcc('M','J','P','G'), RS2_STREAM_COLOR},
-    };
-
     class cs_auto_exposure_roi_method : public region_of_interest_method
     {
     public:
@@ -109,8 +66,15 @@ namespace librealsense
         std::shared_ptr<synthetic_sensor> create_color_device(std::shared_ptr<context> ctx,
                                                               std::shared_ptr<platform::cs_device> cs_device);
 
-        cs_sensor& get_color_sensor() { return dynamic_cast<cs_sensor&>(get_sensor(_color_device_idx)); }
-
+		synthetic_sensor& get_color_sensor()
+		{
+			return dynamic_cast<synthetic_sensor&>(get_sensor(_color_device_idx));
+		};
+		cs_sensor& get_raw_color_sensor()
+		{
+			synthetic_sensor& color_sensor = get_color_sensor();
+			return dynamic_cast<cs_sensor&>(*color_sensor.get_raw_sensor());
+		};
         void color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group);
 
         virtual double get_device_time_ms() override;
@@ -147,8 +111,15 @@ namespace librealsense
         std::shared_ptr<synthetic_sensor> create_depth_device(std::shared_ptr<context> ctx,
                                                               std::shared_ptr<platform::cs_device> cs_device);
 
-        synthetic_sensor& get_depth_sensor() { return dynamic_cast<synthetic_sensor&>(get_sensor(_depth_device_idx)); }
-        cs_sensor& get_raw_depth_sensor() { return dynamic_cast<cs_sensor&>(get_sensor(_depth_device_idx)); };
+        synthetic_sensor& get_depth_sensor()
+		{
+			return dynamic_cast<synthetic_sensor&>(get_sensor(_depth_device_idx));
+		};
+        cs_sensor& get_raw_depth_sensor()
+		{
+			synthetic_sensor& depth_sensor = get_depth_sensor();
+			return dynamic_cast<cs_sensor&>(*depth_sensor.get_raw_sensor());
+		};
         std::vector<uint8_t> send_receive_raw_data(const std::vector<uint8_t>& input) override;
 
         void create_snapshot(std::shared_ptr<debug_interface>& snapshot) const override;
@@ -197,14 +168,17 @@ namespace librealsense
     {
     public:
         explicit cs_color_sensor(cs_color* owner,
-                                 std::shared_ptr<cs_sensor> cs_sensor)
+                                 std::shared_ptr<cs_sensor> cs_sensor,
+                                 std::map<uint32_t, rs2_format> cs_color_fourcc_to_rs2_format,
+                                 std::map<uint32_t, rs2_stream> cs_color_fourcc_to_rs2_stream)
                 : synthetic_sensor("RGB Camera", cs_sensor, owner, cs_color_fourcc_to_rs2_format, cs_color_fourcc_to_rs2_stream),
                   _owner(owner)
         {};
 
-        stream_profiles init_stream_profiles() override;
         rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
+        stream_profiles init_stream_profiles() override;
         processing_blocks get_recommended_processing_blocks() const override;
+
     private:
         const cs_color* _owner;
     };
@@ -216,7 +190,9 @@ namespace librealsense
     {
     public:
         explicit cs_depth_sensor(cs_depth* owner,
-                                 std::shared_ptr<cs_sensor> cs_sensor)
+                                 std::shared_ptr<cs_sensor> cs_sensor,
+                                 std::map<uint32_t, rs2_format> cs_depth_fourcc_to_rs2_format,
+                                 std::map<uint32_t, rs2_stream> cs_depth_fourcc_to_rs2_stream)
                 : synthetic_sensor("Stereo Module", cs_sensor, owner, cs_depth_fourcc_to_rs2_format, cs_depth_fourcc_to_rs2_stream),
                   _owner(owner),
                   _depth_units(-1)
@@ -245,7 +221,7 @@ namespace librealsense
         mutable std::atomic<float> _depth_units;
     };
 
-	class cs_external_sync_mode : public option
+	/*class cs_external_sync_mode : public option
 	{
 	public:
 		cs_external_sync_mode(hw_monitor& hwm, cs_depth_sensor& depth);
@@ -292,7 +268,7 @@ namespace librealsense
 		std::function<void(const option &)> _record_action = [](const option&) {};
 		lazy<option_range> _range;
 		cs_color_sensor& _color;
-	};
+	};*/
 
 }
 

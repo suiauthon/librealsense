@@ -334,7 +334,7 @@ namespace librealsense
         static const uint16_t HW_MONITOR_BUFFER_SIZE = 1024;
 
     private:
-        friend class auto_calibrated;
+        //friend class auto_calibrated;
         void set_exposure(synthetic_sensor& sensor, const exposure_control& val);
         void set_auto_exposure(synthetic_sensor& sensor, const auto_exposure_control& val);
         void get_exposure(synthetic_sensor& sensor, exposure_control* ptr) const;
@@ -384,7 +384,7 @@ namespace librealsense
 
         std::shared_ptr<hw_monitor> _hw_monitor;
         synthetic_sensor* _depth_sensor;
-        lazy<cs_color_sensor*> _color_sensor;
+        lazy<synthetic_sensor*> _color_sensor;
         lazy<bool> _enabled;
         std::shared_ptr<cs_advanced_mode_preset_option> _preset_opt;
         lazy<bool> _rgb_exposure_gain_bind;

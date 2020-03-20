@@ -22,6 +22,49 @@
 
 namespace librealsense
 {
+    std::map<uint32_t, rs2_format> cs_depth_fourcc_to_rs2_format = {
+            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
+            {rs_fourcc('Y','U','Y','V'), RS2_FORMAT_YUYV},
+            {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY},
+            {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
+            {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
+            {rs_fourcc('W','1','0',' '), RS2_FORMAT_W10},
+            {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
+            {rs_fourcc('Y','1','2','I'), RS2_FORMAT_Y12I},
+            {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16},
+            {rs_fourcc('Z','1','6','H'), RS2_FORMAT_Z16H},
+            {rs_fourcc('R','G','B','2'), RS2_FORMAT_BGR8}
+
+    };
+    std::map<uint32_t, rs2_stream> cs_depth_fourcc_to_rs2_stream = {
+            {rs_fourcc('Y','U','Y','2'), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','U','Y','V'), RS2_STREAM_INFRARED},
+            {rs_fourcc('U','Y','V','Y'), RS2_STREAM_INFRARED},
+            {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
+            {rs_fourcc('W','1','0',' '), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','1','2','I'), RS2_STREAM_INFRARED},
+            {rs_fourcc('R','G','B','2'), RS2_STREAM_INFRARED},
+            {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH},
+            {rs_fourcc('Z','1','6','H'), RS2_STREAM_DEPTH}
+    };
+
+    std::map<uint32_t, rs2_format> cs_color_fourcc_to_rs2_format = {
+            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
+            {rs_fourcc('Y','U','Y','V'), RS2_FORMAT_YUYV},
+            {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY},
+            {rs_fourcc('M','J','P','G'), RS2_FORMAT_MJPEG},
+            {rs_fourcc('B','Y','R','2'), RS2_FORMAT_RAW16}
+    };
+    std::map<uint32_t, rs2_stream> cs_color_fourcc_to_rs2_stream = {
+            {rs_fourcc('Y','U','Y','2'), RS2_STREAM_COLOR},
+            {rs_fourcc('Y','U','Y','V'), RS2_STREAM_COLOR},
+            {rs_fourcc('U','Y','V','Y'), RS2_STREAM_COLOR},
+            {rs_fourcc('B','Y','R','2'), RS2_STREAM_COLOR},
+            {rs_fourcc('M','J','P','G'), RS2_STREAM_COLOR},
+    };
+
     cs_auto_exposure_roi_method::cs_auto_exposure_roi_method(const hw_monitor& hwm,
                                                              ds::fw_cmd cmd)
             : _hw_monitor(hwm), _cmd(cmd) {}
@@ -110,7 +153,7 @@ namespace librealsense
         return *_range;
     }
 
-	cs_external_sync_mode::cs_external_sync_mode(hw_monitor& hwm, cs_depth_sensor& depth)
+	/*cs_external_sync_mode::cs_external_sync_mode(hw_monitor& hwm, cs_depth_sensor& depth)
 		: _hwm(hwm), _depth(depth)
 	{
 		_range = [this]()
@@ -162,13 +205,13 @@ namespace librealsense
 	option_range cs_external_sync_mode_color::get_range() const
 	{
 		return *_range;
-	}
+	}*/
 
     void cs_color::color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
     {
         using namespace ds;
 
-        _hw_monitor = std::make_shared<hw_monitor>(&get_color_sensor());
+        _hw_monitor = std::make_shared<hw_monitor>(&get_raw_color_sensor());
 
         _color_calib_table_raw = [this]() { return get_raw_calibration_table(rgb_calibration_id); };
         _color_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]() { return from_pose(get_color_stream_extrinsic(*_color_calib_table_raw)); });
@@ -189,7 +232,7 @@ namespace librealsense
         auto&& backend = ctx->get_backend();
         auto& raw_sensor = get_raw_depth_sensor();
 
-        _hw_monitor = std::make_shared<hw_monitor>(raw_sensor);
+        _hw_monitor = std::make_shared<hw_monitor>(&raw_sensor);
 
         _depth_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]()
                 {
@@ -296,17 +339,17 @@ namespace librealsense
                 std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(cs_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)),
                 this, CS_STREAM_COLOR);
 
-        auto color_ep = std::make_shared<cs_color_sensor>(this, raw_color_ep);
+        auto color_ep = std::make_shared<cs_color_sensor>(this, raw_color_ep, cs_color_fourcc_to_rs2_format, cs_color_fourcc_to_rs2_stream);
         color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
-        color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
-        color_ep->try_register_pu(RS2_OPTION_CONTRAST);
-        color_ep->try_register_pu(RS2_OPTION_GAIN);
-        color_ep->try_register_pu(RS2_OPTION_HUE);
-        color_ep->try_register_pu(RS2_OPTION_SATURATION);
-        color_ep->try_register_pu(RS2_OPTION_SHARPNESS);
-        color_ep->try_register_pu(RS2_OPTION_GAMMA);
-        color_ep->try_register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
+        /*color_ep->register_pu(RS2_OPTION_BRIGHTNESS);
+        color_ep->register_pu(RS2_OPTION_CONTRAST);
+        color_ep->register_pu(RS2_OPTION_GAIN);
+        color_ep->register_pu(RS2_OPTION_HUE);
+        color_ep->register_pu(RS2_OPTION_SATURATION);
+        color_ep->register_pu(RS2_OPTION_SHARPNESS);
+        color_ep->register_pu(RS2_OPTION_GAMMA);
+        color_ep->register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
 
         color_ep->register_option(RS2_OPTION_POWER_LINE_FREQUENCY,
                                   std::make_shared<cs_pu_option>(*raw_color_ep, RS2_OPTION_POWER_LINE_FREQUENCY, CS_STREAM_COLOR,
@@ -332,7 +375,7 @@ namespace librealsense
         color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
                                   std::make_shared<auto_disabling_control>(
                                           white_balance_option,
-                                          auto_white_balance_option));
+                                          auto_white_balance_option));*/
 
         //dodati kasnije
         /*auto interPacketDelayOption = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_COLOR);
@@ -365,7 +408,7 @@ namespace librealsense
         //Dodati to provjeriti kaj je
         //raw_depth_ep->register_xu(depth_xu); // make sure the XU is initialized every time we power the camera
 
-        auto depth_ep = std::make_shared<cs_depth_sensor>(this, raw_depth_ep);
+        auto depth_ep = std::make_shared<cs_depth_sensor>(this, raw_depth_ep, cs_depth_fourcc_to_rs2_format, cs_depth_fourcc_to_rs2_stream);
         //Provjeriti sve ovo ispod
         /*depth_ep->try_register_pu(RS2_OPTION_GAIN);
 
