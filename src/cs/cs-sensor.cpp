@@ -122,10 +122,11 @@ namespace librealsense {
                     const auto&& vsp = As<video_stream_profile, stream_profile_interface>(req_profile);
                     int width = vsp ? vsp->get_width() : 0;
                     int height = vsp ? vsp->get_height() : 0;
-
+                    printf("EVOMEEEEE %d %d\n", width, height);
                     frame_holder fh = _source.alloc_frame(stream_to_frame_types(req_profile_base->get_stream_type()), width * height * bpp / 8, fr->additional_data, requires_processing);
                     if (fh.frame)
                     {
+                        printf("EVOMEEEEE11111\n");
                         memcpy((void*)fh->get_frame_data(), fr->data.data(), sizeof(byte)*fr->data.size());
                         auto&& video = (video_frame*)fh.frame;
                         video->assign(width, height, width * bpp / 8, bpp);
@@ -137,15 +138,20 @@ namespace librealsense {
                         LOG_INFO("Dropped frame. alloc_frame(...) returned nullptr");
                         return;
                     }
+                    printf("EVOMEEEEE22222\n");
 
                     if (!requires_processing)
                     {
                         fh->attach_continuation(std::move(release_and_enqueue));
                     }
 
+                    printf("Frame size: %d\n", fh->get_frame_data_size());
+
                     if (fh->get_stream().get())
                     {
+                        printf("EVOMEEEEE333333\n");
                         _source.invoke_callback(std::move(fh));
+                        printf("EVOMEEEEE444444\n");
                     }
 
                 }, selected_stream);
@@ -316,7 +322,7 @@ namespace librealsense {
         _timestamp_reader->reset();
     }
 
-    cs_stream cs_sensor::get_stream(const std::vector<std::shared_ptr<stream_profile_interface>>& requests)
+    /*cs_stream cs_sensor::get_stream(const std::vector<std::shared_ptr<stream_profile_interface>>& requests)
     {
         if (requests.size() == 2) {
             auto ir_left = std::find_if(requests.begin(), requests.end(), 
@@ -336,7 +342,7 @@ namespace librealsense {
         }
 
         return get_stream(requests[0]->get_stream_type(), requests[0]->get_stream_index());
-    }
+    }*/
 
     cs_stream cs_sensor::get_stream(rs2_stream type, int index)
     {
@@ -643,6 +649,17 @@ namespace librealsense {
                 return GVSP_PIX_YUV422_PACKED;
             else
                 throw wrong_api_call_sequence_exception("Unable to map Realsense pixel format to CameraSuite pixel format!");
+        }
+
+        bool cs_device::is_option_supported(rs2_option opt, cs_stream stream)
+        {
+            switch (opt)
+            {
+                case RS2_OPTION_ASIC_TEMPERATURE:
+                case RS2_OPTION_PROJECTOR_TEMPERATURE:
+                    return is_temperature_supported();
+                default: return false;
+            }
         }
 
         bool cs_device::get_pu(rs2_option opt, int32_t& value, cs_stream stream)

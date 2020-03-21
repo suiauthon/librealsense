@@ -93,6 +93,9 @@ namespace librealsense {
         register_info(RS2_CAMERA_INFO_DEVICE_VERSION, _cs_device->get_device_version());
         register_info(RS2_CAMERA_INFO_IP_ADDRESS, _cs_device->get_ip_address());
         register_info(RS2_CAMERA_INFO_SUBNET_MASK, _cs_device->get_subnet_mask());
+        //added because ROS wrapper 2.2.9 requires this property
+        register_info(RS2_CAMERA_INFO_PHYSICAL_PORT, "N/A");
+        register_info(RS2_CAMERA_INFO_ADVANCED_MODE, ((is_camera_in_advanced_mode()) ? "YES" : "NO"));
 
         cs_advanced_mode_init(cs_depth::_hw_monitor, &get_depth_sensor());
     }

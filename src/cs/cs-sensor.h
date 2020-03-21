@@ -143,7 +143,7 @@ namespace librealsense {
 
             enum rs2_format get_rgb_format();
             bool is_infrared_supported();
-            bool is_temperature_supported();
+            bool is_option_supported(rs2_option opt, cs_stream stream);
 
             void set_trigger_mode(float mode, cs_stream stream);
             float get_trigger_mode(cs_stream stream);
@@ -218,6 +218,8 @@ namespace librealsense {
             static bool set_device_init_flag_SN(std::string serialNum, bool setInitFlag);
             static bool get_device_init_flag_SN(std::string serialNum);
 
+            bool is_temperature_supported();
+
             // members
             std::vector<std::unique_ptr <std::thread>> _threads;
             platform::cs_device_info _device_info;
@@ -291,7 +293,7 @@ namespace librealsense {
 
         void reset_streaming();
 
-        cs_stream get_stream(const std::vector<std::shared_ptr<stream_profile_interface>>& requests);
+        //cs_stream get_stream(const std::vector<std::shared_ptr<stream_profile_interface>>& requests);
         cs_stream get_stream(rs2_stream type, int index);
 
         struct power

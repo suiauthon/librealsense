@@ -27,32 +27,6 @@ namespace librealsense
         const hw_monitor& _hw_monitor;
     };
 
-    class cs_depth_scale_option : public option, public observable_option
-    {
-    public:
-        cs_depth_scale_option(hw_monitor& hwm);
-        virtual ~cs_depth_scale_option() = default;
-        virtual void set(float value) override;
-        virtual float query() const override;
-        virtual option_range get_range() const override;
-        virtual bool is_enabled() const override { return true; }
-
-        const char* get_description() const override
-        {
-            return "Number of meters represented by a single depth unit";
-        }
-        void enable_recording(std::function<void(const option &)> record_action)
-        {
-            _record_action = record_action;
-        }
-
-    private:
-        ds::depth_table_control get_depth_table(ds::advanced_query_mode mode) const;
-        std::function<void(const option &)> _record_action = [](const option&) {};
-        lazy<option_range> _range;
-        hw_monitor& _hwm;
-    };
-
     class cs_color : public virtual device,  public global_time_interface
     {
     public:
