@@ -227,6 +227,27 @@ namespace librealsense
 
     void cs_depth::depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
     {
+        /*depth_ep->try_register_pu(RS2_OPTION_GAIN);
+
+        auto exposure_option = std::make_shared<cs_depth_exposure_option>(*depth_ep, RS2_OPTION_EXPOSURE, CS_STREAM_DEPTH);
+        auto auto_exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
+        depth_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
+        depth_ep->register_option(RS2_OPTION_EXPOSURE,
+                                  std::make_shared<auto_disabling_control>(
+                                          exposure_option,
+                                          auto_exposure_option));
+
+        auto emitter_enabled_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_EMITTER_ENABLED, CS_STREAM_DEPTH);
+        auto laser_power_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_LASER_POWER, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_EMITTER_ENABLED, emitter_enabled_option);
+        depth_ep->register_option(RS2_OPTION_LASER_POWER, laser_power_option);
+        depth_ep->register_option(RS2_OPTION_LASER_POWER,
+                                  std::make_shared<auto_disabling_control>(
+                                          laser_power_option,
+                                          emitter_enabled_option,
+                                          std::vector<float>{0.f}, 1.f));*/
+
         using namespace ds;
 
         auto&& backend = ctx->get_backend();
@@ -293,6 +314,12 @@ namespace librealsense
                     {{RS2_FORMAT_Y16, RS2_STREAM_INFRARED, 1}, {RS2_FORMAT_Y16, RS2_STREAM_INFRARED, 2}},
                     []() {return std::make_shared<y12i_to_y16y16>(); }
             );
+        }
+
+        if (_fw_version >= firmware_version("5.6.3.0"))
+        {
+            raw_depth_sensor.register_pu(RS2_OPTION_GAIN);
+
         }
 
         roi_sensor_interface* roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_sensor);
@@ -409,29 +436,6 @@ namespace librealsense
         //raw_depth_ep->register_xu(depth_xu); // make sure the XU is initialized every time we power the camera
 
         auto depth_ep = std::make_shared<cs_depth_sensor>(this, raw_depth_ep, cs_depth_fourcc_to_rs2_format, cs_depth_fourcc_to_rs2_stream);
-        //Provjeriti sve ovo ispod
-        /*depth_ep->try_register_pu(RS2_OPTION_GAIN);
-
-        auto exposure_option = std::make_shared<cs_depth_exposure_option>(*depth_ep, RS2_OPTION_EXPOSURE, CS_STREAM_DEPTH);
-        auto auto_exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_DEPTH);
-        depth_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
-        depth_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
-        depth_ep->register_option(RS2_OPTION_EXPOSURE,
-                                  std::make_shared<auto_disabling_control>(
-                                          exposure_option,
-                                          auto_exposure_option));
-
-        auto emitter_enabled_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_EMITTER_ENABLED, CS_STREAM_DEPTH);
-        auto laser_power_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_LASER_POWER, CS_STREAM_DEPTH);
-        depth_ep->register_option(RS2_OPTION_EMITTER_ENABLED, emitter_enabled_option);
-        depth_ep->register_option(RS2_OPTION_LASER_POWER, laser_power_option);
-        depth_ep->register_option(RS2_OPTION_LASER_POWER,
-                                  std::make_shared<auto_disabling_control>(
-                                          laser_power_option,
-                                          emitter_enabled_option,
-                                          std::vector<float>{0.f}, 1.f));*/
-
-
         depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
         depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1));
