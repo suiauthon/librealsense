@@ -73,7 +73,7 @@ namespace librealsense {
         for (auto&& req_profile : requests)
         {
             auto&& req_profile_base = std::dynamic_pointer_cast<stream_profile_base>(req_profile);
-            auto selected_stream = _cs_stream;//get_stream(_cs_stream, 0);
+            auto selected_stream = get_stream(req_profile->get_stream_type(), req_profile->get_stream_index());
 
             try
             {
