@@ -74,6 +74,7 @@ namespace librealsense {
         {
             auto&& req_profile_base = std::dynamic_pointer_cast<stream_profile_base>(req_profile);
             auto selected_stream = _cs_stream;//get_stream(_cs_stream, 0);
+
             try
             {
                 //TODO provjeriti
@@ -634,17 +635,14 @@ namespace librealsense {
 
         uint32_t cs_device::native_pixel_format_to_cs_pixel_format(uint32_t native_format)
         {
-            /*if (native_format == pf_y8i.fourcc || native_format == pf_z16.fourcc)
+            if (native_format == rs_fourcc('Y','8','I',' ') || native_format == rs_fourcc('Z','1','6',' '))
                 return GVSP_PIX_MONO16;
-            else if (native_format == pf_raw8.fourcc)
-                return GVSP_PIX_MONO8;
-            else if (native_format == pf_yuyv.fourcc)
+            else if (native_format == rs_fourcc('Y', 'U', 'Y', 'V'))
                 return GVSP_PIX_YUV422_YUYV_PACKED;
-            else if (native_format == pf_uyvyl.fourcc)
+            else if (native_format == rs_fourcc('U','Y','V','Y'))
                 return GVSP_PIX_YUV422_PACKED;
             else
-                throw wrong_api_call_sequence_exception("Unable to map Realsense pixel format to CameraSuite pixel format!");*/
-            return GVSP_PIX_MONO8;
+                throw wrong_api_call_sequence_exception("Unable to map Realsense pixel format to CameraSuite pixel format!");
         }
 
         bool cs_device::get_pu(rs2_option opt, int32_t& value, cs_stream stream)
