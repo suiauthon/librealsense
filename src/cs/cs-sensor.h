@@ -248,7 +248,8 @@ namespace librealsense {
                   _timestamp_reader(std::move(timestamp_reader)),
                   _device(std::move(cs_device)),
                   _cs_stream(stream),
-                  _user_count(0)
+                  _user_count(0),
+                  _external_trigger_mode(false)
         {
             register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
         }
@@ -281,6 +282,8 @@ namespace librealsense {
 
         void set_inter_cam_sync_mode(float value);
         float get_inter_cam_sync_mode();
+        bool query_inter_cam_sync_mode();
+        void update_external_trigger_mode_flag(float value);
 
     private:
         void acquire_power();
@@ -327,6 +330,7 @@ namespace librealsense {
         std::vector<cs_stream> _cs_selected_streams;
         std::unique_ptr<power> _power;
         std::shared_ptr<platform::cs_device> _device;
+        std::atomic<bool> _external_trigger_mode;
     };
 
     class cs_pu_option : public option
@@ -389,6 +393,106 @@ namespace librealsense {
         cs_depth_exposure_option(cs_sensor& ep, rs2_option id, cs_stream stream)
             : cs_pu_option(ep, id, stream) {}
         const char* get_description() const override { return "Depth Exposure (usec)"; }
+    };
+
+    class cs_external_trigger_option : public cs_pu_option
+    {
+    public:
+        cs_external_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+            : cs_pu_option(ep, id, stream) {}
+
+        cs_external_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
+            : cs_pu_option(ep, id, stream, description_per_value), _is_enabled(true), _stream(stream), _id(id)
+        {
+        }
+
+        float query() const override {
+            if (_is_enabled) {
+                _is_enabled = false;
+            }
+            return static_cast<float>(_ep.invoke_powered(
+                [this](platform::cs_device& dev)
+                {
+                    int32_t value = 0;
+                    if (!dev.get_pu(_id, value, _stream))
+                        throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
+                    return static_cast<float>(value);
+                }));
+        };
+
+        bool is_enabled() const override { return ((_ep.query_inter_cam_sync_mode() && _ep.is_streaming()) || _is_enabled); }
+        
+        option_range get_range() const override { return option_range{ 1,2,1,1 }; };
+
+        const char* get_description() const override { return "External Trigger Source"; }
+    private:
+        mutable bool _is_enabled;
+        cs_stream _stream;
+        rs2_option _id;
+    };
+
+    class cs_software_trigger_option : public cs_pu_option
+    {
+    public:
+        cs_software_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+            : cs_pu_option(ep, id, stream) {}
+
+        cs_software_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
+            : cs_pu_option(ep, id, stream, description_per_value), _is_enabled(true), _stream(stream), _id(id)
+        {
+        }
+
+        float query() const override {
+            if (_is_enabled) {
+                _is_enabled = false;
+            }
+            return static_cast<float>(_ep.invoke_powered(
+                [this](platform::cs_device& dev)
+                {
+                    int32_t value = 0;
+                    if (!dev.get_pu(_id, value, _stream))
+                        throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
+                    return static_cast<float>(value);
+                }));
+        };
+
+        bool is_enabled() const override { return ((_ep.query_inter_cam_sync_mode() && _ep.is_streaming() && _ep.get_option(RS2_OPTION_EXT_TRIGGER_SOURCE).query() == 2.f) || _is_enabled );}
+        option_range get_range() const override { return option_range{ 1,1,1,1 }; };
+
+        const char* get_description() const override { return "Software Trigger"; }
+    private:
+        mutable bool _is_enabled;
+        cs_stream _stream;
+        rs2_option _id;
+    };
+
+    class cs_software_trigger_all_option : public cs_pu_option
+    {
+    public:
+        cs_software_trigger_all_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+            : cs_pu_option(ep, id, stream), _is_enabled(true), _stream(stream), _id(id) {}
+
+        float query() const override {
+            if (_is_enabled) {
+                _is_enabled = false;
+            }
+            return static_cast<float>(_ep.invoke_powered(
+                [this](platform::cs_device& dev)
+                {
+                    int32_t value = 0;
+                    if (!dev.get_pu(_id, value, _stream))
+                        throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
+                    return static_cast<float>(value);
+                }));
+        };
+
+        bool is_enabled() const override { return ((_ep.query_inter_cam_sync_mode() && _ep.is_streaming() && _ep.get_option(RS2_OPTION_EXT_TRIGGER_SOURCE).query() == 2.f) || _is_enabled); }
+
+        const char* get_description() const override { return "Forwards software trigger signal to all sensors"; }
+    private:
+        mutable bool _is_enabled;
+        cs_stream _stream;
+        rs2_option _id;
     };
 
     class cs_readonly_option : public cs_pu_option
