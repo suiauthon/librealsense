@@ -11,7 +11,9 @@
 #include <librealsense2/hpp/rs_frame.hpp>
 #include <librealsense2/hpp/rs_d400e.hpp>
 
+#ifndef __linux__
 #include <conio.h>
+#endif
 
 
 float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize);
@@ -20,6 +22,9 @@ float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize);
 
 int main(int argc, char * argv[]) try
 {
+#ifdef __linux__
+    throw std::runtime_error("Not ported to linux yet...");
+#else
     // Create a simple OpenGL window for rendering:
     window app(1280, 960, "CPP Software-Trigger Example");
 
@@ -166,6 +171,7 @@ int main(int argc, char * argv[]) try
     }
 
     return EXIT_SUCCESS;
+#endif
 }
 catch (const rs2::error & e)
 {
