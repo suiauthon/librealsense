@@ -451,7 +451,7 @@ namespace librealsense {
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("Unable to set Inter Cam Sync Mode while streaming!");
 
-        update_external_trigger_mode_flag(value);
+        _device->update_external_trigger_mode_flag(_cs_stream, value);
 
         _device->set_trigger_mode(value, _cs_stream);
 	}
@@ -460,37 +460,21 @@ namespace librealsense {
     {
         float inter_cam_sync_mode = _device->get_trigger_mode(_cs_stream);
 
-        update_external_trigger_mode_flag(inter_cam_sync_mode);
+        _device->update_external_trigger_mode_flag(_cs_stream, inter_cam_sync_mode);
 
         return inter_cam_sync_mode;
     }
 
-
     bool cs_sensor::query_inter_cam_sync_mode()
     {
-        return _external_trigger_mode;
-    }
-
-    void cs_sensor::update_external_trigger_mode_flag(float value)
-    {
-        switch (_cs_stream)
-        {
-        case CS_STREAM_COLOR:
-            if (value == 1.f) _external_trigger_mode = true; else _external_trigger_mode = false;
-            break;
-        case CS_STREAM_DEPTH:
-        case CS_STREAM_IR_LEFT:
-        case CS_STREAM_IR_RIGHT:
-            if (value == 3.f) _external_trigger_mode = true; else _external_trigger_mode = false;
-            break;
-        default: throw linux_backend_exception(to_string() << "wrong stream cid ");
-        }
+        return _device->get_intercam_mode(_cs_stream);
     }
 
     namespace platform
     {
         std::map<std::string, int> cs_device::_cs_device_num_objects_SN;
         std::map<std::string, bool> cs_device::_cs_device_initialized_SN;
+        std::map<std::string, bool> cs_device::_cs_device_option_sw_trigger_all_flag_SN;
 
         cs_device::cs_device(cs_device_info hwm)
                 : _device_info(std::move(hwm)),
@@ -1802,6 +1786,33 @@ namespace librealsense {
             }
         }
 
+        void cs_device::update_external_trigger_mode_flag(cs_stream stream, float value)
+        {
+            switch (stream)
+            {
+            case CS_STREAM_COLOR:
+                if (value == 1.f) set_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_RGB", true); else set_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_RGB", false);
+                break;
+            case CS_STREAM_DEPTH:
+            case CS_STREAM_IR_LEFT:
+            case CS_STREAM_IR_RIGHT:
+                if (value == 3.f) set_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_Stereo", true); else set_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_Stereo", false);
+                break;
+            default: throw linux_backend_exception(to_string() << "wrong stream cid ");
+            }
+
+        }
+
+        float cs_device::get_intercam_mode(cs_stream stream)
+        {
+            switch (stream) {
+            case CS_STREAM_COLOR:
+                return get_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_RGB");
+            default:
+                return get_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_Stereo");;
+            }
+        }
+
         int cs_device::get_optimal_inter_packet_delay(int packetSize)
         {
             float interPacketDelay = 0;
@@ -1881,6 +1892,36 @@ namespace librealsense {
 
             auto it = _cs_device_initialized_SN.find(serialNum);
             if (it == _cs_device_initialized_SN.end()) {    // does not exist
+                flag = false;
+            }
+            else {
+                flag = it->second;
+            }
+
+            return flag;
+        }
+
+        bool cs_device::set_device_option_sw_trigger_all_flag_SN(std::string serialNum, bool setTriggerAllFlag)
+        {
+            bool result = true;
+
+            auto it = _cs_device_option_sw_trigger_all_flag_SN.find(serialNum);
+            if (it == _cs_device_option_sw_trigger_all_flag_SN.end()) {    // does not exist
+                _cs_device_option_sw_trigger_all_flag_SN.insert({ serialNum, setTriggerAllFlag });
+            }
+            else {
+                it->second = setTriggerAllFlag;
+            }
+
+            return result;
+        }
+
+        bool cs_device::get_device_option_sw_trigger_all_flag_SN(std::string serialNum)
+        {
+            bool flag = false;
+
+            auto it = _cs_device_option_sw_trigger_all_flag_SN.find(serialNum);
+            if (it == _cs_device_option_sw_trigger_all_flag_SN.end()) {    // does not exist
                 flag = false;
             }
             else {

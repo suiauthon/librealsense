@@ -2,21 +2,12 @@
 
 ## Overview
 
-The software trigger sample demonstrates the ability to use the SDK for streaming and rendering multiple devices simultaneously.
-The original sample is modified to work with Framos D435e cameras in the following way: options RS2_OPTION_INTER_PACKET_DELAY and RS2_OPTION_PACKET_SIZE are set to assure stable streams, and only Depth and Color streams are enabled with profile 640x480@30fps on both streams. The sample expects two D435e cameras that are streaming to same NIC (Network Interface Card) on PC. The sample will detect and stream from Intel D400 series cameras as well. The sample was tested with two Framos D435e and one Intel D435i camera.
+The software trigger sample demonstrates the ability to use the SDK for executing software trigger on FRAMOS D435e camera.
 
 ## Expected Output
 
-The application opens and renders a mosaic view of Depth and Color streams provided by the connected devices. Each tile displays an unique stream produced by a specific camera. The stream name appear at the top left.
-
-In the following snapshot we use two Framos D435e and one Intel D435i camera. Those are responsible to generate:
- - Three Depth streams (2x D435e, D435i)
- - Three Color streams (2x D435e, D435i)
-
-Altogether the mosaic comprise of 6 simultaneous live feeds:
-
-<p align="center"><img src="./multicam_screenshot.png" alt="screenshot gif"/></p>
-
+The application opens and renders a mosaic view of Depth, Infrared and Color streams provided by the connected devices. Each tile displays an unique stream produced by a specific camera. The stream name appear at the top left.
+Stream is acquired by hitting specific keyboard key.
 
 ## Code Overview
 
@@ -56,7 +47,18 @@ std::vector<rs2::pipeline>            pipelines;
 The `rs2::context` encapsulates all of the devices and sensors, and provides some additional functionalities. We employ the `rs2::colorizer ` to convert depth data to RGB format.
 In the example we use multiple `rs2::pipeline` objects, each controlling a lifetime of a single HW device. Similarly, we initialize a separate `rs2::colorizer` object for each device. We keep a mapping from the device's serial number to it's `rs2::colorizer` object, this way we'll be able to apply the correct `rs2::colorizer` to each frame.
 
-The example's flow starts with setting packet size and inter packet delay for Framos D435e cameras. Optimal Inter Packet Delay value is calculted based on number of parallel streams and packet size.
+The example's flow starts with setting inter cam sync mode and software trigger mode for Framos D435e cameras. Cameras are set to external event operation mode. Read Framos_D435e_External_Event_Camera_Synchronization_AppNote_v1-0-0 for explanation on operating modes for Framos D435e cameras.
+```cpp
+    if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
+        sensor.set_option(RS2_OPTION_INTER_CAM_SYNC_MODE, 3);
+        sensor.set_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, 1);
+    }
+    else {
+        sensor.set_option(RS2_OPTION_INTER_CAM_SYNC_MODE, 1);
+    }
+```
+
+Optimal Inter Packet Delay value is calculated based on number of parallel streams and packet size.
 ```cpp
     float interPacketDelay = getOptimalInterPacketDelay(numParallelStreams, packetSize);
 
@@ -74,6 +76,8 @@ for (auto&& dev : ctx.query_devices())
     
     // enable only depth and color streams
     cfg.enable_stream(RS2_STREAM_DEPTH, -1, 640, 480, RS2_FORMAT_Z16, 30);
+    cfg.enable_stream(RS2_STREAM_INFRARED, 1, 640, 480, RS2_FORMAT_Y8, 30);
+    cfg.enable_stream(RS2_STREAM_INFRARED, 2, 640, 480, RS2_FORMAT_Y8, 30);
     cfg.enable_stream(RS2_STREAM_COLOR, -1, 640, 480, RS2_FORMAT_RGB8, 30);
 
     cfg.enable_device(dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
@@ -82,6 +86,27 @@ for (auto&& dev : ctx.query_devices())
     // Map from each device's serial number to a different colorizer
     colorizers[dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER)] = rs2::colorizer();
 }
+```
+
+The example's flow continues with setting the external event to software trigger mode.
+```cpp
+// Start a streaming pipe per each connected device
+for (auto&& sensor : pipe.get_active_profile().get_device().query_sensors()) {
+    if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
+        sensorDepth = sensor;
+        sensor.set_option(RS2_OPTION_EXT_TRIGGER_SOURCE, 2);
+
+    }
+    else {
+        sensorColor = sensor;
+        sensor.set_option(RS2_OPTION_EXT_TRIGGER_SOURCE, 2);
+    }
+}
+```
+
+UpdateScreenInfo function is used for displaying the menu on how to control software trigger mode change and execution.
+```cpp
+updateScreenInfo(sensorDepth, sensorColor, sensor_actions, false);
 ```
 
 First, we allocate `rs2::pipeline` object per recognized device. Note that we share the `rs2::context` object between all `rs2::pipeline` instances.  

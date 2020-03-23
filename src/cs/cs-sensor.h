@@ -147,6 +147,8 @@ namespace librealsense {
 
             void set_trigger_mode(float mode, cs_stream stream);
             float get_trigger_mode(cs_stream stream);
+            float get_intercam_mode(cs_stream stream);
+            void update_external_trigger_mode_flag(cs_stream stream, float value);
 
         protected:
             void capture_loop(cs_stream stream, UINT32 channel);
@@ -217,6 +219,8 @@ namespace librealsense {
             static int get_device_count_SN(std::string serialNum);
             static bool set_device_init_flag_SN(std::string serialNum, bool setInitFlag);
             static bool get_device_init_flag_SN(std::string serialNum);
+            static bool set_device_option_sw_trigger_all_flag_SN(std::string serialNum, bool setTriggerAllFlag);
+            static bool get_device_option_sw_trigger_all_flag_SN(std::string serialNum);
 
             // members
             std::vector<std::unique_ptr <std::thread>> _threads;
@@ -236,6 +240,7 @@ namespace librealsense {
             bool _temperature_supported;
             static std::map<std::string, int> _cs_device_num_objects_SN; // serial_number, number of objects per SN (device creation)
             static std::map<std::string, bool> _cs_device_initialized_SN; // serial_number, is device with SN initialized
+            static std::map<std::string, bool> _cs_device_option_sw_trigger_all_flag_SN; // serial_number, is device with SN initialized
         };
     }
 
@@ -283,7 +288,6 @@ namespace librealsense {
         void set_inter_cam_sync_mode(float value);
         float get_inter_cam_sync_mode();
         bool query_inter_cam_sync_mode();
-        void update_external_trigger_mode_flag(float value);
 
     private:
         void acquire_power();

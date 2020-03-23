@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.1.0)
 project(RealsenseExamplesSoftwareTrigger)
 
 if(BUILD_GRAPHICAL_EXAMPLES)
-    add_executable(rs-software-trigger rs-software-trigger.cpp ../example.hpp)
+    add_executable(rs-software-trigger api_how_to.h rs-software-trigger.cpp ../example.hpp)
     set_property(TARGET rs-software-trigger PROPERTY CXX_STANDARD 11)
     include_directories(rs-software-trigger ../)
     target_link_libraries(rs-software-trigger ${DEPENDENCIES})
