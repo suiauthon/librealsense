@@ -4,21 +4,24 @@
 
 #include <librealsense2/rs.hpp>     // Include RealSense Cross Platform API
 #include "example.hpp"              // Include short list of convenience functions for rendering
-
 #include <map>
 #include <vector>
 #include <regex>
 #include <librealsense2/hpp/rs_frame.hpp>
 #include <librealsense2/hpp/rs_d400e.hpp>
+#include "api_how_to.h"
+#include "helper.h"
+#include "stdio.h"
 
-#include <conio.h>
 
+using sensor_action = std::pair<std::string, std::string>;
+std::vector<sensor_action> create_sensor_actions();
 
 float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize);
+void updateScreenInfo(rs2::sensor sensorStereo, rs2::sensor sensorRGB, std::vector<sensor_action> sensor_actions, bool init);
+int get_user_selection_khit();
 
-
-
-int main(int argc, char * argv[]) try
+int main(int argc, char* argv[]) try
 {
     // Create a simple OpenGL window for rendering:
     window app(1280, 960, "CPP Software-Trigger Example");
@@ -34,14 +37,27 @@ int main(int argc, char * argv[]) try
 
     rs2::pipeline_profile active_profile;
     rs2::pipeline pipe(ctx);
+    rs2::device device;
+    std::vector<sensor_action> sensor_actions = create_sensor_actions();
 
-    for (auto&& dev : ctx.query_devices()) {
-        std::string name = dev.get_info(RS2_CAMERA_INFO_NAME);
+    bool choose_a_device = true;
+    while (choose_a_device)
+    {
+        print_separator();
+        //First thing, let's choose a device:
+        device = how_to::get_a_realsense_device();
+
+        //Print the device's information
+        how_to::print_device_information(device);
+
+        print_separator();
+
+        std::string name = device.get_info(RS2_CAMERA_INFO_NAME);
         std::regex d400e_regex("FRAMOS D4[0-9][0-9]e");
         if (std::regex_search(name, d400e_regex)) {
-            for (auto&& sensor : dev.query_sensors()) {
+            for (auto&& sensor : device.query_sensors()) {
                 if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
-                    sensor.set_option(RS2_OPTION_INTER_CAM_SYNC_MODE , 3);
+                    sensor.set_option(RS2_OPTION_INTER_CAM_SYNC_MODE, 3);
                     sensor.set_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, 1);
                 }
                 else {
@@ -63,37 +79,33 @@ int main(int argc, char * argv[]) try
                 sensor.set_option(RS2_OPTION_INTER_PACKET_DELAY, interPacketDelay);
             }
         }
+        break;
     }
 
-    // Start a streaming pipe per each connected device
-    for (auto&& dev : ctx.query_devices())
-    {
-        rs2::config cfg;
+    rs2::config cfg;
 
-        // enable only depth and infrared streams
-        cfg.enable_stream(RS2_STREAM_DEPTH, -1, 640, 480, RS2_FORMAT_Z16, 30);        
-        cfg.enable_stream(RS2_STREAM_INFRARED, 1, 640, 480, RS2_FORMAT_Y8, 30);
-        cfg.enable_stream(RS2_STREAM_INFRARED, 2, 640, 480, RS2_FORMAT_Y8, 30);
-        cfg.enable_stream(RS2_STREAM_COLOR, -1, 640, 480, RS2_FORMAT_RGB8, 30);
+    // enable only depth and infrared streams
+    cfg.enable_stream(RS2_STREAM_DEPTH, -1, 640, 480, RS2_FORMAT_Z16, 30);
+    cfg.enable_stream(RS2_STREAM_INFRARED, 1, 640, 480, RS2_FORMAT_Y8, 30);
+    cfg.enable_stream(RS2_STREAM_INFRARED, 2, 640, 480, RS2_FORMAT_Y8, 30);
+    cfg.enable_stream(RS2_STREAM_COLOR, -1, 640, 480, RS2_FORMAT_RGB8, 30);
 
-        cfg.enable_device(dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
+    cfg.enable_device(device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
 
-        pipe.start(cfg);
-        pipelines.emplace_back(pipe);
-        // Map from each device's serial number to a different colorizer
-        colorizers[dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER)] = rs2::colorizer();
-    }
+    pipe.start(cfg);
+    pipelines.emplace_back(pipe);
+    // Map from each device's serial number to a different colorizer
+    colorizers[device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER)] = rs2::colorizer();
 
     // We'll keep track of the last frame of each stream available to make the presentation persistent
     std::map<int, rs2::frame> render_frames;
-
 
     // get sensor from the active profile, where _is_streaming is correctly updated
     for (auto&& sensor : pipe.get_active_profile().get_device().query_sensors()) {
         if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
             sensorDepth = sensor;
             sensor.set_option(RS2_OPTION_EXT_TRIGGER_SOURCE, 2);
-            
+
         }
         else {
             sensorColor = sensor;
@@ -101,48 +113,17 @@ int main(int argc, char * argv[]) try
         }
     }
 
+    updateScreenInfo(sensorDepth, sensorColor, sensor_actions, true);
+
     // Main app loop
     while (app)
     {
-        if (_kbhit()) {
-            int key = _getch() & 255;
-            if (key == 'q' || key == 'Q') {
-                if (sensorDepth.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
-                    sensorDepth.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
-                }
-                if (sensorColor.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
-                    sensorColor.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
-                }
-            }
-            /*else if (key == 't' || key == 'T') {
-                auto _trigg_all_sources = sensorDepth.get_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS);
-                if (_trigg_all_sources == 1)
-                    _trigg_all_sources = 0;
-                else 
-                    _trigg_all_sources = 1;
-                
-                sensorDepth.set_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, _trigg_all_sources);
-                if (_trigg_all_sources == 1)
-                    std::cout << sensorDepth.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER) << ", Software trigger all sources = " << _trigg_all_sources << std::endl;
-                else
-                    std::cout << sensorDepth.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER) << ", Software trigger separate sources = " << _trigg_all_sources << std::endl;
 
-            }*/
-            else if (key == 'd' || key == 'D') {
-                if (sensorDepth.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
-                    sensorDepth.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
-                }
-            }
-            else if (key == 'r' || key == 'R') {
-                if (sensorColor.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
-                    sensorColor.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
-                }
-            }
-        }
+        updateScreenInfo(sensorDepth, sensorColor, sensor_actions, false);
 
         // Collect the new frames from all the connected devices
         std::vector<rs2::frame> new_frames;
-        for (auto &&pipe : pipelines)
+        for (auto&& pipe : pipelines)
         {
             rs2::frameset fs;
             if (pipe.poll_for_frames(&fs))
@@ -163,17 +144,18 @@ int main(int argc, char * argv[]) try
 
         // Present all the collected frames with openGl mosaic
         app.show(render_frames);
+
     }
 
     return EXIT_SUCCESS;
 }
-catch (const rs2::error & e)
+catch (const rs2::error& e)
 {
     std::cerr << "RealSense error calling " << e.get_failed_function() << "(" << e.get_failed_args() << "):\n    " << e.what() << std::endl;
     while (1);
     return EXIT_FAILURE;
 }
-catch (const std::exception & e)
+catch (const std::exception& e)
 {
     std::cerr << e.what() << std::endl;
     while (1);
@@ -194,4 +176,72 @@ float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize)
     interPacketDelay = timeToTransferPacket * num_parallel_streams;
 
     return interPacketDelay;
+}
+
+std::vector<sensor_action> create_sensor_actions()
+{
+    //This function creates several functions ("sensor_action") that takes a device and a sensor,
+    // and perform some specific action
+    return std::vector<sensor_action> {
+        std::make_pair("a|A", "Change Software Trigger Mode For All Sensors "),
+            std::make_pair("s|S", "Change Software Trigger Mode For Stereo Sensor Only "),
+            std::make_pair("d|D", "Execute Stereo Software Trigger"),
+            std::make_pair("r|R", "Execute RGB Software Trigger"),
+            std::make_pair("h|H", "Help")
+    };
+}
+
+void updateScreenInfo(rs2::sensor sensorStereo, rs2::sensor sensorRGB, std::vector<sensor_action> sensor_actions, bool init) {
+    auto key = get_user_selection_khit();
+
+    if (key == 'a' || key == 'A') {
+        sensorStereo.set_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, 1);
+        std::cout << "Software Trigger Forwarded To All Sensors!\n" << std::endl;
+    }
+    else if (key == 's' || key == 'S') {
+        sensorStereo.set_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, 0);
+        std::cout << "Software Trigger Forwarded To Stereo Sensor Only!\n" << std::endl;
+    }
+    else if (key == 'd' || key == 'D') {
+        if (sensorStereo.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
+            sensorStereo.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
+            std::cout << "Stereo Software Trigger Executed!\n" << std::endl;
+        }
+    }
+    else if (key == 'r' || key == 'R') {
+        if (sensorRGB.supports(RS2_OPTION_SOFTWARE_TRIGGER)) {
+            sensorRGB.set_option(RS2_OPTION_SOFTWARE_TRIGGER, 1);
+            std::cout << "RGB Software Trigger Executed!\n" << std::endl;
+        }
+    }
+    else if (key == 'h' || key == 'H') {
+        print_separator();
+        std::cout << "Choose action: \n" << std::endl;
+        int i = 0;
+        for (auto&& action : sensor_actions)
+        {
+            std::cout << action.first << " : " << action.second << std::endl;
+        }
+        std::cout << std::endl;
+    }
+
+    if (init) {
+        print_separator();
+        std::cout << "Choose action: \n" << std::endl;
+        int i = 0;
+        for (auto&& action : sensor_actions)
+        {
+            std::cout << action.first << " : " << action.second << std::endl;
+        }
+        std::cout << std::endl;
+    }
+}
+
+int get_user_selection_khit()
+{
+    int key = 0;
+    if (_kbhit()) {
+        key = _getch() & 255;
+    }
+    return key;
 }
