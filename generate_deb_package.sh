@@ -16,7 +16,7 @@ set_platform() {
 
 set_build_environment() {
     if [[ $DOCKER_BUILD = true ]]; then
-        DEBIAN_FRONTEND=noninteractive sudo apt-get install --assume-yes /camerasuite_package/FRAMOS_CameraSuite_*-Linux64_x64.deb
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes /camerasuite_package/FRAMOS_CameraSuite_*-Linux64_x64.deb
         source /etc/profile.d/camerasuite.sh
     elif [[ -d /opt/Projects/CameraSuite ]]; then
         export CAMERA_SUITE_PATH=/opt/Projects/CameraSuite
