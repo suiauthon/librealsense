@@ -36,7 +36,8 @@ RUN groupadd \
 	libelf-dev \
 	dkms \
 	shim-signed \
-	openssl && \
+	openssl \
+	sudo && \
 	echo 'docker_user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 	
 USER $docker_user_uid:$docker_user_gid
