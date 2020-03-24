@@ -50,7 +50,6 @@ namespace librealsense {
 
     void cs_sensor::open(const stream_profiles& requests)
     {
-        printf("OPEEEEN\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("open(...) failed. CS device is streaming!");
@@ -1467,17 +1466,8 @@ namespace librealsense {
 
                     if (image_info_ != nullptr) {
 
-                        printf("Profile Height %d\n", _profiles[stream].height);
-                        printf("Profile Width %d\n", _profiles[stream].width);
-
-                        UINT32 width = 0, height = 0;
-                        image_info_->GetSize(width, height);
-                        printf("Image Height %d\n", height);
-                        printf("Image Width %d\n", width);
-
                         if (!is_profile_format(image_info_, _profiles[stream])) {
                             _connected_device->PopImage(image_info_);
-                            printf("Ne odgovaraju\n");
                             return;
                         }
 
@@ -1486,18 +1476,20 @@ namespace librealsense {
                         timestamp = -1;
 
                         auto im = image_info_->GetRawData();
-                        auto image_size = image_info_->GetRawDataSize();
 
-                        printf("Image size %d\n", image_size);
-                        printf("Line size %d\n", image_info_->GetLineSize());
-                        /*
+                        UINT32 pixel_type, width, height;
+                        image_info_->GetPixelType(pixel_type);
+                        image_info_->GetSize(width, height);
+                        auto c = GvspGetBitsPerPixel((GVSP_PIXEL_TYPES)pixel_type) / 8;
+                        auto image_size = width * height * c;
+
                         frame_object fo{ image_size, 0, im, NULL, timestamp };
 
                         {
                             std::lock_guard<std::mutex> lock(_stream_lock);
                             _callbacks[stream](_profiles[stream], fo, []() {});
                         }
-*/
+
                         _connected_device->PopImage(image_info_);
                     }
                 }
