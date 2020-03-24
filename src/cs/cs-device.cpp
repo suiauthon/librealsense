@@ -169,6 +169,14 @@ namespace librealsense
         auto& color_ep = get_color_sensor();
         auto& raw_color_sensor = get_raw_color_sensor();
 
+        std::vector<uint8_t> gvd_buff(HW_MONITOR_BUFFER_SIZE);
+        _hw_monitor->get_gvd(gvd_buff.size(), gvd_buff.data(), GVD);
+        // fooling tests recordings - don't remove
+        _hw_monitor->get_gvd(gvd_buff.size(), gvd_buff.data(), GVD);
+
+        auto fwv = _hw_monitor->get_firmware_version_string(gvd_buff, camera_fw_version_offset);
+        _fw_version = firmware_version(fwv);
+
         color_ep.register_option(RS2_OPTION_BRIGHTNESS, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_BRIGHTNESS, CS_STREAM_COLOR));
         //color_ep.register_pu(RS2_OPTION_GAIN);
         color_ep.register_option(RS2_OPTION_CONTRAST, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_CONTRAST, CS_STREAM_COLOR));
@@ -205,12 +213,12 @@ namespace librealsense
                                                                                               { 3.f, "Auto" },
                                                                                               { 4.f, "OutDoor" },}));
         // Starting with firmware 5.10.9, auto-exposure ROI is available for color sensor
-        //if (_fw_version >= firmware_version("5.10.9.0"))
-        //{
+        if (_fw_version >= firmware_version("5.10.9.0"))
+        {
             roi_sensor_interface* roi_sensor;
             if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&color_ep))
                 roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
-        //}
+        }
     }
 
     void cs_depth::depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)

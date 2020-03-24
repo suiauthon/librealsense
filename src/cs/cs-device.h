@@ -61,6 +61,7 @@ namespace librealsense
         friend class cs_color_sensor;
 
         std::shared_ptr<hw_monitor> _hw_monitor;
+        firmware_version            _fw_version;
 
         lazy<std::vector<uint8_t>> _color_calib_table_raw;
         std::shared_ptr<lazy<rs2_extrinsics>> _color_extrinsic;
