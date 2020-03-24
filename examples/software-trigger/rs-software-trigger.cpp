@@ -14,6 +14,7 @@
 
 #ifdef __linux__
 #include <termios.h>
+#include <unistd.h>
 #else
 #include <conio.h>
 #endif
