@@ -50,6 +50,7 @@ namespace librealsense {
 
     void cs_sensor::open(const stream_profiles& requests)
     {
+        printf("OPEEEEN\n");
         std::lock_guard<std::mutex> lock(_configure_lock);
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("open(...) failed. CS device is streaming!");
@@ -122,11 +123,9 @@ namespace librealsense {
                     const auto&& vsp = As<video_stream_profile, stream_profile_interface>(req_profile);
                     int width = vsp ? vsp->get_width() : 0;
                     int height = vsp ? vsp->get_height() : 0;
-                    printf("EVOMEEEEE %d %d\n", width, height);
                     frame_holder fh = _source.alloc_frame(stream_to_frame_types(req_profile_base->get_stream_type()), width * height * bpp / 8, fr->additional_data, requires_processing);
                     if (fh.frame)
                     {
-                        printf("EVOMEEEEE11111\n");
                         memcpy((void*)fh->get_frame_data(), fr->data.data(), sizeof(byte)*fr->data.size());
                         auto&& video = (video_frame*)fh.frame;
                         video->assign(width, height, width * bpp / 8, bpp);
@@ -138,20 +137,15 @@ namespace librealsense {
                         LOG_INFO("Dropped frame. alloc_frame(...) returned nullptr");
                         return;
                     }
-                    printf("EVOMEEEEE22222\n");
 
                     if (!requires_processing)
                     {
                         fh->attach_continuation(std::move(release_and_enqueue));
                     }
 
-                    printf("Frame size: %d\n", fh->get_frame_data_size());
-
                     if (fh->get_stream().get())
                     {
-                        printf("EVOMEEEEE333333\n");
                         _source.invoke_callback(std::move(fh));
-                        printf("EVOMEEEEE444444\n");
                     }
 
                 }, selected_stream);
@@ -1473,8 +1467,17 @@ namespace librealsense {
 
                     if (image_info_ != nullptr) {
 
+                        printf("Profile Height %d\n", _profiles[stream].height);
+                        printf("Profile Width %d\n", _profiles[stream].width);
+
+                        UINT32 width = 0, height = 0;
+                        image_info_->GetSize(width, height);
+                        printf("Image Height %d\n", height);
+                        printf("Image Width %d\n", width);
+
                         if (!is_profile_format(image_info_, _profiles[stream])) {
                             _connected_device->PopImage(image_info_);
+                            printf("Ne odgovaraju\n");
                             return;
                         }
 
@@ -1485,13 +1488,16 @@ namespace librealsense {
                         auto im = image_info_->GetRawData();
                         auto image_size = image_info_->GetRawDataSize();
 
+                        printf("Image size %d\n", image_size);
+                        printf("Line size %d\n", image_info_->GetLineSize());
+                        /*
                         frame_object fo{ image_size, 0, im, NULL, timestamp };
 
                         {
                             std::lock_guard<std::mutex> lock(_stream_lock);
                             _callbacks[stream](_profiles[stream], fo, []() {});
                         }
-
+*/
                         _connected_device->PopImage(image_info_);
                     }
                 }
@@ -1528,6 +1534,8 @@ namespace librealsense {
             if (_connected_device->GetStringNodeValue("Resolution", old_resolution) && old_resolution != new_resolution)
                 if (!_connected_device->SetStringNodeValue("Resolution", new_resolution))
                     throw wrong_api_call_sequence_exception("Failed to set resolution!");
+
+            _connected_device->GetStringNodeValue("Resolution", old_resolution);
 
             // FrameRate does not exist on D435e with FW 1.3.4.0
             if (_connected_device->GetNode("FrameRate") != nullptr 
