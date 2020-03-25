@@ -472,6 +472,20 @@ namespace librealsense {
 
     namespace platform
     {
+        INT64 get_stream_source(cs_stream stream)
+        {
+            switch (stream) {
+            case CS_STREAM_DEPTH:
+            case CS_STREAM_IR_LEFT:
+            case CS_STREAM_IR_RIGHT:
+                return 0;
+            case CS_STREAM_COLOR:
+                return 1;
+            default:
+                throw wrong_api_call_sequence_exception("Unknown stream ID!");
+            }
+        }
+
         std::map<std::string, int> cs_device::_cs_device_num_objects_SN;
         std::map<std::string, bool> cs_device::_cs_device_initialized_SN;
         std::map<std::string, bool> cs_device::_cs_device_option_sw_trigger_all_flag_SN;
@@ -503,6 +517,8 @@ namespace librealsense {
                                 throw wrong_api_call_sequence_exception(std::string("Could not connect to device with serial number ") + _connected_device->GetSerialNumber());
                             }
                             else {
+                                _source_selector = std::make_shared<source_selector>(_connected_device);
+
                                 // initialize this part (inter-packet delay) only once
                                 if (get_device_init_flag_SN(_device_info.serial) == false) { 
                                     INT64 numOfCameraStream;
@@ -821,7 +837,7 @@ namespace librealsense {
                 }
                 case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
                 {
-                    if (!select_source(stream))
+                    if (!_source_selector->select(stream))
                         return false;
 
                     if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "VSync");
@@ -829,7 +845,7 @@ namespace librealsense {
                 }                
 				case RS2_OPTION_SOFTWARE_TRIGGER:
                 {
-                    if (!select_source(stream))
+                    if (!_source_selector->select(stream))
                         return false;
 
                     if (!_connected_device->CommandNodeExecute("TriggerSoftware"))
@@ -839,7 +855,7 @@ namespace librealsense {
                 }
                 case RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS:
                 {
-                    if (!select_source(stream))
+                    if (!_source_selector->select(stream))
                         return false;
 
                     if (value == 1) return _connected_device->SetBooleanNodeValue("TriggerSoftwareAllSources", true);
@@ -847,7 +863,7 @@ namespace librealsense {
                 }
                 case RS2_OPTION_EXT_TRIGGER_SOURCE:
                 {
-                    if (!select_source(stream))
+                    if (!_source_selector->select(stream))
                         return false;
 
                     std::string trigger_mode;
@@ -1158,7 +1174,7 @@ namespace librealsense {
                 }
                 case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
                 {
-                    if (!select_source(stream))
+                    if (!_source_selector->select(stream))
                         return false;
 
                     status = _connected_device->GetStringNodeValue(get_cs_param_name(option, stream), string_value);
@@ -1168,14 +1184,14 @@ namespace librealsense {
                 }
                 case RS2_OPTION_SOFTWARE_TRIGGER:
                 {
-                    if (!select_source(stream))
+                    if (!_source_selector->select(stream))
                         return false;
                     value = 1;
                     return true;
                 }
                 case RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS:
                 {
-                    if (!select_source(stream))
+                    if (!_source_selector->select(stream))
                         return false;
 
                     bool trigger_all_sensors;
@@ -1186,7 +1202,7 @@ namespace librealsense {
                 }
                 case RS2_OPTION_EXT_TRIGGER_SOURCE:
                 {
-                    if (!select_source(stream))
+                    if (!_source_selector->select(stream))
                         return false;
 
                     std::string trigger_mode, trigger_source;
@@ -1224,7 +1240,7 @@ namespace librealsense {
 
         void cs_device::stop_acquisition(cs_stream stream)
         {
-            if (!select_source(stream))
+            if (!_source_selector->select(stream))
                 throw wrong_api_call_sequence_exception("Unable to select source!");
 
             if (!_connected_device->CommandNodeExecute("AcquisitionStop"))
@@ -1234,14 +1250,9 @@ namespace librealsense {
                 throw wrong_api_call_sequence_exception("Unable to set_region!");
         }
 
-        bool cs_device::select_source(cs_stream stream)
-        {
-            return _connected_device->SetIntegerNodeValue("SourceControlSelector", get_stream_source(stream));
-        }
-
         bool cs_device::set_source_locked(cs_stream stream, bool locked)
         {
-            if (select_source(stream))
+            if (_source_selector->select(stream))
                 return _connected_device->SetIntegerNodeValue("TLParamsLocked", locked ? 1 : 0);
 
             return false;
@@ -1257,7 +1268,7 @@ namespace librealsense {
 
         bool cs_device::disable_source_regions(cs_stream stream)
         {
-            if (!select_source(stream))
+            if (!_source_selector->select(stream))
                 return false;
 
             smcs::StringList regions;
@@ -1276,7 +1287,7 @@ namespace librealsense {
 
         bool cs_device::select_region(cs_stream stream)
         {
-            if (select_source(stream))
+            if (_source_selector->select(stream))
                 return _connected_device->SetIntegerNodeValue("RegionSelector", get_stream_region(stream));
 
             return false;
@@ -1289,20 +1300,6 @@ namespace librealsense {
                 return _connected_device->SetIntegerNodeValue("GevStreamChannelSelector", static_cast<INT64>(channel));
 
             return false;
-        }
-
-        INT64 cs_device::get_stream_source(cs_stream stream)
-        {
-            switch (stream) {
-            case CS_STREAM_DEPTH:
-            case CS_STREAM_IR_LEFT:
-            case CS_STREAM_IR_RIGHT:
-                return 0;
-            case CS_STREAM_COLOR:
-                return 1;
-            default:
-                throw wrong_api_call_sequence_exception("Unknown stream ID!");
-            }
         }
 
         INT64 cs_device::get_stream_region(cs_stream stream)
@@ -1324,7 +1321,7 @@ namespace librealsense {
         {
             if (_stream_channels.find(stream) == _stream_channels.end()) {
                 
-                if (!select_source(stream))
+                if (!_source_selector->select(stream))
                     return false;
 
                 if (!select_region(stream))
@@ -1371,7 +1368,7 @@ namespace librealsense {
             for (auto i = 0; i < streams.size(); ++i)
                 set_format(profiles[i], streams[i]);
 
-            if (!select_source(streams[0]))
+            if (!_source_selector->select(streams[0]))
                 throw wrong_api_call_sequence_exception("Unable to select source!");
 
             // Temporary fix for D435e not setting the format correctly 
@@ -1726,7 +1723,7 @@ namespace librealsense {
 		{
             auto sync_mode = static_cast<int>(mode);
 
-            select_source(stream);			
+            _source_selector->select(stream);
 
             if (stream == CS_STREAM_COLOR) {
                 switch (sync_mode) {
@@ -1770,7 +1767,7 @@ namespace librealsense {
 
         float cs_device::get_trigger_mode(cs_stream stream)
         {
-            select_source(stream);
+            _source_selector->select(stream);
 
             std::string trigger_type, trigger_source, line_source, trigger_mode;
             _connected_device->GetStringNodeValue("TriggerType", trigger_type);
