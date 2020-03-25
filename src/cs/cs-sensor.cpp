@@ -483,7 +483,9 @@ namespace librealsense {
                     _rgb_pixel_format(RS2_FORMAT_ANY),
                     _infrared_supported(false),
                     _temperature_supported_checked(false),
-                    _temperature_supported(false) {
+                    _temperature_supported(false),
+                    _software_trigger_supported_checked(false),
+                    _software_trigger_supported(false) {
             _smcs_api = smcs::GetCameraAPI();
             auto devices = _smcs_api->GetAllDevices();
 
@@ -1613,6 +1615,18 @@ namespace librealsense {
             }
 
             return _temperature_supported;
+        }
+
+        bool cs_device::is_software_trigger_supported()
+        {
+            if (!_software_trigger_supported_checked) {
+                _software_trigger_supported = 
+                    (_connected_device->GetNode("TriggerSoftwareAllSources") != nullptr) && 
+                    (_connected_device->GetNode("TriggerSoftware") != nullptr);
+                _software_trigger_supported_checked = true;
+            }
+
+            return _software_trigger_supported;
         }
 
         void cs_device::capture_loop(cs_stream stream, UINT32 channel)

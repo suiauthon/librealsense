@@ -257,18 +257,19 @@ namespace librealsense
 		auto ext_sync_mode = std::make_shared<cs_external_sync_mode>(*_hw_monitor, *depth_sensor);
 		depth_ep.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
 
-        depth_ep.register_option(RS2_OPTION_SOFTWARE_TRIGGER,
-            std::make_shared<cs_software_trigger_option>(depth_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_DEPTH,
-                std::map<float, std::string>{{ 1.f, "Trigger" }}));
+        if (_cs_device->is_software_trigger_supported()) {
+            depth_ep.register_option(RS2_OPTION_SOFTWARE_TRIGGER,
+                std::make_shared<cs_software_trigger_option>(depth_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_DEPTH,
+                    std::map<float, std::string>{ { 1.f, "Trigger" }}));
 
-        auto sw_trigger_all = std::make_shared<cs_software_trigger_all_option>(depth_ep, RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, CS_STREAM_DEPTH);
-        depth_ep.register_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, sw_trigger_all);
+            auto sw_trigger_all = std::make_shared<cs_software_trigger_all_option>(depth_ep, RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, CS_STREAM_DEPTH);
+            depth_ep.register_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, sw_trigger_all);
 
-        depth_ep.register_option(RS2_OPTION_EXT_TRIGGER_SOURCE,
-            std::make_shared<cs_external_trigger_option>(depth_ep, RS2_OPTION_EXT_TRIGGER_SOURCE, CS_STREAM_DEPTH,
-                std::map<float, std::string>{{ 1.f, "Hardware" },
-                                             { 2.f, "Software" }}));
-
+            depth_ep.register_option(RS2_OPTION_EXT_TRIGGER_SOURCE,
+                std::make_shared<cs_external_trigger_option>(depth_ep, RS2_OPTION_EXT_TRIGGER_SOURCE, CS_STREAM_DEPTH,
+                    std::map<float, std::string>{ { 1.f, "Hardware" },
+                    { 2.f, "Software" }}));
+        }
     }
 
     std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
@@ -334,15 +335,16 @@ namespace librealsense
 		auto ext_sync_mode = std::make_shared<cs_external_sync_mode_color>(*color_sensor);
 		color_ep->register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
 
-        color_ep->register_option(RS2_OPTION_SOFTWARE_TRIGGER,
-            std::make_shared<cs_software_trigger_option>(*color_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_COLOR,
-                std::map<float, std::string>{ { 1.f, "Trigger" }}));
+        if (cs_device->is_software_trigger_supported()) {
+            color_ep->register_option(RS2_OPTION_SOFTWARE_TRIGGER,
+                std::make_shared<cs_software_trigger_option>(*color_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_COLOR,
+                    std::map<float, std::string>{ { 1.f, "Trigger" }}));
 
-        color_ep->register_option(RS2_OPTION_EXT_TRIGGER_SOURCE,
-            std::make_shared<cs_external_trigger_option>(*color_ep, RS2_OPTION_EXT_TRIGGER_SOURCE, CS_STREAM_COLOR,
-                std::map<float, std::string>{ { 1.f, "Hardware" },
-                                              { 2.f, "Software" }}));
-
+            color_ep->register_option(RS2_OPTION_EXT_TRIGGER_SOURCE,
+                std::make_shared<cs_external_trigger_option>(*color_ep, RS2_OPTION_EXT_TRIGGER_SOURCE, CS_STREAM_COLOR,
+                    std::map<float, std::string>{ { 1.f, "Hardware" },
+                    { 2.f, "Software" }}));
+        }
         return color_ep;
     }
 
