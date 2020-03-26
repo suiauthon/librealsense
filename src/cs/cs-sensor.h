@@ -27,20 +27,6 @@ namespace librealsense {
         CS_D415E,
         CS_UNDEFINED
     };
-    
-    typedef enum cs_inter_cam_sync_mode {
-        CS_INTERCAM_SYNC_DEFAULT,
-        CS_INTERCAM_SYNC_MASTER,
-        CS_INTERCAM_SYNC_SLAVE,
-        CS_INTERCAM_SYNC_EXTERNAL,
-        CS_INTERCAM_SYNC_MAX
-    } cs_inter_cam_mode;
-
-    typedef enum cs_inter_cam_sync_mode_color {
-        CS_INTERCAM_SYNC_DEFAULT_COLOR,
-        CS_INTERCAM_SYNC_EXTERNAL_COLOR,
-        CS_INTERCAM_SYNC_MAX_COLOR
-    } cs_inter_cam_mode_color;
 
     class cs_firmware_version
     {
@@ -232,6 +218,7 @@ namespace librealsense {
             std::unordered_map<cs_stream, UINT32, std::hash<int>> _stream_channels;
             std::vector<frame_callback> _callbacks;
             cs_firmware_version _cs_firmware_version;
+            metadata_framos_basic _md;
             enum rs2_format _rgb_pixel_format;
             bool _infrared_supported;
             bool _temperature_supported_checked;
@@ -245,28 +232,16 @@ namespace librealsense {
     {
     public:
         explicit cs_sensor(std::string name, std::shared_ptr<platform::cs_device> cs_device,
-                           std::unique_ptr<frame_timestamp_reader> timestamp_reader, device* dev, cs_stream stream)
-                : sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
-                  _timestamp_reader(std::move(timestamp_reader)),
-                  _device(std::move(cs_device)),
-                  _cs_stream(stream),
-                  _user_count(0)
-        {
-            register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
-        }
-
-        ~cs_sensor();
+                           std::unique_ptr<frame_timestamp_reader> timestamp_reader, device* dev, cs_stream stream);
+        virtual ~cs_sensor() override;
 
         rs2_extension stream_to_frame_types(rs2_stream stream);
 
         virtual stream_profiles init_stream_profiles() override;
 
         void open(const stream_profiles& requests) override;
-
         void close() override;
-
         void start(frame_callback_ptr callback) override;
-
         void stop() override;
 
         template<class T>
@@ -285,6 +260,8 @@ namespace librealsense {
 
         void set_inter_cam_sync_mode(float value);
         float get_inter_cam_sync_mode();
+
+        device* _device_1;
 
     private:
         void acquire_power();
@@ -331,87 +308,6 @@ namespace librealsense {
         std::vector<cs_stream> _cs_selected_streams;
         std::unique_ptr<power> _power;
         std::shared_ptr<platform::cs_device> _device;
-    };
-
-    class cs_pu_option : public option
-    {
-    public:
-        void set(float value) override;
-
-        float query() const override;
-
-        option_range get_range() const override;
-
-        bool is_enabled() const override
-        {
-            return true;
-        }
-
-        cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-                : _ep(ep), _id(id), _stream(stream)
-        {
-        }
-
-        cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
-                : _ep(ep), _id(id), _stream(stream), _description_per_value(description_per_value)
-        {
-        }
-
-        virtual ~cs_pu_option() = default;
-
-        const char* get_description() const override;
-
-        const char* get_value_description(float val) const override
-        {
-            if (_description_per_value.find(val) != _description_per_value.end())
-                return _description_per_value.at(val).c_str();
-            return nullptr;
-        }
-        void enable_recording(std::function<void(const option &)> record_action) override
-        {
-            _record = record_action;
-        }
-
-    private:
-        cs_stream _stream;
-        rs2_option _id;
-        const std::map<float, std::string> _description_per_value;
-        std::function<void(const option &)> _record = [](const option &) {};
-
-    protected:
-        cs_sensor& _ep;
-    };
-
-    class cs_depth_exposure_option : public cs_pu_option
-    {
-    public:
-        cs_depth_exposure_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-            : cs_pu_option(ep, id, stream) {}
-        const char* get_description() const override { return "Depth Exposure (usec)"; }
-    };
-
-    class cs_readonly_option : public cs_pu_option
-    {
-    public:
-        bool is_read_only() const override { return true; }
-
-        void set(float) override
-        {
-            throw not_implemented_exception("This option is read-only!");
-        }
-
-        bool is_enabled() const override
-        {
-            return _ep.is_streaming();
-        }
-
-        void enable_recording(std::function<void(const option &)> record_action) override
-        {
-            //empty
-        }
-
-        explicit cs_readonly_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-            : cs_pu_option(ep, id, stream) {}
     };
 }
 

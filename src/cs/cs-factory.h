@@ -46,7 +46,6 @@ namespace librealsense {
     {
     public:
         d400e_camera(std::shared_ptr<context> ctx,
-                     const platform::cs_device_info &hwm_device,
                      const platform::backend_device_group& group,
                      bool register_device_notifications);
 
@@ -70,6 +69,7 @@ namespace librealsense {
 
             _cs_device->reset();
         }
+
     private:
         std::string get_equivalent_pid(std::string id) const;
     };

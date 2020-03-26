@@ -2,11 +2,16 @@
 // Copyright(c) 2019 FRAMOS GmbH.
 
 #include "cs/cs-sensor.h"
+#include "cs/cs-options.h"
 #include "global_timestamp_reader.h"
 #include "stream.h"
 #include "device.h"
-#include "backend.h"
 #include <regex>
+
+#include <array>
+#include <set>
+#include <unordered_set>
+#include <iomanip>
 
 namespace librealsense {
 
@@ -30,6 +35,21 @@ namespace librealsense {
             }
         }
 
+    }
+
+    cs_sensor::cs_sensor(std::string name,
+                         std::shared_ptr<platform::cs_device> cs_device,
+                         std::unique_ptr<frame_timestamp_reader> timestamp_reader,
+                         device* dev,
+                         cs_stream stream)
+            : sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
+              _device(std::move(cs_device)),
+              _timestamp_reader(std::move(timestamp_reader)),
+              _cs_stream(stream),
+              _user_count(0),
+              _device_1(dev)
+    {
+        register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
     }
 
     cs_sensor::~cs_sensor()
@@ -192,6 +212,7 @@ namespace librealsense {
 
             throw std::runtime_error(error_msg.str());
         }
+
         if (Is<librealsense::global_time_interface>(_owner))
         {
             As<librealsense::global_time_interface>(_owner)->enable_time_diff_keeper(true);
@@ -377,7 +398,7 @@ namespace librealsense {
         }
     }
 
-	void cs_sensor::set_inter_cam_sync_mode(float value)
+	/*void cs_sensor::set_inter_cam_sync_mode(float value)
 	{
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("Unable to set Inter Cam Sync Mode while streaming!");
@@ -388,7 +409,7 @@ namespace librealsense {
     float cs_sensor::get_inter_cam_sync_mode()
     {
         return _device->get_trigger_mode(_cs_stream);
-    }
+    }*/
 
     namespace platform
     {
@@ -1471,9 +1492,9 @@ namespace librealsense {
                             return;
                         }
 
-                        //if (cs_info::is_timestamp_supported(_device_info.id))
-                        //timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
-                        timestamp = -1;
+                        auto frame_counter = image_info_->GetImageID();
+                        auto timestamp_us = (uint32_t)image_info_->GetCameraTimestamp();
+                        timestamp = timestamp_us * TIMESTAMP_USEC_TO_MSEC;
 
                         auto im = image_info_->GetRawData();
 
@@ -1483,7 +1504,13 @@ namespace librealsense {
                         auto c = GvspGetBitsPerPixel((GVSP_PIXEL_TYPES)pixel_type) / 8;
                         auto image_size = width * height * c;
 
-                        frame_object fo{ image_size, 0, im, NULL, timestamp };
+                        printf("Vrijeme je %ld\n", timestamp_us);
+                        printf("Frame counter je %d\n", frame_counter);
+
+                        _md.header.timestamp = timestamp_us;
+                        _md.payload.frame_counter = frame_counter;
+
+                        frame_object fo{ image_size, sizeof(metadata_intel_basic), im, &_md, timestamp };
 
                         {
                             std::lock_guard<std::mutex> lock(_stream_lock);
@@ -1535,7 +1562,7 @@ namespace librealsense {
                 throw wrong_api_call_sequence_exception("Failed to set framerate!");
         }
 
-		void cs_device::set_trigger_mode(float mode, cs_stream stream)
+		/*void cs_device::set_trigger_mode(float mode, cs_stream stream)
 		{
             auto sync_mode = static_cast<int>(mode);
 
@@ -1578,9 +1605,9 @@ namespace librealsense {
                     _connected_device->SetStringNodeValue("TriggerMode", "Off");
                 }
 			}
-		}
+		}*/
 
-        float cs_device::get_trigger_mode(cs_stream stream)
+        /*float cs_device::get_trigger_mode(cs_stream stream)
         {
             select_source(stream);
 
@@ -1606,7 +1633,7 @@ namespace librealsense {
                 else
                     return CS_INTERCAM_SYNC_DEFAULT;
             }
-        }
+        }*/
 
         int cs_device::get_optimal_inter_packet_delay(int packetSize)
         {
@@ -1694,76 +1721,6 @@ namespace librealsense {
             }
 
             return flag;
-        }
-    }
-
-    void cs_pu_option::set(float value)
-    {
-        _ep.invoke_powered(
-                [this, value](platform::cs_device& dev)
-                {
-                    if (!dev.set_pu(_id, static_cast<int32_t>(value), _stream))
-                        throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
-
-                    _record(*this);
-                });
-    }
-
-    float cs_pu_option::query() const
-    {
-        return static_cast<float>(_ep.invoke_powered(
-                [this](platform::cs_device& dev)
-                {
-                    int32_t value = 0;
-                    if (!dev.get_pu(_id, value, _stream))
-                        throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
-                    return static_cast<float>(value);
-                }));
-    }
-
-    option_range cs_pu_option::get_range() const
-    {
-        auto cs_range = _ep.invoke_powered(
-                [this](platform::cs_device& dev)
-                {
-                    return dev.get_pu_range(_id, _stream);
-                });
-
-        if (cs_range.min.size() < sizeof(int32_t)) return option_range{0,0,1,0};
-
-        auto min = *(reinterpret_cast<int32_t*>(cs_range.min.data()));
-        auto max = *(reinterpret_cast<int32_t*>(cs_range.max.data()));
-        auto step = *(reinterpret_cast<int32_t*>(cs_range.step.data()));
-        auto def = *(reinterpret_cast<int32_t*>(cs_range.def.data()));
-        return option_range{static_cast<float>(min),
-                            static_cast<float>(max),
-                            static_cast<float>(step),
-                            static_cast<float>(def)};
-    }
-
-    const char* cs_pu_option::get_description() const
-    {
-        switch(_id)
-        {
-            case RS2_OPTION_BACKLIGHT_COMPENSATION: return "Enable / disable backlight compensation";
-            case RS2_OPTION_BRIGHTNESS: return "Image brightness";
-            case RS2_OPTION_CONTRAST: return "Image contrast";
-            case RS2_OPTION_EXPOSURE: return "Controls exposure time of color camera. Setting any value will disable auto exposure";
-            case RS2_OPTION_GAIN: return "Image gain";
-            case RS2_OPTION_GAMMA: return "Image gamma setting";
-            case RS2_OPTION_HUE: return "Image hue";
-            case RS2_OPTION_SATURATION: return "Image saturation setting";
-            case RS2_OPTION_SHARPNESS: return "Image sharpness setting";
-            case RS2_OPTION_WHITE_BALANCE: return "Controls white balance of color image. Setting any value will disable auto white balance";
-            case RS2_OPTION_ENABLE_AUTO_EXPOSURE: return "Enable / disable auto-exposure";
-            case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE: return "Enable / disable auto-white-balance";
-            case RS2_OPTION_POWER_LINE_FREQUENCY: return "Power Line Frequency";
-            case RS2_OPTION_AUTO_EXPOSURE_PRIORITY: return "Limit exposure time when auto-exposure is ON to preserve constant fps rate";
-            //case RS2_OPTION_INTER_PACKET_DELAY: return "Inter-packet delay";
-            //case RS2_OPTION_PACKET_SIZE: return "Packet size";
-            case RS2_OPTION_ASIC_TEMPERATURE: return "Current Asic Temperature (degree celsius)";
-            case RS2_OPTION_PROJECTOR_TEMPERATURE: return "Current Projector Temperature (degree celsius)";
-            default: return _ep.get_option_name(_id);
         }
     }
 }

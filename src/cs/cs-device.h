@@ -27,15 +27,24 @@ namespace librealsense
         const hw_monitor& _hw_monitor;
     };
 
-    class cs_color : public virtual device,  public global_time_interface
+    class cs_device_interface : public global_time_interface
+    {
+    public:
+        cs_device_interface(std::shared_ptr<context> ctx,
+                            const platform::backend_device_group& group);
+
+        double get_device_time_ms() override;
+
+    protected:
+        std::shared_ptr<platform::cs_device> _cs_device;
+        platform::cs_device_info _cs_device_info;
+    };
+
+    class cs_color : public virtual device, public virtual cs_device_interface
     {
     public:
         cs_color(std::shared_ptr<context> ctx,
-                 const platform::backend_device_group& group,
-                 bool register_device_notifications)
-                : device(ctx, group, register_device_notifications),
-                  _color_stream(new stream(RS2_STREAM_COLOR))
-        {};
+                 const platform::backend_device_group& group);
 
         std::shared_ptr<synthetic_sensor> create_color_device(std::shared_ptr<context> ctx,
                                                               std::shared_ptr<platform::cs_device> cs_device);
@@ -51,7 +60,6 @@ namespace librealsense
 		};
         void color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group);
 
-        virtual double get_device_time_ms() override;
     protected:
         std::vector<uint8_t> get_raw_calibration_table(ds::calibration_table_id table_id) const;
 
@@ -67,21 +75,11 @@ namespace librealsense
         std::shared_ptr<lazy<rs2_extrinsics>> _color_extrinsic;
     };
 
-    class cs_depth : public virtual device, public debug_interface, public global_time_interface, public updatable //public auto_calibrated
+    class cs_depth : public virtual device, public debug_interface, public updatable, public virtual cs_device_interface //public auto_calibrated
     {
     public:
         cs_depth(std::shared_ptr<context> ctx,
-                 const platform::backend_device_group& group,
-                 bool register_device_notifications)
-                : device(ctx, group, register_device_notifications),
-                  global_time_interface(),
-                  //auto_calibrated(_hw_monitor),
-                  _depth_stream(new stream(RS2_STREAM_DEPTH)),
-                  _left_ir_stream(new stream(RS2_STREAM_INFRARED, 1)),
-                  _right_ir_stream(new stream(RS2_STREAM_INFRARED, 2)),
-                  _device_capabilities(ds::d400_caps::CAP_UNDEFINED)
-        {
-        }
+                 const platform::backend_device_group& group);
 
         std::shared_ptr<synthetic_sensor> create_depth_device(std::shared_ptr<context> ctx,
                                                               std::shared_ptr<platform::cs_device> cs_device);
@@ -102,7 +100,6 @@ namespace librealsense
 
         void depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group);
 
-        virtual double get_device_time_ms() override;
         void enter_update_state() const override;
         std::vector<uint8_t> backup_flash(update_progress_callback_ptr callback) override;
         void update_flash(const std::vector<uint8_t>& image, update_progress_callback_ptr callback, int update_mode) override;
@@ -116,19 +113,18 @@ namespace librealsense
 
         ds::d400_caps  parse_device_capabilities(const uint16_t pid) const;
 
+        friend class cs_depth_sensor;
+
+        std::shared_ptr<hw_monitor> _hw_monitor;
+        firmware_version            _fw_version;
+        firmware_version            _recommended_fw_version;
+        ds::d400_caps               _device_capabilities;
+
         std::shared_ptr<stream_interface> _depth_stream;
         std::shared_ptr<stream_interface> _left_ir_stream;
         std::shared_ptr<stream_interface> _right_ir_stream;
 
         uint8_t _depth_device_idx;
-
-        friend class cs_depth_sensor;
-
-        std::shared_ptr<hw_monitor> _hw_monitor;
-		std::shared_ptr<platform::cs_device> _cs_device;
-        firmware_version            _fw_version;
-        firmware_version            _recommended_fw_version;
-        ds::d400_caps _device_capabilities;
 
         lazy<std::vector<uint8_t>> _depth_calib_table_raw;
         lazy<std::vector<uint8_t>> _new_calib_table_raw;

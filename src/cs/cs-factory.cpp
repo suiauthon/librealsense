@@ -9,7 +9,7 @@ namespace librealsense {
         switch (get_camera_model(_hwm.id)) {
             case CS_D435E:            
             case CS_D415E:
-                return std::make_shared<d400e_camera>(ctx, _hwm, this->get_device_data(),
+                return std::make_shared<d400e_camera>(ctx, this->get_device_data(),
                                                       register_device_notifications);
             default:
                 throw std::runtime_error(to_string() << "Unsupported CS model! 0x"
@@ -68,27 +68,19 @@ namespace librealsense {
     }
 
     d400e_camera::d400e_camera(std::shared_ptr<context> ctx,
-                               const platform::cs_device_info &hwm_device,
                                const platform::backend_device_group& group,
                                bool register_device_notifications)
             : device(ctx, group, register_device_notifications),
-              cs_depth(ctx, group, register_device_notifications),
-              cs_color(ctx, group, register_device_notifications),
+              cs_device_interface(ctx, group),
+              cs_depth(ctx, group),
+              cs_color(ctx, group),
               cs_advanced_mode_base()
     {
-        _cs_device = ctx->get_backend().create_cs_device(hwm_device);
-
-        _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
-        _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
-
-        depth_init(ctx, group);
-        color_init(ctx, group);
-
         environment::get_instance().get_extrinsics_graph().register_extrinsics(*_color_stream, *_depth_stream, _color_extrinsic);
 
-        register_info(RS2_CAMERA_INFO_NAME, "FRAMOS " + hwm_device.id);
-        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, hwm_device.serial);
-        register_info(RS2_CAMERA_INFO_PRODUCT_ID, get_equivalent_pid(hwm_device.id)); //"0B07"
+        register_info(RS2_CAMERA_INFO_NAME, "FRAMOS " + _cs_device_info.id);
+        register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, _cs_device_info.serial);
+        register_info(RS2_CAMERA_INFO_PRODUCT_ID, get_equivalent_pid(_cs_device_info.id)); //"0B07"
         register_info(RS2_CAMERA_INFO_FIRMWARE_VERSION, cs_depth::_fw_version);
         register_info(RS2_CAMERA_INFO_DEVICE_VERSION, _cs_device->get_device_version());
         register_info(RS2_CAMERA_INFO_IP_ADDRESS, _cs_device->get_ip_address());

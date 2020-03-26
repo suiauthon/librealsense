@@ -160,10 +160,17 @@ namespace librealsense
             uint8_t         report_type;        // Curently supported: IMU/Custom Temperature
             uint64_t        timestamp;          // Driver-produced/FW-based timestamp. Note that currently only the lower 32bit are used
         };
+
+        struct cs_header
+        {
+            uint8_t         length;
+            uint64_t        timestamp;
+        };
 #pragma pack(pop)
 
         constexpr uint8_t uvc_header_size = sizeof(uvc_header);
         constexpr uint8_t hid_header_size = sizeof(hid_header);
+        constexpr uint8_t cs_header_size = sizeof(cs_header);
 
         struct frame_object
         {

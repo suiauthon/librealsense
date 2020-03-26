@@ -155,6 +155,64 @@ namespace librealsense
 		return *_range;
 	}*/
 
+    cs_device_interface::cs_device_interface(std::shared_ptr<context> ctx,
+                                             const platform::backend_device_group& group)
+            : global_time_interface()
+    {
+        _cs_device_info = group.cs_devices.front();
+        _cs_device = ctx->get_backend().create_cs_device(_cs_device_info);
+    }
+
+    double cs_device_interface::get_device_time_ms()
+    {
+        //printf("EEEVOOOOOOO\n");
+        // TODO: Refactor the following query with an extension.
+        //if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
+        //{
+        //    throw not_implemented_exception("device time not supported for backend.");
+        //}
+
+        /*if (!_hw_monitor)
+            throw wrong_api_call_sequence_exception("_hw_monitor is not initialized yet");
+
+        command cmd(ds::MRD, ds::REGISTER_CLOCK_0, ds::REGISTER_CLOCK_0 + 4);
+        auto res = _hw_monitor->send(cmd);
+
+        if (res.size() < sizeof(uint32_t))
+        {
+            LOG_DEBUG("size(res):" << res.size());
+            throw std::runtime_error("Not enough bytes returned from the firmware!");
+        }
+        uint32_t dt = *(uint32_t*)res.data();
+        double ts = dt * TIMESTAMP_USEC_TO_MSEC;
+        return ts;*/
+        return 0;
+    }
+
+    cs_color::cs_color(std::shared_ptr<context> ctx,
+                       const platform::backend_device_group& group)
+            : device(ctx, group),
+              cs_device_interface(ctx, group),
+              _color_stream(new stream(RS2_STREAM_COLOR))
+    {
+        _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
+        color_init(ctx, group);
+    };
+
+    cs_depth::cs_depth(std::shared_ptr<context> ctx,
+                       const platform::backend_device_group& group)
+            : device(ctx, group),
+              cs_device_interface(ctx, group),
+              //auto_calibrated(_hw_monitor),
+              _depth_stream(new stream(RS2_STREAM_DEPTH)),
+              _left_ir_stream(new stream(RS2_STREAM_INFRARED, 1)),
+              _right_ir_stream(new stream(RS2_STREAM_INFRARED, 2)),
+              _device_capabilities(ds::d400_caps::CAP_UNDEFINED)
+    {
+        _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
+        depth_init(ctx, group);
+    }
+
     void cs_color::color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
     {
         using namespace ds;
@@ -411,6 +469,7 @@ namespace librealsense
                                                                     std::shared_ptr<platform::cs_device> cs_device)
     {
         auto&& backend = ctx->get_backend();
+
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_backup(new cs_timestamp_reader(backend.create_time_service()));
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_metadata(new cs_timestamp_reader_from_metadata(std::move(timestamp_reader_backup)));
         auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
@@ -480,54 +539,6 @@ namespace librealsense
     std::vector<uint8_t> cs_depth::backup_flash(update_progress_callback_ptr callback)
     {
         throw std::runtime_error("update_flash is not supported by D400e");
-    }
-
-    double cs_depth::get_device_time_ms()
-    {
-        // TODO: Refactor the following query with an extension.
-        //if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
-        //{
-        //    throw not_implemented_exception("device time not supported for backend.");
-        //}
-
-        if (!_hw_monitor)
-            throw wrong_api_call_sequence_exception("_hw_monitor is not initialized yet");
-
-        command cmd(ds::MRD, ds::REGISTER_CLOCK_0, ds::REGISTER_CLOCK_0 + 4);
-        auto res = _hw_monitor->send(cmd);
-
-        if (res.size() < sizeof(uint32_t))
-        {
-            LOG_DEBUG("size(res):" << res.size());
-            throw std::runtime_error("Not enough bytes returned from the firmware!");
-        }
-        uint32_t dt = *(uint32_t*)res.data();
-        double ts = dt * TIMESTAMP_USEC_TO_MSEC;
-        return ts;
-    }
-
-    double cs_color::get_device_time_ms()
-    {
-        // TODO: Refactor the following query with an extension.
-        if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
-        {
-            throw not_implemented_exception("device time not supported for backend.");
-        }
-
-        if (!_hw_monitor)
-            throw wrong_api_call_sequence_exception("_hw_monitor is not initialized yet");
-
-        command cmd(ds::MRD, ds::REGISTER_CLOCK_0, ds::REGISTER_CLOCK_0 + 4);
-        auto res = _hw_monitor->send(cmd);
-
-        if (res.size() < sizeof(uint32_t))
-        {
-            LOG_DEBUG("size(res):" << res.size());
-            throw std::runtime_error("Not enough bytes returned from the firmware!");
-        }
-        uint32_t dt = *(uint32_t*)res.data();
-        double ts = dt * TIMESTAMP_USEC_TO_MSEC;
-        return ts;
     }
 
     std::vector<uint8_t> cs_color::get_raw_calibration_table(ds::calibration_table_id table_id) const

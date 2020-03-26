@@ -56,6 +56,7 @@ namespace librealsense {
         auto md = (librealsense::metadata_intel_basic*)(f->additional_data.metadata_blob.data());
         if(_has_metadata[pin_index] && md)
         {
+            printf("Evo tu je timestamp %d\n", md->header.timestamp);
             return (double)(md->header.timestamp)*TIMESTAMP_USEC_TO_MSEC;
         }
         else
@@ -88,7 +89,10 @@ namespace librealsense {
         {
             auto md = (librealsense::metadata_intel_basic*)(f->additional_data.metadata_blob.data());
             if (md->capture_valid())
+            {
+                printf("Evo tu je counter %d\n", md->payload.frame_counter);
                 return md->payload.frame_counter;
+            }
         }
 
         return _backup_timestamp_reader->get_frame_counter(frame);
@@ -129,13 +133,14 @@ namespace librealsense {
         }
     }
 
-    rs2_time_t cs_timestamp_reader::get_frame_timestamp(const std::shared_ptr<frame_interface>& frame) {
+    rs2_time_t cs_timestamp_reader::get_frame_timestamp(const std::shared_ptr<frame_interface>& frame)
+    {
         std::lock_guard <std::recursive_mutex> lock(_mtx);
         return _ts->get_time();
     }
 
-    unsigned long long
-    cs_timestamp_reader::get_frame_counter(const std::shared_ptr<frame_interface>& frame) const {
+    unsigned long long cs_timestamp_reader::get_frame_counter(const std::shared_ptr<frame_interface>& frame) const
+    {
         std::lock_guard <std::recursive_mutex> lock(_mtx);
         auto pin_index = 0;
         if (frame->get_stream()->get_format() == RS2_FORMAT_Z16) // Z16
@@ -144,7 +149,8 @@ namespace librealsense {
         return ++counter[pin_index];
     }
 
-    rs2_timestamp_domain cs_timestamp_reader::get_frame_timestamp_domain(const std::shared_ptr<frame_interface>& frame) const {
+    rs2_timestamp_domain cs_timestamp_reader::get_frame_timestamp_domain(const std::shared_ptr<frame_interface>& frame) const
+    {
         return RS2_TIMESTAMP_DOMAIN_SYSTEM_TIME;
     }
 }

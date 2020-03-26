@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "ds5/ds5-private.h"
+#include "cs-private.h"
 
 #include "backend.h"
 #include "types.h"
@@ -50,10 +50,91 @@ namespace librealsense
         }
 
     private:
-        ds::depth_table_control get_depth_table(ds::advanced_query_mode mode) const;
+        cs::depth_table_control get_depth_table(cs::advanced_query_mode mode) const;
         std::function<void(const option &)> _record_action = [](const option&) {};
         lazy<option_range> _range;
         hw_monitor& _hwm;
+    };
+
+    class cs_pu_option : public option
+    {
+    public:
+        void set(float value) override;
+
+        float query() const override;
+
+        option_range get_range() const override;
+
+        bool is_enabled() const override
+        {
+            return true;
+        }
+
+        cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+                : _ep(ep), _id(id), _stream(stream)
+        {
+        }
+
+        cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
+                : _ep(ep), _id(id), _stream(stream), _description_per_value(description_per_value)
+        {
+        }
+
+        virtual ~cs_pu_option() = default;
+
+        const char* get_description() const override;
+
+        const char* get_value_description(float val) const override
+        {
+            if (_description_per_value.find(val) != _description_per_value.end())
+                return _description_per_value.at(val).c_str();
+            return nullptr;
+        }
+        void enable_recording(std::function<void(const option &)> record_action) override
+        {
+            _record = record_action;
+        }
+
+    private:
+        cs_stream _stream;
+        rs2_option _id;
+        const std::map<float, std::string> _description_per_value;
+        std::function<void(const option &)> _record = [](const option &) {};
+
+    protected:
+        cs_sensor& _ep;
+    };
+
+    class cs_depth_exposure_option : public cs_pu_option
+    {
+    public:
+        cs_depth_exposure_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+                : cs_pu_option(ep, id, stream) {}
+        const char* get_description() const override { return "Depth Exposure (usec)"; }
+    };
+
+    class cs_readonly_option : public cs_pu_option
+    {
+    public:
+        bool is_read_only() const override { return true; }
+
+        void set(float) override
+        {
+            throw not_implemented_exception("This option is read-only!");
+        }
+
+        bool is_enabled() const override
+        {
+            return _ep.is_streaming();
+        }
+
+        void enable_recording(std::function<void(const option &)> record_action) override
+        {
+            //empty
+        }
+
+        explicit cs_readonly_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+                : cs_pu_option(ep, id, stream) {}
     };
 
 };
