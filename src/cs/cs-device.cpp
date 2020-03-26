@@ -345,6 +345,9 @@ namespace librealsense
                     std::map<float, std::string>{ { 1.f, "Hardware" },
                     { 2.f, "Software" }}));
         }
+
+        color_ep->try_register_pu(RS2_OPTION_AUTO_EXPOSURE_PRIORITY);
+
         return color_ep;
     }
 
