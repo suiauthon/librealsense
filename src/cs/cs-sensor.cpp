@@ -485,7 +485,9 @@ namespace librealsense {
                     _temperature_supported_checked(false),
                     _temperature_supported(false),
                     _software_trigger_supported_checked(false),
-                    _software_trigger_supported(false) {
+                    _software_trigger_supported(false),
+                    _selected_source(0),
+                    _selected_source_initialized(false) {
             _smcs_api = smcs::GetCameraAPI();
             auto devices = _smcs_api->GetAllDevices();
 
@@ -1236,7 +1238,12 @@ namespace librealsense {
 
         bool cs_device::select_source(cs_stream stream)
         {
-            return _connected_device->SetIntegerNodeValue("SourceControlSelector", get_stream_source(stream));
+            auto source = get_stream_source(stream);
+            if (_selected_source_initialized && (source == _selected_source))
+                return true;
+            _selected_source = source;
+            _selected_source_initialized = true;
+            return _connected_device->SetIntegerNodeValue("SourceControlSelector", source);
         }
 
         bool cs_device::set_source_locked(cs_stream stream, bool locked)
