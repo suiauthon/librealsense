@@ -108,33 +108,6 @@ namespace librealsense {
     };
 
     namespace platform {
-
-        INT64 get_stream_source(cs_stream stream);
-
-        class source_selector {
-        public:
-            explicit source_selector(smcs::IDevice device)
-                : device(device), selected(0), initialized(false) {}
-            bool select(cs_stream stream) {
-                auto source = get_stream_source(stream);
-                if (initialized && (source == selected)) {
-                    return true;
-                }
-                else if (device->SetIntegerNodeValue("SourceControlSelector", source)) {
-                    selected = source;
-                    initialized = true;
-                    return true;
-                }
-                else {
-                    return false;
-                }
-            }
-        private:
-            smcs::IDevice device;
-            INT64 selected;
-            bool initialized;
-        };
-
         class cs_device {
         public:
             explicit cs_device(platform::cs_device_info hwm);
@@ -210,12 +183,14 @@ namespace librealsense {
 
             void stop_acquisition(cs_stream stream);
 
+            bool select_source(cs_stream stream);
             bool set_source_locked(cs_stream stream, bool locked);
             bool set_region(cs_stream stream, bool enable);
             bool disable_source_regions(cs_stream stream);
             bool select_region(cs_stream stream);
             bool select_channel(cs_stream stream);
 
+            INT64 get_stream_source(cs_stream stream);
             INT64 get_stream_region(cs_stream stream);
             bool get_stream_channel(cs_stream stream, UINT32& channel);
             std::vector<cs_stream> get_stream_group(cs_stream stream);
@@ -259,7 +234,6 @@ namespace librealsense {
             smcs::IDevice _connected_device;
             std::unordered_map<cs_stream, UINT32, std::hash<int>> _stream_channels;
             std::vector<frame_callback> _callbacks;
-            std::shared_ptr<source_selector> _source_selector;
             cs_firmware_version _cs_firmware_version;
             enum rs2_format _rgb_pixel_format;
             bool _infrared_supported;
