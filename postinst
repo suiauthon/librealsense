@@ -2,4 +2,5 @@
 
 #workaround for file paths not being exported properly when cross compiling
 #TODO CameraSuite CMake package overhaul with target exporting
-sed -i 's/Linux64_ARM\///g' /usr/lib/cmake/realsense2/realsense2Targets.cmake || true
+sed -i 's/Linux64_ARM\/libCameraSuite.so/libCameraSuite.so/g' /usr/lib/cmake/realsense2/realsense2Targets.cmake || true
+sed -i 's/Linux64_ARM\/libGenApi/local\/libGenApi/g' /usr/lib/cmake/realsense2/realsense2Targets.cmake || true
