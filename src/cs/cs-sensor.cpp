@@ -745,7 +745,9 @@ namespace librealsense {
         {
             // Auto controls range is trimmed to {0,1} range
             if(option == RS2_OPTION_ENABLE_AUTO_EXPOSURE || option == RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE ||
-                    option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED || option == RS2_OPTION_OUTPUT_TRIGGER_ENABLED || option == RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS)
+                    option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED || 
+                    option == RS2_OPTION_OUTPUT_TRIGGER_ENABLED || option == RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS ||
+                    option == RS2_OPTION_AUTO_EXPOSURE_PRIORITY)
             {
                 static const int32_t min = 0, max = 1, step = 1, def = 1;
                 control_range range(min, max, step, def);
@@ -791,6 +793,7 @@ namespace librealsense {
                 case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_EMITTER_ENABLED:
                 case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
+                case RS2_OPTION_AUTO_EXPOSURE_PRIORITY:
                 {
                     if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "On");
                     else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "Off");
@@ -900,6 +903,8 @@ namespace librealsense {
                     else if (stream == CS_STREAM_DEPTH) return std::string("STR_Exposure");
                 case RS2_OPTION_BACKLIGHT_COMPENSATION:
                     if (stream == CS_STREAM_COLOR) return std::string("RGB_BacklightComp");
+                case RS2_OPTION_AUTO_EXPOSURE_PRIORITY:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_LowLightComp");
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
                     if (stream == CS_STREAM_COLOR) return std::string("RGB_PowerLineFrequency");
                 case RS2_OPTION_GAMMA:
@@ -1111,6 +1116,7 @@ namespace librealsense {
                 case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_EMITTER_ENABLED:
                 case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
+                case RS2_OPTION_AUTO_EXPOSURE_PRIORITY:
                 {
                     status = _connected_device->GetStringNodeValue(get_cs_param_name(option, stream), string_value);
                     if (string_value == "Off") value = 0;
