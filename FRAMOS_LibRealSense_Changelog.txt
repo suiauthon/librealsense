@@ -2,7 +2,6 @@ v2.29.8 (2020-03-31)
 =====================
 	- added - support for Jetson TX2
 	- added - support for software trigger
-	- added - [WINDOWS] support for LabView wrapper
 	- added - auto exposure priority control added
 	- added - filtering cameras by IP in ROS wrapper
 	- fixed - errors logged during normal operation
