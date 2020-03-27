@@ -36,6 +36,9 @@ namespace librealsense
         double get_device_time_ms() override;
 
     protected:
+        std::shared_ptr<hw_monitor> _hw_monitor;
+        //firmware_version            _fw_version;
+
         std::shared_ptr<platform::cs_device> _cs_device;
         platform::cs_device_info _cs_device_info;
     };

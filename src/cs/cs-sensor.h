@@ -309,6 +309,19 @@ namespace librealsense {
         std::unique_ptr<power> _power;
         std::shared_ptr<platform::cs_device> _device;
     };
+
+    class cs_command_transfer : public platform::command_transfer
+    {
+    public:
+        std::vector<uint8_t> send_receive(const std::vector<uint8_t>& data, int, bool require_response) override;
+
+        cs_command_transfer(std::shared_ptr<platform::cs_device>  dev)
+                : _device(std::move(dev))
+        {};
+
+    private:
+        std::shared_ptr<platform::cs_device>        _device;
+    };
 }
 
 #endif //LIBREALSENSE2_CS_SENSOR_H

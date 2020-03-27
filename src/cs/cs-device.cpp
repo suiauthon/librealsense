@@ -165,28 +165,27 @@ namespace librealsense
 
     double cs_device_interface::get_device_time_ms()
     {
-        //printf("EEEVOOOOOOO\n");
         // TODO: Refactor the following query with an extension.
         //if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
         //{
         //    throw not_implemented_exception("device time not supported for backend.");
         //}
 
-        /*if (!_hw_monitor)
+        if (!_hw_monitor)
             throw wrong_api_call_sequence_exception("_hw_monitor is not initialized yet");
 
         command cmd(ds::MRD, ds::REGISTER_CLOCK_0, ds::REGISTER_CLOCK_0 + 4);
         auto res = _hw_monitor->send(cmd);
 
-        if (res.size() < sizeof(uint32_t))
+        if (res.size() < sizeof(uint64_t))
         {
             LOG_DEBUG("size(res):" << res.size());
             throw std::runtime_error("Not enough bytes returned from the firmware!");
         }
-        uint32_t dt = *(uint32_t*)res.data();
+
+        uint64_t dt = *(uint64_t*)res.data();
         double ts = dt * TIMESTAMP_USEC_TO_MSEC;
-        return ts;*/
-        return 0;
+        return ts;
     }
 
     cs_color::cs_color(std::shared_ptr<context> ctx,
@@ -287,6 +286,7 @@ namespace librealsense
         auto& raw_sensor = get_raw_depth_sensor();
 
         _hw_monitor = std::make_shared<hw_monitor>(&raw_sensor);
+        cs_device_interface::_hw_monitor = _hw_monitor;
 
         _depth_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]()
                 {

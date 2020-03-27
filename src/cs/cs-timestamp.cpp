@@ -53,10 +53,9 @@ namespace librealsense {
             _has_metadata[pin_index] = has_metadata(frame);
         }
 
-        auto md = (librealsense::metadata_intel_basic*)(f->additional_data.metadata_blob.data());
+        auto md = (librealsense::metadata_framos_basic*)(f->additional_data.metadata_blob.data());
         if(_has_metadata[pin_index] && md)
         {
-            printf("Evo tu je timestamp %d\n", md->header.timestamp);
             return (double)(md->header.timestamp)*TIMESTAMP_USEC_TO_MSEC;
         }
         else
@@ -85,12 +84,11 @@ namespace librealsense {
         if (frame->get_stream()->get_format() == RS2_FORMAT_Z16)
             pin_index = 1;
 
-        if(_has_metadata[pin_index] && f->additional_data.metadata_size > platform::uvc_header_size)
+        if(_has_metadata[pin_index] && f->additional_data.metadata_size > platform::cs_header_size)
         {
-            auto md = (librealsense::metadata_intel_basic*)(f->additional_data.metadata_blob.data());
+            auto md = (librealsense::metadata_framos_basic*)(f->additional_data.metadata_blob.data());
             if (md->capture_valid())
             {
-                printf("Evo tu je counter %d\n", md->payload.frame_counter);
                 return md->payload.frame_counter;
             }
         }

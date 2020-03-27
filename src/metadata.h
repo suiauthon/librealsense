@@ -648,7 +648,7 @@ namespace librealsense
         platform::cs_header     header;
     };
 
-    constexpr uint8_t metadata_framos_raw = sizeof(metadata_framos_raw);
+    constexpr uint8_t metadata_framos_raw_size = sizeof(metadata_framos_raw);
 
     struct metadata_framos_basic
     {

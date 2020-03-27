@@ -1479,7 +1479,6 @@ namespace librealsense {
         {
             smcs::IImageInfo image_info_ = nullptr;
 
-            double timestamp;
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
                 if (_connected_device->WaitForImage(1, channel))
                 {
@@ -1493,27 +1492,25 @@ namespace librealsense {
                         }
 
                         auto frame_counter = image_info_->GetImageID();
-                        auto timestamp_us = (uint32_t)image_info_->GetCameraTimestamp();
-                        timestamp = timestamp_us * TIMESTAMP_USEC_TO_MSEC;
+                        auto timestamp_us = (uint64_t) image_info_->GetCameraTimestamp();
+                        double timestamp = timestamp_us * TIMESTAMP_USEC_TO_MSEC;
 
                         auto im = image_info_->GetRawData();
 
                         UINT32 pixel_type, width, height;
                         image_info_->GetPixelType(pixel_type);
                         image_info_->GetSize(width, height);
-                        auto c = GvspGetBitsPerPixel((GVSP_PIXEL_TYPES)pixel_type) / 8;
+                        auto c = GvspGetBitsPerPixel((GVSP_PIXEL_TYPES) pixel_type) / 8;
                         auto image_size = width * height * c;
-
-                        printf("Vrijeme je %ld\n", timestamp_us);
-                        printf("Frame counter je %d\n", frame_counter);
-
-                        _md.header.timestamp = timestamp_us;
-                        _md.payload.frame_counter = frame_counter;
-
-                        frame_object fo{ image_size, sizeof(metadata_intel_basic), im, &_md, timestamp };
 
                         {
                             std::lock_guard<std::mutex> lock(_stream_lock);
+
+                            _md.header.timestamp = timestamp_us;
+                            _md.payload.frame_counter = frame_counter;
+
+                            frame_object fo{image_size, sizeof(metadata_framos_basic), im, &_md, timestamp};
+
                             _callbacks[stream](_profiles[stream], fo, []() {});
                         }
 
@@ -1723,4 +1720,30 @@ namespace librealsense {
             return flag;
         }
     }
+
+    std::vector<uint8_t> cs_command_transfer::send_receive(const std::vector<uint8_t>& data, int, bool require_response)
+    {
+        printf("Jel dode do tu\n");
+        std::vector<uint8_t> result;
+
+        if (data.size() > HW_MONITOR_BUFFER_SIZE)
+        {
+            LOG_ERROR("HW monitor command size is invalid");
+            throw invalid_value_exception(to_string() << "Requested HW monitor command size " <<
+                                                      std::dec << data.size() << " exceeds permitted limit " << HW_MONITOR_BUFFER_SIZE);
+        }
+
+        std::vector<uint8_t> transmit_buf(HW_MONITOR_BUFFER_SIZE, 0);
+        std::copy(data.begin(), data.end(), transmit_buf.begin());
+
+        if (_device) printf("Ima ga\n");
+        else printf("nema ga\n");
+
+        result = _device->send_hwm(transmit_buf);
+        printf("proslo je tu\n");
+
+        return result;
+    }
+
+
 }
