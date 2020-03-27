@@ -89,3 +89,5 @@ librealsense-log.txt
 *.cxx
 
 #.vscode/*
+
+!/wrappers/labview/lvanlys.dll
