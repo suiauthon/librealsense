@@ -50,7 +50,7 @@ Same API calls are used to obtain information from both normal and extended enum
 
 C++
 
-```c++
+```cpp
 rs2::device device; //obtain rs2::device from rs2::context or rs2::pipeline_profile
 const char* ip_address = device.get_info(RS2_CAMERA_INFO_IP_ADDRESS);
 ```
@@ -78,6 +78,12 @@ Available sensor options in the librealsense2 API are listed in the `rs2_option`
 The `RS2_OPTION_INTER_PACKET_DELAY` enumerator represents the delay in microseconds between stream packets that the camera sends to the host. The library automatically detects optimal value for this option on initialization.
 
 The `RS2_OPTION_PACKET_SIZE` enumerator represents the size of stream packets in bytes that the camera uses to stream images. The library automatically detects optimal value for this option on initialization. This option cannot be set while the sensor is streaming.
+
+The `RS2_OPTION_EXT_TRIGGER_SOURCE` enumerator represents external trigger mode. Value 1 represents hardware trigger and value 2 software trigger. See `Framos_D435e_External_Event_Camera_Synchronization_AppNote` for details.
+
+The `RS2_OPTION_SOFTWARE_TRIGGER` enumerator executes software trigger when set to 1.  See `Framos_D435e_External_Event_Camera_Synchronization_AppNote` for details.
+
+The `RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS` enumerator selects which sensors receive the software trigger signal. When set to 1, both stereo and color sensor receive software trigger signal. When set to 0, only the stereo sensor receives the software trigger signal. See `Framos_D435e_External_Event_Camera_Synchronization_AppNote` for details.
 
 Same API calls are used to set both normal and extended options.
 

@@ -89,6 +89,11 @@ Multicam example:
 Notes on configuring a multi camera setup are located in
     /usr/src/librealsense2/examples/multicam/readme.md
 
+Software trigger example:
+-------------------------
+Notes on configuring a software trigger setup are located in
+    /usr/src/librealsense2/examples/software-trigger/readme.md
+
 Using Dynamic Calibration Tool:
 -------------------------------
 Launch the Dynamic Calibration Tool from terminal:

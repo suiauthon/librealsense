@@ -30,7 +30,7 @@ Starting the application:
 -------------------------
 After installation, launch Intel® RealSense™ Viewer application:
     realsense-viewer.exe, located in folder
-    "C:\Program Files\FRAMOS-librealsense2 2.29.6\bin". 
+    "C:\Program Files\FRAMOS-librealsense2 2.29.7\bin". 
     Other tools and examples are located in the same folder.
     
 Building Intel® RealSense™ library, examples and tools:
@@ -40,7 +40,7 @@ Following tools are required for building the Intel® RealSense™ library:
 	CMake
 
 Sources for Intel® RealSense™ library, tools and examples are located in
-	C:\Program Files\FRAMOS-librealsense2 2.29.6\src
+	C:\Program Files\FRAMOS-librealsense2 2.29.7\src
 
 This folder is owned by the administrator. Before proceeding with the build, 
 copy it to a location owner by the user.
@@ -58,22 +58,27 @@ D400e features in the librealsense2 API:
 ----------------------------------------
 Intel® RealSense™ SDK with support for D400e cameras extends the standard librealsense2 API 
 with features applicable only to the D400e cameras. List of all API additions is located in
-    C:\Program Files\FRAMOS-librealsense2 2.29.6\src\d400e_api_extensions.md
+    C:\Program Files\FRAMOS-librealsense2 2.29.7\src\d400e_api_extensions.md
 
 Python wrapper:
 ---------------
 Instructions on how to use the Python wrapper are located in
-    C:\Program Files\FRAMOS-librealsense2 2.29.6\src\wrappers\python\d400e_readme.md
+    C:\Program Files\FRAMOS-librealsense2 2.29.7\src\wrappers\python\d400e_readme.md
 
 Multicam example:
 -----------------
 Notes on configuring a multi camera setup are located in
-    C:\Program Files\FRAMOS-librealsense2 2.29.6\examples\multicam\readme.md
+    C:\Program Files\FRAMOS-librealsense2 2.29.7\examples\multicam\readme.md
+
+Software trigger example:
+-------------------------
+Notes on configuring a software trigger setup are located in
+    C:\Program Files\FRAMOS-librealsense2 2.29.7\examples\software-trigger\readme.md
 
 Using Dynamic Calibration Tool:
 -------------------------------
 Dynamic Calibration Tool is located in 
-	"C:\Program Files\FRAMOS-librealsense2 2.29.6\bin\DynamicCalibrator"
+	"C:\Program Files\FRAMOS-librealsense2 2.29.7\bin\DynamicCalibrator"
 	
 Calibration of RGB imager is currently not supported.
 
