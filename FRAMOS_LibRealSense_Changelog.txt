@@ -1,9 +1,9 @@
 v2.29.8 (2020-03-31)
 =====================
-    - added - support for Jetson TX2
-    - added - support for software trigger
-    - added - auto exposure priority control added
-    - added - filtering cameras by IP in ROS wrapper
+    - added - support for NVIDIA Jetson TX2 (ARM64 platform)
+    - added - support for software trigger feature
+    - added - Auto Exposure Priority option
+    - added - filtering cameras by IP address in ROS wrapper
     - fixed - errors logged during normal operation
     - changed - Inter Cam Sync Mode and Packet Size controls disabled during stream
     - changed - connection failure error message contains camera serial number
