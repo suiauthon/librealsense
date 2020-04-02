@@ -36,6 +36,17 @@ heartbeat_time_s = rs.d400e.get_heartbeat_time()
 rs.d400e.set_heartbeat_time(3)
 ```
 
+C#
+
+```c#
+namespace Intel.Realsense
+```
+
+```c#
+double heartbeat_time_s = D400e.GetHearbeatTime();
+D400e.SetHeartbeatTime(3);
+```
+
 ## Camera information
 
 Available camera information in the librealsense2 API is listed in the `rs2_camera_info`  enumeration available in the `librealsense2/h/rs_sensor.h` header file. This enumeration was extended to provide information specific to D400e cameras.
@@ -69,6 +80,17 @@ Python
 ```python
 #obtain device from rs.context() or rs.pipeline()
 ip_address = device.get_info(rs.camera_info.ip_address)
+```
+
+C#
+
+```c#
+namespace Intel.RealSense
+```
+
+```c#
+Device device; //obtain Device from Context or PipelineProfile
+String ipAddress = device.Info[CameraInfo.IpAddress];
 ```
 
 ## Sensor Options
@@ -108,3 +130,15 @@ Python
 #obtain sensor from device or rs.context()
 sensor.set_option(rs.option.inter_packet_delay, 65)
 ```
+
+C#
+
+```c#
+namespace Intel.RealSense
+```
+
+```c#
+Sensor sensor; //obtain Sensor from Device
+sensor.Options[Option.InterPacketDelay].Value = 65;
+```
+
