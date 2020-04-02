@@ -1,3 +1,6 @@
+    - added - setting heartbeat time in C# wrapper
+    - fixed - wrong camera option and camera info enum mapping in C# wrapper
+
 v2.29.8 (2020-03-31)
 =====================
     - added - support for NVIDIA Jetson TX2 (ARM64 platform)
