@@ -1,3 +1,5 @@
+v2.29.9 (2020-04-30)
+=====================
     - added - setting heartbeat time in C# wrapper
     - fixed - wrong camera option and camera info enum mapping in C# wrapper
 
