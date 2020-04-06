@@ -32,6 +32,19 @@ void rs2_d400e_set_heartbeat_time(double time, rs2_error** error);
 */
 double rs2_d400e_get_heartbeat_time(rs2_error** error);
 
+/**
+* Sets number of buffers for D400e series devices.
+* \param       buffer_count Number of buffers to set for all D400e devices
+* \param[out]  error     If non-null, receives any error that occurs during this call, otherwise, errors are ignored
+*/
+void rs2_d400e_set_buffer_count(int buffer_count, rs2_error** error);
+
+/**
+* Acquires number for buffers for D400e series devices.
+* \param[out]  error     If non-null, receives any error that occurs during this call, otherwise, errors are ignored
+* @return                Current number for buffers for all D400e devices
+*/
+int rs2_d400e_get_buffer_count(rs2_error** error);
 
 #ifdef __cplusplus
 }
