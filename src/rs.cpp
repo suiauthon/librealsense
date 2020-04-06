@@ -1272,6 +1272,38 @@ double rs2_d400e_get_heartbeat_time(rs2_error** error) BEGIN_API_CALL
 }
 NOARGS_HANDLE_EXCEPTIONS_AND_RETURN(0)
 
+void rs2_d400e_set_buffer_count(int buffer_count, rs2_error** error) BEGIN_API_CALL
+{
+    auto node = smcs::GetCameraAPI()->GetApiParametersNode("ImageBufferFrameCount");
+    if (node == nullptr)
+        throw std::runtime_error("Unable to acquire frame buffer count node");
+
+    if (!node->SetIntegerNodeValue(buffer_count))
+        throw std::runtime_error("Unable to set frame buffer count");
+
+    INT64 value;
+    if (!node->GetIntegerNodeValue(value))
+        throw std::runtime_error("Unable to validate setting frame buffer count");
+
+    if (value != buffer_count)
+        throw wrong_api_call_sequence_exception("Buffer count not set. Buffer count must be set before devices are queried.");
+}
+HANDLE_EXCEPTIONS_AND_RETURN(, buffer_count)
+
+int rs2_d400e_get_buffer_count(rs2_error** error) BEGIN_API_CALL
+{
+    auto node = smcs::GetCameraAPI()->GetApiParametersNode("ImageBufferFrameCount");
+    if (node == nullptr)
+        throw std::runtime_error("Unable to acquire frame buffer count node");
+    
+    INT64 value;
+    if (!node->GetIntegerNodeValue(value))
+        throw std::runtime_error("Unable to acquire frame buffer count value");
+
+    return static_cast<int>(value);
+}
+NOARGS_HANDLE_EXCEPTIONS_AND_RETURN(0)
+
 const char* rs2_playback_device_get_file_path(const rs2_device* device, rs2_error** error) BEGIN_API_CALL
 {
     VALIDATE_NOT_NULL(device);
