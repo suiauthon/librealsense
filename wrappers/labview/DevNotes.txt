@@ -1,0 +1,82 @@
+=======================
+	LabVIEW
+=======================
+
+	Tips and Tricks
+	===============
+	- in order to run LabVIEW examples copy realsense2.dll to folder with LabVIEW source files
+	- to run example click: Operate > Run
+	
+
+
+	Errors, Bugs and Issues
+	======================
+
+	- potential bug:
+		- after closing some .vi, LabVIEW can still be see running in Windows Task Manager under background processes
+		- only with framos-librealsense library
+		- reproducing steps:
+			- open labview wrapper, for example RealSense_HelloWorld_Depth_and_Monochrome.vi and run it with D4xxe device
+			- stop example with STOP button
+			- click File > Exit, no need to save
+			- open same of another example and try to run it again --> it won't work --> errors will be shown
+
+		- shown errors:
+			- Error calling rs2_start_queue (sensor:000001E7BC51E4E0, queue:000001E7BC637BD0):
+ 			  start_streaming(...) failed. CS device was not opened!
+			- Error calling rs2_wait_for_frame (queue:000001E7BC637BD0):
+ 			  Frame did not arrive in time!
+			- Error calling rs2_stop (sensor:000001E7BC51E4E0):
+ 			  stop_streaming() failed. CS device is not streaming!
+			  Error calling rs2_close (sensor:000001E7BC51E4E0): 
+ 			  close() failed. CS device was not opened!
+
+		- this seems to be problem only for D4xxe devices
+		
+
+
+
+
+
+	- error:	dll initialization routine failed
+
+		- possible solution:	
+			- https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z0000019MJqSAM&l=en-HR
+			- check for updates in NI Package Manager
+			- even if you using 64bit LabVIEW, you must updated 32bit version or even previous versions of LabVIEW
+
+		- possible solution:
+
+			 - check for installed packages:		
+				- last installed package (Smartek CameraSuite or Framos CameraSuite + Framos librealsense			  
+				  modifies path to GenICam location 
+				- adjust priority to apropriate loacation under PATH env variable
+
+
+
+
+	- error 1097:	Error in external library call...
+
+		- possible reason & solution:			
+			- external function (most probably from dll) did not received correct parameters, or did not
+			  received enough parameters
+			- occurs often when camera does not support selected profile (resolution@fps)
+
+
+
+	- error 0x02: Memory is full
+
+		- possible reason:
+			- occurs often when trying to run a command-window-specific command
+
+		- solution:
+			- https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z0000019L12SAE&l=en-HR
+			- to run command prompt commands from the System Exec VI, 
+			  execute the command prompt window first with the following command:
+
+				cmd /c
+
+			- for example, when calling script Script1.bat execute:
+
+				cmd /c Script1.bat
+			
