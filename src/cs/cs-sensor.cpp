@@ -689,6 +689,8 @@ namespace librealsense {
 
             if (!_connected_device->SetStringNodeValue("FrameRate", frameRateValue))
                 return false;
+
+            return true;
         }
 
         bool cs_device::is_profile_format(const smcs::IImageInfo& image_info, const stream_profile& profile)
