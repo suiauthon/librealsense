@@ -13,6 +13,8 @@ EXPORTS
 	
 	rs2_d400e_set_heartbeat_time
 	rs2_d400e_get_heartbeat_time
+    rs2_d400e_set_buffer_count
+    rs2_d400e_get_buffer_count
 
     rs2_query_devices
     rs2_query_devices_ex
