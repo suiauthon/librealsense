@@ -1,7 +1,9 @@
 v2.29.9 (2020-04-30)
 =====================
+    - added - setting buffer count for D400e cameras
     - added - setting heartbeat time in C# wrapper
     - fixed - wrong camera option and camera info enum mapping in C# wrapper
+    - changed - pyrealsense2 no longer creating context on import
 
 v2.29.8 (2020-03-31)
 =====================
