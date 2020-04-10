@@ -4,7 +4,7 @@ This readme file provides an overview of extensions to the librealsense2 API imp
 
 ## Heartbeat time
 
-Heartbeat mechanism is used to detect disconnect between the host and an D400e camera. Host sends the heartbeat command to the camera in regular intervals and the camera sends a response. If the camera does not respond in a certain interval, the host considers the camera disconnected. If the camera does not receive a heartbeat command in the same interval, it considers the host disconnected. Length of the interval in which the host sends the heartbeat command is called heartbeat time. Length of the interval after which the host considers the camera disconnected and vice versa is called heartbeat timeout.
+Heartbeat mechanism is used to detect disconnect between the host and a D400e camera. Host sends the heartbeat command to the camera in regular intervals and the camera sends a response. If the camera does not respond in a certain interval, the host considers the camera disconnected. If the camera does not receive a heartbeat command in the same interval, it considers the host disconnected. Length of the interval in which the host sends the heartbeat command is called heartbeat time. Length of the interval after which the host considers the camera disconnected and vice versa is called heartbeat timeout.
 
 Heartbeat time in seconds can be acquired and set using the extended librealsense2 API. Heartbeat timeout is implemented as 4x heartbeat time. All D400e cameras connected to a single application have the same heartbeat time. Setting heartbeat time affects all connected D400e cameras.
 
@@ -43,8 +43,53 @@ namespace Intel.Realsense
 ```
 
 ```c#
-double heartbeat_time_s = D400e.GetHearbeatTime();
+double heartbeatTimeS = D400e.GetHearbeatTime();
 D400e.SetHeartbeatTime(3);
+```
+
+## Buffer count
+
+Images acquired from D400e cameras are stored in circular buffer inside the driver. The library is using images from this buffer and notifies the driver when a buffer is no longer needed. Driver drops images that arrive from camera if this buffer is full because the software is not using the images fast enough.
+
+Buffer count can be acquired and set using the extended librealsense2 API. All D400e cameras connected to a single application have the same number of buffers. The buffer count must be set before instantiating `context` or `pipeline` objects. Setting buffer count after these objects are instantiated will have no effect.
+
+C++
+
+```cpp
+#include <librealsense2/rs.hpp>
+```
+```cpp
+int buffer_count = rs2::d400e::get_buffer_count();
+rs2::d400e::set_buffer_count(10);
+```
+
+C
+
+```c
+#include <librealsense2/rs.h>
+```
+```c
+rs2_error* e = 0;
+int buffer_count = rs2_d400e_get_buffer_count(e);
+rs2_d400e_set_buffer_count(10, e);
+```
+
+Python
+
+```python
+buffer_count = rs.d400e.get_buffer_count()
+rs.d400e.set_buffer_count(10)
+```
+
+C#
+
+```c#
+namespace Intel.Realsense
+```
+
+```c#
+double bufferCount = D400e.GetBufferCount();
+D400e.SetBufferCount(10);
 ```
 
 ## Camera information
