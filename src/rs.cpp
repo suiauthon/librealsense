@@ -1280,13 +1280,6 @@ void rs2_d400e_set_buffer_count(int buffer_count, rs2_error** error) BEGIN_API_C
 
     if (!node->SetIntegerNodeValue(buffer_count))
         throw std::runtime_error("Unable to set frame buffer count");
-
-    INT64 value;
-    if (!node->GetIntegerNodeValue(value))
-        throw std::runtime_error("Unable to validate setting frame buffer count");
-
-    if (value != buffer_count)
-        throw wrong_api_call_sequence_exception("Buffer count not set. Buffer count must be set before devices are queried.");
 }
 HANDLE_EXCEPTIONS_AND_RETURN(, buffer_count)
 
