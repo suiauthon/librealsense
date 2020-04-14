@@ -4,6 +4,7 @@ v2.29.9 (2020-04-30)
     - added - setting heartbeat time in C# wrapper
     - fixed - not able to set fps in some cases
     - fixed - wrong camera option and camera info enum mapping in C# wrapper
+    - fixed - Fixed Frame not available for multiple cameras in ROS wrapper
     - changed - pyrealsense2 no longer creating context on import
 
 v2.29.8 (2020-03-31)
