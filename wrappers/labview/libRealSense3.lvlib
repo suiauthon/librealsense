@@ -80,5 +80,15 @@
 		<Item Name="rs3_RGB_to_Picture5.vi" Type="VI" URL="../rs3_RGB_to_Picture5.vi"/>
 		<Item Name="rs3_RGB_to_Picture6.vi" Type="VI" URL="../rs3_RGB_to_Picture6.vi"/>
 		<Item Name="rs3_stop_process.vi" Type="VI" URL="../rs3_stop_process.vi"/>
+		<Item Name="rs3_ExtractColor5.vi" Type="VI" URL="../rs3_ExtractColor5.vi"/>
+		<Item Name="rs3 get timestamp domain3.vi" Type="VI" URL="../rs3 get timestamp domain3.vi"/>
+		<Item Name="rs3 post process4.vi" Type="VI" URL="../rs3 post process4.vi"/>
+		<Item Name="RealSense_HelloWorld_PointCloud Plus.vi" Type="VI" URL="../RealSense_HelloWorld_PointCloud Plus.vi"/>
+		<Item Name="rs3 init devices_and_sensors.vi" Type="VI" URL="../rs3 init devices_and_sensors.vi"/>
+		<Item Name="rs3 Set All Advanced6.vi" Type="VI" URL="../rs3 Set All Advanced6.vi"/>
+		<Item Name="rs3_ExtractColor3.vi" Type="VI" URL="../rs3_ExtractColor3.vi"/>
+		<Item Name="RealSense_HelloWorld_PointCloud_ext_RGB2.vi" Type="VI" URL="../RealSense_HelloWorld_PointCloud_ext_RGB2.vi"/>
+		<Item Name="rs3 capture single.vi" Type="VI" URL="../rs3 capture single.vi"/>
+		<Item Name="rs3_close all.vi" Type="VI" URL="../rs3_close all.vi"/>
 	</Item>
 </Library>
