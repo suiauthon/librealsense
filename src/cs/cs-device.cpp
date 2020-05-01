@@ -161,6 +161,8 @@ namespace librealsense
     {
         _cs_device_info = group.cs_devices.front();
         _cs_device = ctx->get_backend().create_cs_device(_cs_device_info);
+
+        _hw_monitor = std::make_shared<hw_monitor>(std::make_shared<cs_command_transfer>(_cs_device));
     }
 
     double cs_device_interface::get_device_time_ms()
@@ -184,6 +186,8 @@ namespace librealsense
         }
 
         uint64_t dt = *(uint64_t*)res.data();
+
+        printf("dt je %ld\n", dt);
         double ts = dt * TIMESTAMP_USEC_TO_MSEC;
         return ts;
     }
@@ -215,8 +219,6 @@ namespace librealsense
     void cs_color::color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
     {
         using namespace ds;
-
-        _hw_monitor = std::make_shared<hw_monitor>(&get_raw_color_sensor());
 
         _color_calib_table_raw = [this]() { return get_raw_calibration_table(rgb_calibration_id); };
         _color_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]() { return from_pose(get_color_stream_extrinsic(*_color_calib_table_raw)); });
@@ -284,9 +286,6 @@ namespace librealsense
 
         auto&& backend = ctx->get_backend();
         auto& raw_sensor = get_raw_depth_sensor();
-
-        _hw_monitor = std::make_shared<hw_monitor>(&raw_sensor);
-        cs_device_interface::_hw_monitor = _hw_monitor;
 
         _depth_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]()
                 {

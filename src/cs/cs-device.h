@@ -37,7 +37,6 @@ namespace librealsense
 
     protected:
         std::shared_ptr<hw_monitor> _hw_monitor;
-        //firmware_version            _fw_version;
 
         std::shared_ptr<platform::cs_device> _cs_device;
         platform::cs_device_info _cs_device_info;
@@ -71,7 +70,6 @@ namespace librealsense
 
         friend class cs_color_sensor;
 
-        std::shared_ptr<hw_monitor> _hw_monitor;
         firmware_version            _fw_version;
 
         lazy<std::vector<uint8_t>> _color_calib_table_raw;
@@ -118,7 +116,6 @@ namespace librealsense
 
         friend class cs_depth_sensor;
 
-        std::shared_ptr<hw_monitor> _hw_monitor;
         firmware_version            _fw_version;
         firmware_version            _recommended_fw_version;
         ds::d400_caps               _device_capabilities;

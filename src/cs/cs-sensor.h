@@ -315,12 +315,13 @@ namespace librealsense {
     public:
         std::vector<uint8_t> send_receive(const std::vector<uint8_t>& data, int, bool require_response) override;
 
-        cs_command_transfer(std::shared_ptr<platform::cs_device>  dev)
-                : _device(std::move(dev))
+        cs_command_transfer(std::shared_ptr<platform::cs_device> device)
+                : _device(std::move(device))
         {};
 
     private:
         std::shared_ptr<platform::cs_device>        _device;
+        //cs_sensor* _ep;
     };
 }
 

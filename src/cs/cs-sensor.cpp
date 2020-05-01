@@ -1723,9 +1723,6 @@ namespace librealsense {
 
     std::vector<uint8_t> cs_command_transfer::send_receive(const std::vector<uint8_t>& data, int, bool require_response)
     {
-        printf("Jel dode do tu\n");
-        std::vector<uint8_t> result;
-
         if (data.size() > HW_MONITOR_BUFFER_SIZE)
         {
             LOG_ERROR("HW monitor command size is invalid");
@@ -1733,16 +1730,9 @@ namespace librealsense {
                                                       std::dec << data.size() << " exceeds permitted limit " << HW_MONITOR_BUFFER_SIZE);
         }
 
-        std::vector<uint8_t> transmit_buf(HW_MONITOR_BUFFER_SIZE, 0);
-        std::copy(data.begin(), data.end(), transmit_buf.begin());
+        std::vector<uint8_t> transmit_buf(data);
 
-        if (_device) printf("Ima ga\n");
-        else printf("nema ga\n");
-
-        result = _device->send_hwm(transmit_buf);
-        printf("proslo je tu\n");
-
-        return result;
+        return static_cast<std::vector<uint8_t>>(_device->send_hwm(transmit_buf));
     }
 
 
