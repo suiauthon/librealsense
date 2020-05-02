@@ -187,7 +187,6 @@ namespace librealsense
 
         uint64_t dt = *(uint64_t*)res.data();
 
-        printf("dt je %ld\n", dt);
         double ts = dt * TIMESTAMP_USEC_TO_MSEC;
         return ts;
     }
