@@ -740,7 +740,7 @@ namespace librealsense {
                     if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "On");
                     else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "Off");
                 }
-                /*case RS2_OPTION_PACKET_SIZE:
+                case RS2_OPTION_PACKET_SIZE:
                 {
                     if (_is_capturing[stream])
                         throw wrong_api_call_sequence_exception("Unable to set Packet Size while streaming!");
@@ -765,7 +765,7 @@ namespace librealsense {
                     }
                     
                     return true;
-                }*/
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -825,8 +825,8 @@ namespace librealsense {
                     if (stream == CS_STREAM_DEPTH) return std::string("STR_LaserEnable");
                 case RS2_OPTION_LASER_POWER:
                     if (stream == CS_STREAM_DEPTH) return std::string("STR_LaserPower");
-                //case RS2_OPTION_INTER_PACKET_DELAY: return std::string("GevSCPD");
-                //case RS2_OPTION_PACKET_SIZE: return std::string("GevSCPSPacketSize");
+                case RS2_OPTION_INTER_PACKET_DELAY: return std::string("GevSCPD");
+                case RS2_OPTION_PACKET_SIZE: return std::string("GevSCPSPacketSize");
                 case RS2_OPTION_ASIC_TEMPERATURE: return std::string("IntelASIC");
                 case RS2_OPTION_PROJECTOR_TEMPERATURE: return std::string("DepthModule");
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
@@ -861,7 +861,7 @@ namespace librealsense {
                     status = _connected_device->GetEnumNodeValuesList(get_cs_param_name(option, stream), node_value_list);
                     value = 0;
                     return status;
-                /*case RS2_OPTION_INTER_PACKET_DELAY:
+                case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
                     if (!select_channel(stream))
@@ -870,7 +870,7 @@ namespace librealsense {
                     status = _connected_device->GetIntegerNodeMin(get_cs_param_name(option, stream), int_value);
                     value = static_cast<int32_t>(int_value);
                     return status;
-                }*/
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -916,7 +916,7 @@ namespace librealsense {
                     value = static_cast<int32_t>(double_value);
                     return status;
                 }*/
-                /*case RS2_OPTION_INTER_PACKET_DELAY:
+                case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
                     if (!select_channel(stream))
@@ -925,7 +925,7 @@ namespace librealsense {
                     status = _connected_device->GetIntegerNodeMax(get_cs_param_name(option, stream), int_value);
                     value = static_cast<int32_t>(int_value);
                     return status;
-                }*/
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -956,7 +956,7 @@ namespace librealsense {
                     step = 1;
                     return true;
                 }
-                /*case RS2_OPTION_INTER_PACKET_DELAY:
+                case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
                     if (!select_channel(stream)) {
@@ -967,7 +967,7 @@ namespace librealsense {
                     auto result = _connected_device->GetIntegerNodeIncrement(get_cs_param_name(option, stream), int_value);
                     step = static_cast<int32_t>(int_value);
                     return true;
-                }*/
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -1026,7 +1026,7 @@ namespace librealsense {
                     else if (string_value.compare(std::string("Continuous")) == 0) value = 1;
                     return true;
                 }*/
-                /*case RS2_OPTION_INTER_PACKET_DELAY:
+                case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
                     if (!select_channel(stream))
@@ -1035,7 +1035,7 @@ namespace librealsense {
                     status = _connected_device->GetIntegerNodeValue(get_cs_param_name(option, stream), int_value);
                     value = static_cast<int32_t>(int_value);
                     return status;
-                }*/
+                }
                 case RS2_OPTION_ASIC_TEMPERATURE:
                 case RS2_OPTION_PROJECTOR_TEMPERATURE:
                 {
@@ -1559,7 +1559,7 @@ namespace librealsense {
                 throw wrong_api_call_sequence_exception("Failed to set framerate!");
         }
 
-		/*void cs_device::set_trigger_mode(float mode, cs_stream stream)
+		void cs_device::set_trigger_mode(float mode, cs_stream stream)
 		{
             auto sync_mode = static_cast<int>(mode);
 
@@ -1567,7 +1567,7 @@ namespace librealsense {
 
             if (stream == CS_STREAM_COLOR) {
                 switch (sync_mode) {
-                case CS_INTERCAM_SYNC_EXTERNAL_COLOR:
+                case cs::INTERCAM_SYNC_EXTERNAL_COLOR:
                     _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
                     _connected_device->SetStringNodeValue("TriggerMode", "On");
                     break;
@@ -1577,19 +1577,19 @@ namespace librealsense {
                 }
             } else {
                 switch (sync_mode) {
-                case CS_INTERCAM_SYNC_SLAVE:
+                case cs::INTERCAM_SYNC_SLAVE:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
 					_connected_device->SetStringNodeValue("LineSelector", "Line1");
 					_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
 					_connected_device->SetStringNodeValue("TriggerMode", "On");
                     break;
-                case CS_INTERCAM_SYNC_MASTER:
+                case cs::INTERCAM_SYNC_MASTER:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
                     _connected_device->SetStringNodeValue("LineSelector", "Line1");
                     _connected_device->SetStringNodeValue("LineSource", "VSync");
                     _connected_device->SetStringNodeValue("TriggerMode", "Off");
                     break;
-                case CS_INTERCAM_SYNC_EXTERNAL:
+                case cs::INTERCAM_SYNC_EXTERNAL:
                     _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
                     _connected_device->SetStringNodeValue("LineSelector", "Line1");
                     _connected_device->SetStringNodeValue("LineSource", "VSync");
@@ -1602,9 +1602,9 @@ namespace librealsense {
                     _connected_device->SetStringNodeValue("TriggerMode", "Off");
                 }
 			}
-		}*/
+		}
 
-        /*float cs_device::get_trigger_mode(cs_stream stream)
+        float cs_device::get_trigger_mode(cs_stream stream)
         {
             select_source(stream);
 
@@ -1617,20 +1617,20 @@ namespace librealsense {
             switch (stream) {
             case CS_STREAM_COLOR:
                 if (trigger_type == "ExternalEvent" && trigger_mode == "On")
-                    return CS_INTERCAM_SYNC_EXTERNAL_COLOR;
+                    return cs::INTERCAM_SYNC_EXTERNAL_COLOR;
                 else
-                    return CS_INTERCAM_SYNC_DEFAULT_COLOR;
+                    return cs::INTERCAM_SYNC_DEFAULT_COLOR;
             default:
                 if (trigger_type == "MultiCam_Sync" && line_source == "UserOutput1" && trigger_mode == "On")
-                    return CS_INTERCAM_SYNC_SLAVE;
+                    return cs::INTERCAM_SYNC_SLAVE;
                 else if (trigger_type == "MultiCam_Sync" && line_source == "VSync" && trigger_mode == "Off")
-                    return CS_INTERCAM_SYNC_MASTER;
+                    return cs::INTERCAM_SYNC_MASTER;
                 else if (trigger_type == "ExternalEvent" && line_source == "VSync" && trigger_mode == "On")
-                    return CS_INTERCAM_SYNC_EXTERNAL;
+                    return cs::INTERCAM_SYNC_EXTERNAL;
                 else
-                    return CS_INTERCAM_SYNC_DEFAULT;
+                    return cs::INTERCAM_SYNC_DEFAULT;
             }
-        }*/
+        }
 
         int cs_device::get_optimal_inter_packet_delay(int packetSize)
         {

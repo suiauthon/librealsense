@@ -92,6 +92,8 @@ extern "C" {
         RS2_OPTION_INVALIDATION_BYPASS, /**< Enable\disable pixel invalidation */
         RS2_OPTION_AMBIENT_LIGHT, /**< Change the depth ambient light see rs2_ambient_light for values */
         RS2_OPTION_SENSOR_MODE, /**< The resolution mode: see rs2_sensor_mode for values */
+        RS2_OPTION_INTER_PACKET_DELAY, /**< Inter-packet delay for eth cameras*/
+        RS2_OPTION_PACKET_SIZE, /**< Packet size for eth cameras*/
         RS2_OPTION_COUNT /**< Number of enumeration values. Not a valid input: intended to be used in for-loops. */
     } rs2_option;
 

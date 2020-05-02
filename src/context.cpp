@@ -20,6 +20,7 @@
 #include "stream.h"
 #include "environment.h"
 #include "context.h"
+#include "d400e.h"
 #include "cs/cs-factory.h"
 #include "fw-update/fw-update-factory.h"
 
@@ -126,7 +127,7 @@ namespace librealsense
                 node->SetIntegerNodeValue(CS_PACKET_RESEND_GROUP_MAX_SIZE);
             }
             //heartbeat time set to default on the first call to get_instance()
-            //d400e::heartbeat_time::get_instance();
+            d400e::heartbeat_time::get_instance();
         }
 
         switch(type)
