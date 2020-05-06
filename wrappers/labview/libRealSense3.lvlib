@@ -1,7 +1,6 @@
 ﻿<?xml version='1.0' encoding='UTF-8'?>
-<Library LVVersion="19008000">
-	<Property Name="NI.Lib.Icon" Type="Bin">'1#!!!!!!!)!"1!&amp;!!!-!%!!!@````]!!!!"!!%!!!+\!!!*Q(C=\:;R&lt;B."%)&lt;`%#2I45W",$I8+?96,)I5*U"S34M01)KU[8"L*"=D';6%]A/Y=:'/;K2)[@U+ZB'/\^:LYUD9!1GE&amp;-RG,HP`\-R]XFO@,"6\,DV6_Z$JG!W)PTZMA\MOXCY7CX:"K=7^#T\&lt;D_^@@B7`HVKEQ`E&gt;_3\?47PKNN*WUM58"[XE.\0$&gt;H@]]T?&lt;`EUXGI:GT=\;=F`D46/^X9MTH`X-&lt;\@ZGUK&lt;`,XY*K(&gt;'^W[_`F.H7TSWWV_=^$_RR^"@($]`!XODNHP@,WP(FTUDUU[5@=CQB-0X(&amp;4&amp;WI40&gt;%40&gt;%40&gt;%$0&gt;!$0&gt;!$0&gt;!&gt;X&gt;%&gt;X&gt;%&gt;X&gt;%.X&gt;!.X&gt;!.X&gt;$,1"?[U)8/LC4.EU:*U;2!MBA5*:?%*_&amp;*?")?&lt;J8Q*$Q*4]+4],"%#5`#E`!E0!E0;5JY%J[%*_&amp;*?#B63,)-&gt;(A3(MILY!FY!J[!*_#BJ1+?!#"I&amp;B1/CI#B)"B-!J[!*_"BKI!HY!FY!J[!B\!#HI!HY!FY!BZ3SKZ%I?E'/DS5E=0D]$A]$I`$1WEZ0![0Q_0Q/$SUE]0D]$A14E/H/!BSEJQ&amp;TIX$Y`$Q4Q[0Q_0Q/$Q/$[(SB,TM4%@4$82Y$"[$R_!R?!Q?3MDA-8A-(I0(Y+'M$"[$R_!R?!Q?7MHA-8A-(A0%;%J\'=7-2'/2)2A]`*849O5J23'R-K2[?&amp;50J?JB5TV%KI&gt;$^;'L0ET6B[3[_;K&lt;KLJ:KJOA_O&amp;5I66B6*OI*H=,N?;[QJ@Y("`DF`A)(_*^P.?F`O7&amp;[`6;K^6+S_63]`F=Y`&amp;9FZ?8'IV''A[([P@\[P6[OZ]4LRA&lt;/^G_F[[9Y[?4C^HNZ0TN\?1CTC&lt;H\\Z`_@DB$0X:^7&lt;.[@3FLC=P^(5[?X-^@4``.0X]\;;,`[FX^7ZW\[8(]'\5%\6\0]09IR]^6[`F!!!!!!</Property>
-	<Property Name="NI.Lib.SourceVersion" Type="Int">419463168</Property>
+<Library LVVersion="17008000">
+	<Property Name="NI.Lib.Icon" Type="Bin">&amp;Q#!!!!!!!)!"1!&amp;!!!-!%!!!@````]!!!!"!!%!!!+\!!!*Q(C=\:;R&lt;B."%)&lt;`%#2I45W",$I8+?96,)I5*U"S34M01)KU[8"L*"=D';6%]A/Y=:'/;K2)[@U+ZB'/\^:LYUD9!1GE&amp;-RG,HP`\-R]XFO@,"6\,DV6_Z$JG!W)PTZMA\MOXCY7CX:"K=7^#T\&lt;D_^@@B7`HVKEQ`E&gt;_3\?47PKNN*WUM58"[XE.\0$&gt;H@]]T?&lt;`EUXGI:GT=\;=F`D46/^X9MTH`X-&lt;\@ZGUK&lt;`,XY*K(&gt;'^W[_`F.H7TSWWV_=^$_RR^"@($]`!XODNHP@,WP(FTUDUU[5@=CQB-0X(&amp;4&amp;WI40&gt;%40&gt;%40&gt;%$0&gt;!$0&gt;!$0&gt;!&gt;X&gt;%&gt;X&gt;%&gt;X&gt;%.X&gt;!.X&gt;!.X&gt;$,1"?[U)8/LC4.EU:*U;2!MBA5*:?%*_&amp;*?")?&lt;J8Q*$Q*4]+4],"%#5`#E`!E0!E0;5JY%J[%*_&amp;*?#B63,)-&gt;(A3(MILY!FY!J[!*_#BJ1+?!#"I&amp;B1/CI#B)"B-!J[!*_"BKI!HY!FY!J[!B\!#HI!HY!FY!BZ3SKZ%I?E'/DS5E=0D]$A]$I`$1WEZ0![0Q_0Q/$SUE]0D]$A14E/H/!BSEJQ&amp;TIX$Y`$Q4Q[0Q_0Q/$Q/$[(SB,TM4%@4$82Y$"[$R_!R?!Q?3MDA-8A-(I0(Y+'M$"[$R_!R?!Q?7MHA-8A-(A0%;%J\'=7-2'/2)2A]`*849O5J23'R-K2[?&amp;50J?JB5TV%KI&gt;$^;'L0ET6B[3[_;K&lt;KLJ:KJOA_O&amp;5I66B6*OI*H=,N?;[QJ@Y("`DF`A)(_*^P.?F`O7&amp;[`6;K^6+S_63]`F=Y`&amp;9FZ?8'IV''A[([P@\[P6[OZ]4LRA&lt;/^G_F[[9Y[?4C^HNZ0TN\?1CTC&lt;H\\Z`_@DB$0X:^7&lt;.[@3FLC=P^(5[?X-^@4``.0X]\;;,`[FX^7ZW\[8(]'\5%\6\0]09IR]^6[`F!!!!!!</Property>
 	<Property Name="NI.Lib.Version" Type="Str">1.0.0.0</Property>
 	<Property Name="NI.LV.All.SourceOnly" Type="Bool">false</Property>
 	<Item Name="VIs" Type="Folder">
@@ -83,11 +82,9 @@
 		<Item Name="rs3_ExtractColor5.vi" Type="VI" URL="../rs3_ExtractColor5.vi"/>
 		<Item Name="rs3 get timestamp domain3.vi" Type="VI" URL="../rs3 get timestamp domain3.vi"/>
 		<Item Name="rs3 post process4.vi" Type="VI" URL="../rs3 post process4.vi"/>
-		<Item Name="RealSense_HelloWorld_PointCloud Plus.vi" Type="VI" URL="../RealSense_HelloWorld_PointCloud Plus.vi"/>
 		<Item Name="rs3 init devices_and_sensors.vi" Type="VI" URL="../rs3 init devices_and_sensors.vi"/>
 		<Item Name="rs3 Set All Advanced6.vi" Type="VI" URL="../rs3 Set All Advanced6.vi"/>
 		<Item Name="rs3_ExtractColor3.vi" Type="VI" URL="../rs3_ExtractColor3.vi"/>
-		<Item Name="RealSense_HelloWorld_PointCloud_ext_RGB2.vi" Type="VI" URL="../RealSense_HelloWorld_PointCloud_ext_RGB2.vi"/>
 		<Item Name="rs3 capture single.vi" Type="VI" URL="../rs3 capture single.vi"/>
 		<Item Name="rs3_close all.vi" Type="VI" URL="../rs3_close all.vi"/>
 	</Item>
