@@ -652,6 +652,8 @@ namespace librealsense {
                 }
             }
 
+            set_region(stream, false);
+
             return all_stream_profiles;
         }
 
