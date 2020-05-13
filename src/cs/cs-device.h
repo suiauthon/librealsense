@@ -192,7 +192,7 @@ namespace librealsense
         mutable std::atomic<float> _depth_units;
     };
 
-	/*class cs_external_sync_mode : public option
+	class cs_external_sync_mode : public option
 	{
 	public:
 		cs_external_sync_mode(hw_monitor& hwm, cs_depth_sensor& depth);
@@ -239,7 +239,7 @@ namespace librealsense
 		std::function<void(const option &)> _record_action = [](const option&) {};
 		lazy<option_range> _range;
 		cs_color_sensor& _color;
-	};*/
+	};
 
 }
 

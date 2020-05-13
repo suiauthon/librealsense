@@ -242,9 +242,7 @@ namespace librealsense {
     {
     public:
         explicit cs_sensor(std::string name, std::shared_ptr<platform::cs_device> cs_device,
-                  _user_count(0),
-                  _external_trigger_mode(false)
-        }
+            std::unique_ptr<frame_timestamp_reader> timestamp_reader, device* dev, cs_stream stream);
         virtual ~cs_sensor() override;
 
         rs2_extension stream_to_frame_types(rs2_stream stream);
@@ -330,131 +328,11 @@ namespace librealsense {
         std::vector<uint8_t> send_receive(const std::vector<uint8_t>& data, int, bool require_response) override;
 
         cs_command_transfer(std::shared_ptr<platform::cs_device> device)
-                : _device(std::move(device))
+            : _device(std::move(device))
         {};
 
-        option_range get_range() const override;
-
-        bool is_enabled() const override
-        {
-            if (_id == RS2_OPTION_PACKET_SIZE) {
-                return !_ep.is_streaming();
-            }
-            else {
-                return true;
-            }
-        }
-
-        cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-                : _ep(ep), _id(id), _stream(stream)
-        {
-        }
-
-        cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
-                : _ep(ep), _id(id), _stream(stream), _description_per_value(description_per_value)
-        {
-        }
-
-        virtual ~cs_pu_option() = default;
-
-        const char* get_description() const override;
-
-        const char* get_value_description(float val) const override
-        {
-            if (_description_per_value.find(val) != _description_per_value.end())
-                return _description_per_value.at(val).c_str();
-            return nullptr;
-        }
-        void enable_recording(std::function<void(const option &)> record_action) override
-        {
-            _record = record_action;
-        }
-
     private:
-        std::shared_ptr<platform::cs_device>        _device;
-        //cs_sensor* _ep;
-    };
-
-    class cs_depth_exposure_option : public cs_pu_option
-    {
-    public:
-        cs_depth_exposure_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-            : cs_pu_option(ep, id, stream) {}
-        const char* get_description() const override { return "Depth Exposure (usec)"; }
-    };
-
-    class cs_external_trigger_option : public cs_pu_option
-    {
-    public:
-        cs_external_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-            : cs_pu_option(ep, id, stream) {}
-
-        cs_external_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
-            : cs_pu_option(ep, id, stream, description_per_value), _stream(stream), _id(id)
-        {
-        }
-
-        option_range get_range() const override { return option_range{ 1,2,1,1 }; };
-
-        const char* get_description() const override { return "External Trigger Source"; }
-    private:
-        cs_stream _stream;
-        rs2_option _id;
-    };
-
-    class cs_software_trigger_option : public cs_pu_option
-    {
-    public:
-        cs_software_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-            : cs_pu_option(ep, id, stream) {}
-
-        cs_software_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
-            : cs_pu_option(ep, id, stream, description_per_value), _stream(stream), _id(id)
-        {
-        }
-
-        option_range get_range() const override { return option_range{ 1,1,1,1 }; };
-
-        const char* get_description() const override { return "Software Trigger"; }
-    private:
-        cs_stream _stream;
-        rs2_option _id;
-    };
-
-    class cs_software_trigger_all_option : public cs_pu_option
-    {
-    public:
-        cs_software_trigger_all_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-            : cs_pu_option(ep, id, stream), _stream(stream), _id(id) {}
-
-        const char* get_description() const override { return "Forwards software trigger signal to all sensors"; }
-    private:
-        cs_stream _stream;
-        rs2_option _id;
-    };
-
-    class cs_readonly_option : public cs_pu_option
-    {
-    public:
-        bool is_read_only() const override { return true; }
-
-        void set(float) override
-        {
-            throw not_implemented_exception("This option is read-only!");
-        }
-
-        bool is_enabled() const override
-        {
-            return _ep.is_streaming();
-        }
-
-        void enable_recording(std::function<void(const option &)> record_action) override
-        {
-            //empty
-        }
-
-        explicit cs_readonly_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-            : cs_pu_option(ep, id, stream) {}
+        std::shared_ptr<platform::cs_device> _device;
     };
 }
 

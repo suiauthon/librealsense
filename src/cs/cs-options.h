@@ -67,7 +67,12 @@ namespace librealsense
 
         bool is_enabled() const override
         {
-            return true;
+            if (_id == RS2_OPTION_PACKET_SIZE) {
+                return !_ep.is_streaming();
+            }
+            else {
+                return true;
+            }
         }
 
         cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream)
@@ -113,6 +118,25 @@ namespace librealsense
         const char* get_description() const override { return "Depth Exposure (usec)"; }
     };
 
+    class cs_external_trigger_option : public cs_pu_option
+    {
+    public:
+        cs_external_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+            : cs_pu_option(ep, id, stream) {}
+
+        cs_external_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
+            : cs_pu_option(ep, id, stream, description_per_value), _stream(stream), _id(id)
+        {
+        }
+
+        option_range get_range() const override { return option_range{ 1, 2, 1, 1 }; };
+
+        const char* get_description() const override { return "External Trigger Source"; }
+    private:
+        cs_stream _stream;
+        rs2_option _id;
+    };
+
     class cs_readonly_option : public cs_pu_option
     {
     public:
@@ -137,4 +161,34 @@ namespace librealsense
                 : cs_pu_option(ep, id, stream) {}
     };
 
+    class cs_software_trigger_option : public cs_pu_option
+    {
+    public:
+        cs_software_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+            : cs_pu_option(ep, id, stream) {}
+
+        cs_software_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
+            : cs_pu_option(ep, id, stream, description_per_value), _stream(stream), _id(id)
+        {
+        }
+
+        option_range get_range() const override { return option_range{ 1,1,1,1 }; };
+
+        const char* get_description() const override { return "Software Trigger"; }
+    private:
+        cs_stream _stream;
+        rs2_option _id;
+    };
+
+    class cs_software_trigger_all_option : public cs_pu_option
+    {
+    public:
+        cs_software_trigger_all_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+            : cs_pu_option(ep, id, stream), _stream(stream), _id(id) {}
+
+        const char* get_description() const override { return "Forwards software trigger signal to all sensors"; }
+    private:
+        cs_stream _stream;
+        rs2_option _id;
+    };
 };

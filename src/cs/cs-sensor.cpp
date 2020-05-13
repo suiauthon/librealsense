@@ -47,7 +47,8 @@ namespace librealsense {
               _timestamp_reader(std::move(timestamp_reader)),
               _cs_stream(stream),
               _user_count(0),
-              _device_1(dev)
+              _device_1(dev),
+              _external_trigger_mode(false)
     {
         register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
     }
@@ -398,7 +399,7 @@ namespace librealsense {
         }
     }
 
-	/*void cs_sensor::set_inter_cam_sync_mode(float value)
+	void cs_sensor::set_inter_cam_sync_mode(float value)
 	{
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("Unable to set Inter Cam Sync Mode while streaming!");
@@ -415,7 +416,7 @@ namespace librealsense {
         _device->update_external_trigger_mode_flag(_cs_stream, inter_cam_sync_mode);
 
         return inter_cam_sync_mode;
-    }*/
+    }
 
     bool cs_sensor::query_inter_cam_sync_mode()
     {

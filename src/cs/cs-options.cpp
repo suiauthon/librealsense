@@ -67,8 +67,8 @@ namespace librealsense
             case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE: return "Enable / disable auto-white-balance";
             case RS2_OPTION_POWER_LINE_FREQUENCY: return "Power Line Frequency";
             case RS2_OPTION_AUTO_EXPOSURE_PRIORITY: return "Limit exposure time when auto-exposure is ON to preserve constant fps rate";
-                //case RS2_OPTION_INTER_PACKET_DELAY: return "Inter-packet delay";
-                //case RS2_OPTION_PACKET_SIZE: return "Packet size";
+            case RS2_OPTION_INTER_PACKET_DELAY: return "Inter-packet delay";
+            case RS2_OPTION_PACKET_SIZE: return "Packet size";
             case RS2_OPTION_ASIC_TEMPERATURE: return "Current Asic Temperature (degree celsius)";
             case RS2_OPTION_PROJECTOR_TEMPERATURE: return "Current Projector Temperature (degree celsius)";
             default: return _ep.get_option_name(_id);
@@ -113,7 +113,7 @@ namespace librealsense
         struct temperature
         {
             uint8_t is_valid;
-            int32_t temperature;
+            int32_t value;
         };
         #pragma pack(pop)
 
@@ -121,7 +121,7 @@ namespace librealsense
                 [this](platform::cs_device& dev)
                 {
                     temperature temp{};
-                    if (!dev.get_pu(_option, temp.temperature, _stream)) temp.is_valid = 0;
+                    if (!dev.get_pu(_option, temp.value, _stream)) temp.is_valid = 0;
                     else temp.is_valid = 1;
                     return temp;
                 }));
@@ -133,7 +133,7 @@ namespace librealsense
         {
             case RS2_OPTION_PROJECTOR_TEMPERATURE:
             case RS2_OPTION_ASIC_TEMPERATURE:
-                field = &temperature::temperature;
+                field = &temperature::value;
                 is_valid_field = &temperature::is_valid;
                 break;
             default:
