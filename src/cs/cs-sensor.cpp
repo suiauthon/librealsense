@@ -403,18 +403,30 @@ namespace librealsense {
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("Unable to set Inter Cam Sync Mode while streaming!");
 
+        _device->update_external_trigger_mode_flag(_cs_stream, value);
+
         _device->set_trigger_mode(value, _cs_stream);
 	}
 
     float cs_sensor::get_inter_cam_sync_mode()
     {
-        return _device->get_trigger_mode(_cs_stream);
+        float inter_cam_sync_mode = _device->get_trigger_mode(_cs_stream);
+
+        _device->update_external_trigger_mode_flag(_cs_stream, inter_cam_sync_mode);
+
+        return inter_cam_sync_mode;
     }*/
+
+    bool cs_sensor::query_inter_cam_sync_mode()
+    {
+        return _device->get_intercam_mode(_cs_stream);
+    }
 
     namespace platform
     {
         std::map<std::string, int> cs_device::_cs_device_num_objects_SN;
         std::map<std::string, bool> cs_device::_cs_device_initialized_SN;
+        std::map<std::string, bool> cs_device::_cs_device_option_sw_trigger_all_flag_SN;
 
         cs_device::cs_device(cs_device_info hwm)
                 : _device_info(std::move(hwm)),
@@ -423,7 +435,11 @@ namespace librealsense {
                     _rgb_pixel_format(RS2_FORMAT_ANY),
                     _infrared_supported(false),
                     _temperature_supported_checked(false),
-                    _temperature_supported(false) {
+                    _temperature_supported(false),
+                    _software_trigger_supported_checked(false),
+                    _software_trigger_supported(false),
+                    _selected_source(0),
+                    _selected_source_initialized(false) {
             _smcs_api = smcs::GetCameraAPI();
             auto devices = _smcs_api->GetAllDevices();
 
@@ -438,7 +454,7 @@ namespace librealsense {
                         if (!_connected_device->IsConnected()) {
                             // try to connect to camera if not already connected
                             if (!_connected_device->Connect()) {
-                                throw wrong_api_call_sequence_exception("Could not connect to CS device with given SN!");
+                                throw wrong_api_call_sequence_exception(std::string("Could not connect to device with serial number ") + _connected_device->GetSerialNumber());
                             }
                             else {
                                 // initialize this part (inter-packet delay) only once
@@ -588,6 +604,8 @@ namespace librealsense {
                 }
             }
 
+            set_region(stream, false);
+
             return all_stream_profiles;
         }
 
@@ -625,6 +643,8 @@ namespace librealsense {
 
             if (!_connected_device->SetStringNodeValue("FrameRate", frameRateValue))
                 return false;
+
+            return true;
         }
 
         bool cs_device::is_profile_format(const smcs::IImageInfo& image_info, const stream_profile& profile)
@@ -690,7 +710,9 @@ namespace librealsense {
         {
             // Auto controls range is trimmed to {0,1} range
             if(option == RS2_OPTION_ENABLE_AUTO_EXPOSURE || option == RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE ||
-                    option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED)
+                    option == RS2_OPTION_BACKLIGHT_COMPENSATION || option == RS2_OPTION_EMITTER_ENABLED || 
+                    option == RS2_OPTION_OUTPUT_TRIGGER_ENABLED || option == RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS ||
+                    option == RS2_OPTION_AUTO_EXPOSURE_PRIORITY)
             {
                 static const int32_t min = 0, max = 1, step = 1, def = 1;
                 control_range range(min, max, step, def);
@@ -720,7 +742,6 @@ namespace librealsense {
                 case RS2_OPTION_WHITE_BALANCE:
                 case RS2_OPTION_EXPOSURE:
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
-                case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_GAMMA:
                 case RS2_OPTION_SHARPNESS:
                 case RS2_OPTION_SATURATION:
@@ -734,8 +755,10 @@ namespace librealsense {
                         round_cs_param(option, value, stream)
                     );
                 case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
+                case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_EMITTER_ENABLED:
                 case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
+                case RS2_OPTION_AUTO_EXPOSURE_PRIORITY:
                 {
                     if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "On");
                     else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "Off");
@@ -766,6 +789,47 @@ namespace librealsense {
                     
                     return true;
                 }
+                case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
+                {
+                    if (!select_source(stream))
+                        return false;
+
+                    if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "VSync");
+                    else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "UserOutput1");
+                }                
+				case RS2_OPTION_SOFTWARE_TRIGGER:
+                {
+                    if (!select_source(stream))
+                        return false;
+
+                    if (!_connected_device->CommandNodeExecute("TriggerSoftware"))
+                        return false;
+                        
+                    return true;
+                }
+                case RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS:
+                {
+                    if (!select_source(stream))
+                        return false;
+
+                    if (value == 1) return _connected_device->SetBooleanNodeValue("TriggerSoftwareAllSources", true);
+                    else if (value == 0) return _connected_device->SetBooleanNodeValue("TriggerSoftwareAllSources", false);
+                }
+                case RS2_OPTION_EXT_TRIGGER_SOURCE:
+                {
+                    if (!select_source(stream))
+                        return false;
+
+                    std::string trigger_mode;
+                    _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
+                    if (trigger_mode == "Off") 
+                        return false;
+                    
+                    if (value == 1) return _connected_device->SetStringNodeValue("TriggerSource", "Line1");
+                    else if (value == 2) return _connected_device->SetStringNodeValue("TriggerSource", "Software");
+
+                }
+
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -804,6 +868,8 @@ namespace librealsense {
                     else if (stream == CS_STREAM_DEPTH) return std::string("STR_Exposure");
                 case RS2_OPTION_BACKLIGHT_COMPENSATION:
                     if (stream == CS_STREAM_COLOR) return std::string("RGB_BacklightComp");
+                case RS2_OPTION_AUTO_EXPOSURE_PRIORITY:
+                    if (stream == CS_STREAM_COLOR) return std::string("RGB_LowLightComp");
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
                     if (stream == CS_STREAM_COLOR) return std::string("RGB_PowerLineFrequency");
                 case RS2_OPTION_GAMMA:
@@ -829,6 +895,7 @@ namespace librealsense {
                 case RS2_OPTION_PACKET_SIZE: return std::string("GevSCPSPacketSize");
                 case RS2_OPTION_ASIC_TEMPERATURE: return std::string("IntelASIC");
                 case RS2_OPTION_PROJECTOR_TEMPERATURE: return std::string("DepthModule");
+                case RS2_OPTION_OUTPUT_TRIGGER_ENABLED: return std::string("LineSource");
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -871,6 +938,10 @@ namespace librealsense {
                     value = static_cast<int32_t>(int_value);
                     return status;
                 }
+                case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
+                    status = _connected_device->GetEnumNodeValuesList(get_cs_param_name(option, stream), node_value_list);
+                    value = 0;
+                    return status;
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -926,6 +997,10 @@ namespace librealsense {
                     value = static_cast<int32_t>(int_value);
                     return status;
                 }
+                case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
+                    status = _connected_device->GetEnumNodeValuesList(get_cs_param_name(option, stream), node_value_list);
+                    value = 1;
+                    return status;
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -968,6 +1043,11 @@ namespace librealsense {
                     step = static_cast<int32_t>(int_value);
                     return true;
                 }
+                case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
+                {
+                    step = 1;
+                    return true;
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -984,7 +1064,6 @@ namespace librealsense {
                 case RS2_OPTION_WHITE_BALANCE:
                 case RS2_OPTION_EXPOSURE:
                 case RS2_OPTION_POWER_LINE_FREQUENCY:
-                case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_GAMMA:
                 case RS2_OPTION_SHARPNESS:
                 case RS2_OPTION_SATURATION:
@@ -999,8 +1078,10 @@ namespace librealsense {
                     return status;
                 }
                 case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
+                case RS2_OPTION_BACKLIGHT_COMPENSATION:
                 case RS2_OPTION_EMITTER_ENABLED:
                 case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE:
+                case RS2_OPTION_AUTO_EXPOSURE_PRIORITY:
                 {
                     status = _connected_device->GetStringNodeValue(get_cs_param_name(option, stream), string_value);
                     if (string_value == "Off") value = 0;
@@ -1048,6 +1129,59 @@ namespace librealsense {
                     }
                     return false;
                 }
+                case RS2_OPTION_OUTPUT_TRIGGER_ENABLED:
+                {
+                    if (!select_source(stream))
+                        return false;
+
+                    status = _connected_device->GetStringNodeValue(get_cs_param_name(option, stream), string_value);
+                    if (string_value == "VSync") value = 1;
+                    else value = 0;
+                    return status;
+                }
+                case RS2_OPTION_SOFTWARE_TRIGGER:
+                {
+                    if (!select_source(stream))
+                        return false;
+                    value = 1;
+                    return true;
+                }
+                case RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS:
+                {
+                    if (!select_source(stream))
+                        return false;
+
+                    bool trigger_all_sensors;
+                    status = _connected_device->GetBooleanNodeValue("TriggerSoftwareAllSources", trigger_all_sensors);
+                    if (trigger_all_sensors == false) value = 0;
+                    else value = 1;
+                    return status;
+                }
+                case RS2_OPTION_EXT_TRIGGER_SOURCE:
+                {
+                    if (!select_source(stream))
+                        return false;
+
+                    std::string trigger_mode, trigger_source;
+                    status = _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
+                    if (trigger_mode == "Off")
+                    {
+                        value = 1.f;
+                        return status;
+                    }
+                    else
+                    {
+                        status = _connected_device->GetStringNodeValue("TriggerSource", trigger_source);
+                        if (trigger_source == "Line1")
+                            value = 1.f;
+                        else if (trigger_source == "Software")
+                            value = 2.f;
+                        else
+                            value = 1.f;
+                        return status;
+                    }
+                }
+
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -1075,7 +1209,12 @@ namespace librealsense {
 
         bool cs_device::select_source(cs_stream stream)
         {
-            return _connected_device->SetIntegerNodeValue("SourceControlSelector", get_stream_source(stream));
+            auto source = get_stream_source(stream);
+            if (_selected_source_initialized && (source == _selected_source))
+                return true;
+            _selected_source = source;
+            _selected_source_initialized = true;
+            return _connected_device->SetIntegerNodeValue("SourceControlSelector", source);
         }
 
         bool cs_device::set_source_locked(cs_stream stream, bool locked)
@@ -1456,6 +1595,18 @@ namespace librealsense {
             return _temperature_supported;
         }
 
+        bool cs_device::is_software_trigger_supported()
+        {
+            if (!_software_trigger_supported_checked) {
+                _software_trigger_supported = 
+                    (_connected_device->GetNode("TriggerSoftwareAllSources") != nullptr) && 
+                    (_connected_device->GetNode("TriggerSoftware") != nullptr);
+                _software_trigger_supported_checked = true;
+            }
+
+            return _software_trigger_supported;
+        }
+
         void cs_device::capture_loop(cs_stream stream, UINT32 channel)
         {
             try
@@ -1588,6 +1739,7 @@ namespace librealsense {
                     _connected_device->SetStringNodeValue("LineSelector", "Line1");
                     _connected_device->SetStringNodeValue("LineSource", "VSync");
                     _connected_device->SetStringNodeValue("TriggerMode", "Off");
+                    
                     break;
                 case cs::INTERCAM_SYNC_EXTERNAL:
                     _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
@@ -1608,27 +1760,58 @@ namespace librealsense {
         {
             select_source(stream);
 
-            std::string trigger_type, line_source, trigger_mode;
+            std::string trigger_type, trigger_source, line_source, trigger_mode;
             _connected_device->GetStringNodeValue("TriggerType", trigger_type);
+            
             _connected_device->SetStringNodeValue("LineSelector", "Line1");
             _connected_device->GetStringNodeValue("LineSource", line_source);
             _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
+            if (trigger_mode == "On") {
+                _connected_device->GetStringNodeValue("TriggerSource", trigger_source);
+            }
 
             switch (stream) {
             case CS_STREAM_COLOR:
-                if (trigger_type == "ExternalEvent" && trigger_mode == "On")
+                if (trigger_type == "ExternalEvent" && (trigger_source == "Line1" || trigger_source == "Software") && trigger_mode == "On")
                     return cs::INTERCAM_SYNC_EXTERNAL_COLOR;
                 else
                     return cs::INTERCAM_SYNC_DEFAULT_COLOR;
             default:
-                if (trigger_type == "MultiCam_Sync" && line_source == "UserOutput1" && trigger_mode == "On")
+                if (trigger_type == "MultiCam_Sync" && trigger_source == "Line1" && line_source == "UserOutput1" && trigger_mode == "On")
                     return cs::INTERCAM_SYNC_SLAVE;
                 else if (trigger_type == "MultiCam_Sync" && line_source == "VSync" && trigger_mode == "Off")
                     return cs::INTERCAM_SYNC_MASTER;
-                else if (trigger_type == "ExternalEvent" && line_source == "VSync" && trigger_mode == "On")
+                else if (trigger_type == "ExternalEvent" && (trigger_source == "Line1" || trigger_source == "Software") && (line_source == "VSync" || line_source == "UserOutput1") && trigger_mode == "On")
                     return cs::INTERCAM_SYNC_EXTERNAL;
                 else
                     return cs::INTERCAM_SYNC_DEFAULT;
+            }
+        }
+
+        void cs_device::update_external_trigger_mode_flag(cs_stream stream, float value)
+        {
+            switch (stream)
+            {
+            case CS_STREAM_COLOR:
+                if (value == 1.f) set_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_RGB", true); else set_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_RGB", false);
+                break;
+            case CS_STREAM_DEPTH:
+            case CS_STREAM_IR_LEFT:
+            case CS_STREAM_IR_RIGHT:
+                if (value == 3.f) set_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_Stereo", true); else set_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_Stereo", false);
+                break;
+            default: throw linux_backend_exception(to_string() << "wrong stream cid ");
+            }
+
+        }
+
+        float cs_device::get_intercam_mode(cs_stream stream)
+        {
+            switch (stream) {
+            case CS_STREAM_COLOR:
+                return get_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_RGB");
+            default:
+                return get_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_Stereo");;
             }
         }
 
@@ -1711,6 +1894,36 @@ namespace librealsense {
 
             auto it = _cs_device_initialized_SN.find(serialNum);
             if (it == _cs_device_initialized_SN.end()) {    // does not exist
+                flag = false;
+            }
+            else {
+                flag = it->second;
+            }
+
+            return flag;
+        }
+
+        bool cs_device::set_device_option_sw_trigger_all_flag_SN(std::string serialNum, bool setTriggerAllFlag)
+        {
+            bool result = true;
+
+            auto it = _cs_device_option_sw_trigger_all_flag_SN.find(serialNum);
+            if (it == _cs_device_option_sw_trigger_all_flag_SN.end()) {    // does not exist
+                _cs_device_option_sw_trigger_all_flag_SN.insert({ serialNum, setTriggerAllFlag });
+            }
+            else {
+                it->second = setTriggerAllFlag;
+            }
+
+            return result;
+        }
+
+        bool cs_device::get_device_option_sw_trigger_all_flag_SN(std::string serialNum)
+        {
+            bool flag = false;
+
+            auto it = _cs_device_option_sw_trigger_all_flag_SN.find(serialNum);
+            if (it == _cs_device_option_sw_trigger_all_flag_SN.end()) {    // does not exist
                 flag = false;
             }
             else {

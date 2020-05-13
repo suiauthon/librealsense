@@ -4,7 +4,9 @@ This readme file provides instructions on how to use the D400e camera series wit
 
 ## Supported platforms
 
-Ubuntu 16.04 x86_64
+Linux x86_64 - Ubuntu 16 LTS, Ubuntu 18 LTS
+
+Linux ARM64 - Jetson TX2 L4T 32.3.1
 
 Windows x86_64
 
@@ -26,7 +28,7 @@ The `pybackend2` wrapper that is part of this package does not support the D400e
 
 Install required packages:
 ```
-sudo apt install gcc g++ cmake libglfw3-dev libgtk-3-dev git libssl-dev libusb-1.0-0-dev pkg-config python3 python3-dev
+sudo apt install gcc g++ cmake libglfw3-dev libgtk-3-dev git libssl-dev libusb-1.0-0-dev pkg-config python3 python3-dev python3-pip
 ```
 
 Additional packages are required on Ubuntu 18:
@@ -34,12 +36,19 @@ Additional packages are required on Ubuntu 18:
 sudo apt install libgl1-mesa-dev libglu1-mesa-dev
 ```
 
-Install Python packages required by some of the Python examples:
+Install Python packages required by some of the Python examples on x86_64:
 ```
 pip3 install --user opencv-python
 ```
 
+Install Python packages required by some of the Python examples on Jetson TX2:
+
+```
+sudo apt install python3-opencv
+```
+
 Copy the sources to a folder with user permissions, for example home:
+
 ```
 cp -r /usr/src/librealsense2 ~
 ```

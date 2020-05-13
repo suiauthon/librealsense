@@ -422,6 +422,20 @@ namespace librealsense
         else
             depth_sensor.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
                                                                                                       lazy<float>([]() { return 0.001f; })));
+
+        if (_cs_device->is_software_trigger_supported()) {
+            depth_ep.register_option(RS2_OPTION_SOFTWARE_TRIGGER,
+                std::make_shared<cs_software_trigger_option>(depth_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_DEPTH,
+                    std::map<float, std::string>{ { 1.f, "Trigger" }}));
+
+            auto sw_trigger_all = std::make_shared<cs_software_trigger_all_option>(depth_ep, RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, CS_STREAM_DEPTH);
+            depth_ep.register_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, sw_trigger_all);
+
+            depth_ep.register_option(RS2_OPTION_EXT_TRIGGER_SOURCE,
+                std::make_shared<cs_external_trigger_option>(depth_ep, RS2_OPTION_EXT_TRIGGER_SOURCE, CS_STREAM_DEPTH,
+                    std::map<float, std::string>{ { 1.f, "Hardware" },
+                    { 2.f, "Software" }}));
+        }
     }
 
     std::shared_ptr<synthetic_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
@@ -459,6 +473,18 @@ namespace librealsense
             color_ep->register_processing_block({ {RS2_FORMAT_MJPEG} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<mjpeg_converter>(RS2_FORMAT_RGB8); });
             color_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_MJPEG, RS2_STREAM_COLOR));
         }*/
+        if (cs_device->is_software_trigger_supported()) {
+            color_ep->register_option(RS2_OPTION_SOFTWARE_TRIGGER,
+                std::make_shared<cs_software_trigger_option>(*color_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_COLOR,
+                    std::map<float, std::string>{ { 1.f, "Trigger" }}));
+
+            color_ep->register_option(RS2_OPTION_EXT_TRIGGER_SOURCE,
+                std::make_shared<cs_external_trigger_option>(*color_ep, RS2_OPTION_EXT_TRIGGER_SOURCE, CS_STREAM_COLOR,
+                    std::map<float, std::string>{ { 1.f, "Hardware" },
+                    { 2.f, "Software" }}));
+        }
+
+        color_ep->try_register_pu(RS2_OPTION_AUTO_EXPOSURE_PRIORITY);
 
         return color_ep;
     }
@@ -493,6 +519,9 @@ namespace librealsense
 
         auto packet_size_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_DEPTH);
         depth_ep->register_option(RS2_OPTION_PACKET_SIZE, packet_size_option);*/
+
+        auto output_trigger_enabled_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_OUTPUT_TRIGGER_ENABLED, CS_STREAM_DEPTH);
+        depth_ep->register_option(RS2_OPTION_OUTPUT_TRIGGER_ENABLED, output_trigger_enabled_option);
 
         return depth_ep;
     }

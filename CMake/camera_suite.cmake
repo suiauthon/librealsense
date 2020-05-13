@@ -1,5 +1,6 @@
 macro(add_camerasuite)
-    list (APPEND CMAKE_MODULE_PATH "$ENV{CAMERA_SUITE_PACKAGE}")
+	string (REPLACE "\\" "/" CAMERA_SUITE_MODULE_PATH "$ENV{CAMERA_SUITE_PACKAGE}")
+    list (APPEND CMAKE_MODULE_PATH "${CAMERA_SUITE_MODULE_PATH}")
     find_package(CameraSuite REQUIRED)
     include_directories(${CAMERASUITE_INCLUDE_DIRS})
     target_sources(${ARGV0} PRIVATE "${CAMERASUITE_INCLUDE_DIRS}/smcs_cpp/CameraSDK.cpp")
