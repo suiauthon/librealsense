@@ -167,12 +167,6 @@ namespace librealsense
 
     double cs_device_interface::get_device_time_ms()
     {
-        // TODO: Refactor the following query with an extension.
-        //if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
-        //{
-        //    throw not_implemented_exception("device time not supported for backend.");
-        //}
-
         if (!_hw_monitor)
             throw wrong_api_call_sequence_exception("_hw_monitor is not initialized yet");
 
@@ -205,7 +199,6 @@ namespace librealsense
                        const platform::backend_device_group& group)
             : device(ctx, group),
               cs_device_interface(ctx, group),
-              //auto_calibrated(_hw_monitor),
               _depth_stream(new stream(RS2_STREAM_DEPTH)),
               _left_ir_stream(new stream(RS2_STREAM_INFRARED, 1)),
               _right_ir_stream(new stream(RS2_STREAM_INFRARED, 2)),
@@ -236,7 +229,6 @@ namespace librealsense
         _fw_version = firmware_version(fwv);
 
         color_ep.register_option(RS2_OPTION_BRIGHTNESS, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_BRIGHTNESS, CS_STREAM_COLOR));
-        //color_ep.register_pu(RS2_OPTION_GAIN);
         color_ep.register_option(RS2_OPTION_CONTRAST, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_CONTRAST, CS_STREAM_COLOR));
         color_ep.register_option(RS2_OPTION_GAIN, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_GAIN, CS_STREAM_COLOR));
         color_ep.register_option(RS2_OPTION_HUE, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_HUE, CS_STREAM_COLOR));
@@ -389,13 +381,14 @@ namespace librealsense
 
         if (_fw_version >= firmware_version("5.5.8.0"))
         {
-            //treba provjeriti da li postoji ta opcije ili ne
-            depth_sensor.register_option(RS2_OPTION_ASIC_TEMPERATURE,
+            if (_cs_device->is_option_supported(RS2_OPTION_ASIC_TEMPERATURE, CS_STREAM_DEPTH))
+                depth_sensor.register_option(RS2_OPTION_ASIC_TEMPERATURE,
                                          std::make_shared<cs_asic_and_projector_temperature_options>(raw_depth_sensor,
                                                                                                     RS2_OPTION_ASIC_TEMPERATURE,
                                                                                                     CS_STREAM_DEPTH));
-
-            depth_sensor.register_option(RS2_OPTION_PROJECTOR_TEMPERATURE,
+            
+            if (_cs_device->is_option_supported(RS2_OPTION_PROJECTOR_TEMPERATURE, CS_STREAM_DEPTH))
+                depth_sensor.register_option(RS2_OPTION_PROJECTOR_TEMPERATURE,
                                          std::make_shared<cs_asic_and_projector_temperature_options>(raw_depth_sensor,
                                                                                                      RS2_OPTION_PROJECTOR_TEMPERATURE,
                                                                                                      CS_STREAM_DEPTH));
