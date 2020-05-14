@@ -94,13 +94,11 @@ namespace librealsense
 
     bool cs_asic_and_projector_temperature_options::is_enabled() const
     {
-        //provjeriti da li treba dodati da li je omoguceno firmwareom ili nije
         return _ep.is_streaming();
     }
 
     option_range cs_asic_and_projector_temperature_options::get_range() const
     {
-        //staviti da se cita iz kamere
         return option_range { -40, 125, 0, 0 };
     }
 

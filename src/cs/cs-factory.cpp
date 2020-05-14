@@ -80,7 +80,7 @@ namespace librealsense {
 
         register_info(RS2_CAMERA_INFO_NAME, "FRAMOS " + _cs_device_info.id);
         register_info(RS2_CAMERA_INFO_SERIAL_NUMBER, _cs_device_info.serial);
-        register_info(RS2_CAMERA_INFO_PRODUCT_ID, get_equivalent_pid(_cs_device_info.id)); //"0B07"
+        register_info(RS2_CAMERA_INFO_PRODUCT_ID, get_equivalent_pid(_cs_device_info.id));
         register_info(RS2_CAMERA_INFO_FIRMWARE_VERSION, cs_depth::_fw_version);
         register_info(RS2_CAMERA_INFO_DEVICE_VERSION, _cs_device->get_device_version());
         register_info(RS2_CAMERA_INFO_IP_ADDRESS, _cs_device->get_ip_address());

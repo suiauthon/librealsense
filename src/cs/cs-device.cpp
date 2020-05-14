@@ -465,26 +465,18 @@ namespace librealsense
         auto color_ep = std::make_shared<cs_color_sensor>(this, raw_color_ep, cs_color_fourcc_to_rs2_format, cs_color_fourcc_to_rs2_stream);
         color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
-        //dodati kasnije
-        /*auto interPacketDelayOption = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_COLOR);
-        color_ep->register_option(RS2_OPTION_INTER_PACKET_DELAY, interPacketDelayOption);
+        auto inter_packet_delay_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_COLOR);
+        color_ep->register_option(RS2_OPTION_INTER_PACKET_DELAY, inter_packet_delay_option);
 
-        auto packetSizeOption = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_COLOR);
-        color_ep->register_option(RS2_OPTION_PACKET_SIZE, packetSizeOption);
+        auto packet_size_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_COLOR);
+        color_ep->register_option(RS2_OPTION_PACKET_SIZE, packet_size_option);
 
-		auto color_sensor = As<cs_color_sensor, cs_sensor>(color_ep);
-		auto ext_sync_mode = std::make_shared<cs_external_sync_mode_color>(*color_sensor);
-		color_ep->register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);*/
+		auto ext_sync_mode = std::make_shared<cs_external_sync_mode_color>(raw_color_ep);
+		color_ep->register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
 
         color_ep->register_processing_block(processing_block_factory::create_pbf_vector<uyvy_converter>(RS2_FORMAT_UYVY, map_supported_color_formats(RS2_FORMAT_UYVY), RS2_STREAM_COLOR));
         color_ep->register_processing_block(processing_block_factory::create_pbf_vector<yuy2_converter>(RS2_FORMAT_YUYV, map_supported_color_formats(RS2_FORMAT_YUYV), RS2_STREAM_COLOR));
         color_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_RAW16, RS2_STREAM_COLOR));
-
-        /*if (cs_device.front().pid == ds::RS465_PID)
-        {
-            color_ep->register_processing_block({ {RS2_FORMAT_MJPEG} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<mjpeg_converter>(RS2_FORMAT_RGB8); });
-            color_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_MJPEG, RS2_STREAM_COLOR));
-        }*/
 
         color_ep->register_pu(RS2_OPTION_AUTO_EXPOSURE_PRIORITY);
 
@@ -501,9 +493,6 @@ namespace librealsense
         auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
         auto raw_depth_ep = std::make_shared<cs_sensor>("Raw Depth Sensor", cs_device,
                 std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this, CS_STREAM_DEPTH);
-
-        //Dodati to provjeriti kaj je
-        //raw_depth_ep->register_xu(depth_xu); // make sure the XU is initialized every time we power the camera
 
         auto depth_ep = std::make_shared<cs_depth_sensor>(this, raw_depth_ep, cs_depth_fourcc_to_rs2_format, cs_depth_fourcc_to_rs2_stream);
         depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
