@@ -236,6 +236,7 @@ namespace librealsense
         color_ep.register_option(RS2_OPTION_SHARPNESS, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_SHARPNESS, CS_STREAM_COLOR));
         color_ep.register_option(RS2_OPTION_GAMMA, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_GAMMA, CS_STREAM_COLOR));
         color_ep.register_option(RS2_OPTION_BACKLIGHT_COMPENSATION, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_BACKLIGHT_COMPENSATION, CS_STREAM_COLOR));
+        color_ep.register_option(RS2_OPTION_AUTO_EXPOSURE_PRIORITY, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_AUTO_EXPOSURE_PRIORITY, CS_STREAM_COLOR));
 
         auto white_balance_option = std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_WHITE_BALANCE, CS_STREAM_COLOR);
         auto auto_white_balance_option = std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, CS_STREAM_COLOR);
@@ -478,8 +479,6 @@ namespace librealsense
         color_ep->register_processing_block(processing_block_factory::create_pbf_vector<uyvy_converter>(RS2_FORMAT_UYVY, map_supported_color_formats(RS2_FORMAT_UYVY), RS2_STREAM_COLOR));
         color_ep->register_processing_block(processing_block_factory::create_pbf_vector<yuy2_converter>(RS2_FORMAT_YUYV, map_supported_color_formats(RS2_FORMAT_YUYV), RS2_STREAM_COLOR));
         color_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_RAW16, RS2_STREAM_COLOR));
-
-        color_ep->register_pu(RS2_OPTION_AUTO_EXPOSURE_PRIORITY);
 
         return color_ep;
     }
