@@ -145,7 +145,6 @@ namespace librealsense
                 : synthetic_sensor("RGB Camera", cs_sensor, owner, cs_color_fourcc_to_rs2_format, cs_color_fourcc_to_rs2_stream),
                   _owner(owner)
         {};
-
         rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
         stream_profiles init_stream_profiles() override;
         processing_blocks get_recommended_processing_blocks() const override;
@@ -168,7 +167,6 @@ namespace librealsense
                   _owner(owner),
                   _depth_units(-1)
         {};
-        //TODO zamijeniti stereo module s macro
         stream_profiles init_stream_profiles() override;
         void open(const stream_profiles& requests) override;
         rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
@@ -195,7 +193,7 @@ namespace librealsense
 	class cs_external_sync_mode : public option
 	{
 	public:
-		cs_external_sync_mode(hw_monitor& hwm, cs_depth_sensor& depth);
+		cs_external_sync_mode(hw_monitor& hwm, cs_sensor& depth);
 		virtual ~cs_external_sync_mode() = default;
 		virtual void set(float value) override;
 		virtual float query() const override;
@@ -214,13 +212,13 @@ namespace librealsense
 		std::function<void(const option &)> _record_action = [](const option&) {};
 		lazy<option_range> _range;
 		hw_monitor& _hwm;
-		cs_depth_sensor& _depth;
+		cs_sensor& _depth;
 	};
 
 	class cs_external_sync_mode_color : public option
 	{
 	public:
-		cs_external_sync_mode_color(cs_color_sensor& color);
+		cs_external_sync_mode_color(cs_sensor& color);
 		virtual ~cs_external_sync_mode_color() = default;
 		virtual void set(float value) override;
 		virtual float query() const override;
@@ -238,7 +236,7 @@ namespace librealsense
 	private:
 		std::function<void(const option &)> _record_action = [](const option&) {};
 		lazy<option_range> _range;
-		cs_color_sensor& _color;
+		cs_sensor& _color;
 	};
 
 }

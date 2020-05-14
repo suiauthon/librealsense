@@ -101,7 +101,7 @@ namespace librealsense
         return roi;
     }
 
-	/*cs_external_sync_mode::cs_external_sync_mode(hw_monitor& hwm, cs_depth_sensor& depth)
+	cs_external_sync_mode::cs_external_sync_mode(hw_monitor& hwm, cs_sensor& depth)
 		: _hwm(hwm), _depth(depth)
 	{
 		_range = [this]()
@@ -128,7 +128,7 @@ namespace librealsense
 		return *_range;
 	}
 
-	cs_external_sync_mode_color::cs_external_sync_mode_color(cs_color_sensor& color)
+	cs_external_sync_mode_color::cs_external_sync_mode_color(cs_sensor& color)
 		: _color(color)
 	{
 		_range = [this]()
@@ -153,7 +153,7 @@ namespace librealsense
 	option_range cs_external_sync_mode_color::get_range() const
 	{
 		return *_range;
-	}*/
+	}
 
     cs_device_interface::cs_device_interface(std::shared_ptr<context> ctx,
                                              const platform::backend_device_group& group)
@@ -403,11 +403,10 @@ namespace librealsense
 
         if (_fw_version >= firmware_version("5.9.15.1"))
         {
-            //auto depth_sensor = As<cs_depth_sensor, cs_sensor>(&depth_ep);
-            //auto ext_sync_mode = std::make_shared<cs_external_sync_mode>(*_hw_monitor, *depth_sensor);
-            //depth_ep.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
-            /*depth_sensor.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE,
-                                         std::make_shared<cs_external_sync_mode>(*_hw_monitor));*/
+            auto ext_sync_mode = std::make_shared<cs_external_sync_mode>(*_hw_monitor, raw_depth_sensor);
+            depth_sensor.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
+            depth_sensor.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE,
+                                         std::make_shared<cs_external_sync_mode>(*_hw_monitor, raw_depth_sensor));
         }
 
         roi_sensor_interface* roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_sensor);

@@ -28,6 +28,20 @@ namespace librealsense {
         CS_UNDEFINED
     };
 
+    typedef enum cs_inter_cam_sync_mode {
+        CS_INTERCAM_SYNC_DEFAULT,
+        CS_INTERCAM_SYNC_MASTER,
+        CS_INTERCAM_SYNC_SLAVE,
+        CS_INTERCAM_SYNC_EXTERNAL,
+        CS_INTERCAM_SYNC_MAX
+    } cs_inter_cam_mode;
+
+    typedef enum cs_inter_cam_sync_mode_color {
+        CS_INTERCAM_SYNC_DEFAULT_COLOR,
+        CS_INTERCAM_SYNC_EXTERNAL_COLOR,
+        CS_INTERCAM_SYNC_MAX_COLOR
+    } cs_inter_cam_mode_color;
+
     class cs_firmware_version
     {
     public:
