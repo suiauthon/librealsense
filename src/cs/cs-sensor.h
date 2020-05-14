@@ -148,7 +148,7 @@ namespace librealsense {
 
             void set_trigger_mode(float mode, cs_stream stream);
             float get_trigger_mode(cs_stream stream);
-            float get_intercam_mode(cs_stream stream);
+            bool get_intercam_mode(cs_stream stream);
             void update_external_trigger_mode_flag(cs_stream stream, float value);
 
         protected:
@@ -215,13 +215,13 @@ namespace librealsense {
 
             int get_optimal_inter_packet_delay(int packetSize);
 
-            static bool inc_device_count_SN(std::string serialNum);
-            static bool dec_device_count_SN(std::string serialNum);
-            static int get_device_count_SN(std::string serialNum);
-            static bool set_device_init_flag_SN(std::string serialNum, bool setInitFlag);
-            static bool get_device_init_flag_SN(std::string serialNum);
-            static bool set_device_option_sw_trigger_all_flag_SN(std::string serialNum, bool setTriggerAllFlag);
-            static bool get_device_option_sw_trigger_all_flag_SN(std::string serialNum);
+            static bool inc_device_count_sn(std::string serialNum);
+            static bool dec_device_count_sn(std::string serialNum);
+            static int get_device_count_sn(std::string serialNum);
+            static bool set_device_init_flag_sn(std::string serialNum, bool setInitFlag);
+            static bool get_device_init_flag_sn(std::string serialNum);
+            static bool set_device_option_sw_trigger_all_flag_sn(std::string serialNum, bool setTriggerAllFlag);
+            static bool get_device_option_sw_trigger_all_flag_sn(std::string serialNum);
 
             bool is_temperature_supported();
 
@@ -246,9 +246,9 @@ namespace librealsense {
             bool _software_trigger_supported;
             INT64 _selected_source;
             bool _selected_source_initialized;
-            static std::map<std::string, int> _cs_device_num_objects_SN; // serial_number, number of objects per SN (device creation)
-            static std::map<std::string, bool> _cs_device_initialized_SN; // serial_number, is device with SN initialized
-            static std::map<std::string, bool> _cs_device_option_sw_trigger_all_flag_SN; // serial_number, is device with SN initialized
+            static std::map<std::string, int> _cs_device_num_objects_sn; // serial_number, number of objects per SN (device creation)
+            static std::map<std::string, bool> _cs_device_initialized_sn; // serial_number, is device with SN initialized
+            static std::map<std::string, bool> _cs_device_option_sw_trigger_all_flag_sn; // serial_number, is device with SN initialized
         };
     }
 

@@ -819,7 +819,7 @@ namespace librealsense {
                 auto rounded = step * std::round(value / static_cast<double>(step));
                 if (rounded < min) return min;
                 else if (rounded > max) return max;
-                else return rounded;
+                else return static_cast<int32_t>(rounded);
             }
             else
             {
@@ -877,7 +877,6 @@ namespace librealsense {
 
         bool cs_device::get_cs_param_min(rs2_option option, int32_t &value, cs_stream stream)
         {
-            double double_value;
             smcs::StringList node_value_list;
             INT64 int_value;
             bool status;
@@ -923,7 +922,6 @@ namespace librealsense {
 
         bool cs_device::get_cs_param_max(rs2_option option, int32_t &value, cs_stream stream)
         {
-            double double_value;
             smcs::StringList node_value_list;
             INT64 int_value;
             bool status;
@@ -1016,7 +1014,6 @@ namespace librealsense {
 
         bool cs_device::get_cs_param_value(rs2_option option, int32_t &value, cs_stream stream)
         {
-            double double_value;
             std::string string_value;
             INT64 int_value;
             bool status;
@@ -1109,18 +1106,18 @@ namespace librealsense {
                     status = _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
                     if (trigger_mode == "Off")
                     {
-                        value = 1.f;
+                        value = 1;
                         return status;
                     }
                     else
                     {
                         status = _connected_device->GetStringNodeValue("TriggerSource", trigger_source);
                         if (trigger_source == "Line1")
-                            value = 1.f;
+                            value = 1;
                         else if (trigger_source == "Software")
-                            value = 2.f;
+                            value = 2;
                         else
-                            value = 1.f;
+                            value = 1;
                         return status;
                     }
                 }
@@ -1436,7 +1433,7 @@ namespace librealsense {
             _connected_device->CommandNodeExecute("STR_HWmTxBufferSend");
 
             _connected_device->GetNode("STR_HWmRxBuffer")->GetRegisterNodeLength(regLength);
-            restSize = regLength - 4;
+            restSize = static_cast<UINT32>(regLength - 4);
             _connected_device->GetNode("STR_HWmRxBuffer")->GetRegisterNodeAddress(address);
 
             _connected_device->CommandNodeExecute("STR_HWmRxBufferReceive");
@@ -1748,7 +1745,7 @@ namespace librealsense {
 
         }
 
-        float cs_device::get_intercam_mode(cs_stream stream)
+        bool cs_device::get_intercam_mode(cs_stream stream)
         {
             switch (stream) {
             case CS_STREAM_COLOR:
@@ -1758,26 +1755,24 @@ namespace librealsense {
             }
         }
 
-        int cs_device::get_optimal_inter_packet_delay(int packetSize)
+        int cs_device::get_optimal_inter_packet_delay(int packet_size)
         {
-            float inter_packet_delay = 0;
-            float eth_packet_size = packetSize + 38;  // 38 bytes overhead
+            double eth_packet_size = packet_size + 38;  // 38 bytes overhead
             float ns_per_byte = 8.0;  // for 1Gbps
 
-            float time_to_transfer_packet = (eth_packet_size * ns_per_byte) / 1000.0;  // time in us
+            double time_to_transfer_packet = (eth_packet_size * ns_per_byte) / 1000.0;  // time in us
             time_to_transfer_packet = ceil(time_to_transfer_packet + 0.5);            // round up
-            inter_packet_delay = (int)time_to_transfer_packet;
 
-            return inter_packet_delay;
+            return static_cast<int>(time_to_transfer_packet);
         }
 
-        bool cs_device::inc_device_count_sn(std::string serialNum)
+        bool cs_device::inc_device_count_sn(std::string serial_num)
         {
             bool result = true;
 
-            auto it = _cs_device_num_objects_sn.find(serialNum);
+            auto it = _cs_device_num_objects_sn.find(serial_num);
             if (it == _cs_device_num_objects_sn.end()) {    // does not exist
-                _cs_device_num_objects_sn.insert({serialNum, 1});
+                _cs_device_num_objects_sn.insert({serial_num, 1});
             } 
             else {
                 it->second++;
@@ -1786,11 +1781,11 @@ namespace librealsense {
             return result;
         }
 
-        bool cs_device::dec_device_count_sn(std::string serialNum)
+        bool cs_device::dec_device_count_sn(std::string serial_num)
         {
             bool result = true;
 
-            auto it = _cs_device_num_objects_sn.find(serialNum);
+            auto it = _cs_device_num_objects_sn.find(serial_num);
             if (it == _cs_device_num_objects_sn.end()) {    // does not exist
                 result = false;
             }
@@ -1801,11 +1796,11 @@ namespace librealsense {
             return result;
         }
 
-        int cs_device::get_device_count_sn(std::string serialNum)
+        int cs_device::get_device_count_sn(std::string serial_num)
         {
             int devCount = -1;
             
-            auto it = _cs_device_num_objects_sn.find(serialNum);
+            auto it = _cs_device_num_objects_sn.find(serial_num);
             if (it == _cs_device_num_objects_sn.end()) {    // does not exist
                 devCount = -1;
             }
@@ -1816,26 +1811,26 @@ namespace librealsense {
             return devCount;
         }
 
-        bool cs_device::set_device_init_flag_sn(std::string serialNum, bool setInitFlag)
+        bool cs_device::set_device_init_flag_sn(std::string serial_num, bool set_init_flag)
         {
             bool result = true;
 
-            auto it = _cs_device_initialized_sn.find(serialNum);
+            auto it = _cs_device_initialized_sn.find(serial_num);
             if (it == _cs_device_initialized_sn.end()) {    // does not exist
-                _cs_device_initialized_sn.insert({serialNum, setInitFlag});
+                _cs_device_initialized_sn.insert({serial_num, set_init_flag});
             }
             else {
-                it->second = setInitFlag;
+                it->second = set_init_flag;
             }
 
             return result;
         }
 
-        bool cs_device::get_device_init_flag_sn(std::string serialNum)
+        bool cs_device::get_device_init_flag_sn(std::string serial_num)
         {
             bool flag = false;
 
-            auto it = _cs_device_initialized_sn.find(serialNum);
+            auto it = _cs_device_initialized_sn.find(serial_num);
             if (it == _cs_device_initialized_sn.end()) {    // does not exist
                 flag = false;
             }
@@ -1846,26 +1841,26 @@ namespace librealsense {
             return flag;
         }
 
-        bool cs_device::set_device_option_sw_trigger_all_flag_sn(std::string serialNum, bool setTriggerAllFlag)
+        bool cs_device::set_device_option_sw_trigger_all_flag_sn(std::string serial_num, bool set_trigger_all_flag)
         {
             bool result = true;
 
-            auto it = _cs_device_option_sw_trigger_all_flag_sn.find(serialNum);
+            auto it = _cs_device_option_sw_trigger_all_flag_sn.find(serial_num);
             if (it == _cs_device_option_sw_trigger_all_flag_sn.end()) {    // does not exist
-                _cs_device_option_sw_trigger_all_flag_sn.insert({ serialNum, setTriggerAllFlag });
+                _cs_device_option_sw_trigger_all_flag_sn.insert({ serial_num, set_trigger_all_flag });
             }
             else {
-                it->second = setTriggerAllFlag;
+                it->second = set_trigger_all_flag;
             }
 
             return result;
         }
 
-        bool cs_device::get_device_option_sw_trigger_all_flag_sn(std::string serialNum)
+        bool cs_device::get_device_option_sw_trigger_all_flag_sn(std::string serial_num)
         {
             bool flag = false;
 
-            auto it = _cs_device_option_sw_trigger_all_flag_sn.find(serialNum);
+            auto it = _cs_device_option_sw_trigger_all_flag_sn.find(serial_num);
             if (it == _cs_device_option_sw_trigger_all_flag_sn.end()) {    // does not exist
                 flag = false;
             }

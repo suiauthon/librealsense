@@ -270,6 +270,18 @@ namespace librealsense
                 roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
         }
 
+        if (_fw_version >= firmware_version("5.9.15.1"))
+        {
+            auto ext_sync_mode = std::make_shared<cs_external_sync_mode_color>(raw_color_sensor);
+            color_ep.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
+        }
+
+        auto inter_packet_delay_option = std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_COLOR);
+        color_ep.register_option(RS2_OPTION_INTER_PACKET_DELAY, inter_packet_delay_option);
+
+        auto packet_size_option = std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_PACKET_SIZE, CS_STREAM_COLOR);
+        color_ep.register_option(RS2_OPTION_PACKET_SIZE, packet_size_option);
+
         if (_cs_device->is_software_trigger_supported()) {
             color_ep.register_option(RS2_OPTION_SOFTWARE_TRIGGER,
                 std::make_shared<cs_software_trigger_option>(raw_color_sensor, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_COLOR,
@@ -398,8 +410,6 @@ namespace librealsense
         {
             auto ext_sync_mode = std::make_shared<cs_external_sync_mode>(*_hw_monitor, raw_depth_sensor);
             depth_sensor.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
-            depth_sensor.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE,
-                                         std::make_shared<cs_external_sync_mode>(*_hw_monitor, raw_depth_sensor));
         }
 
         roi_sensor_interface* roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_sensor);
@@ -464,15 +474,6 @@ namespace librealsense
 
         auto color_ep = std::make_shared<cs_color_sensor>(this, raw_color_ep, cs_color_fourcc_to_rs2_format, cs_color_fourcc_to_rs2_stream);
         color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
-
-        auto inter_packet_delay_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_COLOR);
-        color_ep->register_option(RS2_OPTION_INTER_PACKET_DELAY, inter_packet_delay_option);
-
-        auto packet_size_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_COLOR);
-        color_ep->register_option(RS2_OPTION_PACKET_SIZE, packet_size_option);
-
-		auto ext_sync_mode = std::make_shared<cs_external_sync_mode_color>(raw_color_ep);
-		color_ep->register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
 
         color_ep->register_processing_block(processing_block_factory::create_pbf_vector<uyvy_converter>(RS2_FORMAT_UYVY, map_supported_color_formats(RS2_FORMAT_UYVY), RS2_STREAM_COLOR));
         color_ep->register_processing_block(processing_block_factory::create_pbf_vector<yuy2_converter>(RS2_FORMAT_YUYV, map_supported_color_formats(RS2_FORMAT_YUYV), RS2_STREAM_COLOR));
