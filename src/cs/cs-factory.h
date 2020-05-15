@@ -53,18 +53,18 @@ namespace librealsense {
 
         std::vector<tagged_profile> get_profiles_tags() const override;
 
-        cs_sensor& get_cs_sensor(size_t subdevice) { return dynamic_cast<cs_sensor&>(get_sensor(subdevice)); }
-
         void hardware_reset() override
         {
-            if (get_cs_sensor(_color_device_idx).is_streaming()) {
-                get_cs_sensor(_color_device_idx).stop();
-                get_cs_sensor(_color_device_idx).close();
+            auto& color_sensor = get_sensor(_color_device_idx);
+            if (color_sensor.is_streaming()) {
+                color_sensor.stop();
+                color_sensor.close();
             }
 
-            if (get_cs_sensor(_depth_device_idx).is_streaming()) {
-                get_cs_sensor(_depth_device_idx).stop();
-                get_cs_sensor(_depth_device_idx).close();
+            auto& depth_sensor = get_sensor(_depth_device_idx);
+            if (depth_sensor.is_streaming()) {
+                depth_sensor.stop();
+                depth_sensor.close();
             }
 
             _cs_device->reset();
