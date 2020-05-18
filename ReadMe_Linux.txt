@@ -18,11 +18,17 @@ Prerequisites:
 
 Installation:
 -------------
-1. Make sure that kernel headers are installed on the system
+1. Update the package list
 
-    sudo apt-get update && sudo apt-get install linux-headers-$(uname -r)
+    sudo apt-get update
 
-2. Install FRAMOS CameraSuite
+2. Make sure that kernel headers are installed on the system
+
+    NOTE: Skip this step on the Jetson platforms.
+    
+    sudo apt-get install linux-headers-$(uname -r)
+
+3. Install FRAMOS CameraSuite
 
     - please uninstall any previous version of CameraSuite before proceeding 
         with installation
@@ -30,9 +36,9 @@ Installation:
         'video' group when prompted
     sudo apt install ./FRAMOS_CameraSuite*.deb
 
-3. Reboot the system
+4. Reboot the system
 
-4. Install Intel® RealSense™ SDK with support for D400e cameras
+5. Install Intel® RealSense™ SDK with support for D400e cameras
     - please uninstall other verions of Intel® RealSense™ SDK before proceeding 
         with installation
     sudo apt install ./FRAMOS-librealsense2*.deb
