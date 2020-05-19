@@ -10,7 +10,7 @@ Components:
 Supported platforms:
 --------------------
 - Linux x86_64 - Ubuntu 16 LTS, Ubuntu 18 LTS
-- Linux ARM64 - Jetson TX2 L4T 32.3.1
+- Linux ARM64 - Jetson TX2, Jetson Xavier, L4T 32.3.1
 
 Prerequisites:
 --------------

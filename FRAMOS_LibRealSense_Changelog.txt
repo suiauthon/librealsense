@@ -1,5 +1,6 @@
 v2.29.9 ()
 =====================
+    - added - support for NVIDIA Jetson Xavier (ARM64 platform)
     - added - setting buffer count for D400e cameras
     - added - setting heartbeat time in C# wrapper
     - fixed - not able to set fps in some cases
