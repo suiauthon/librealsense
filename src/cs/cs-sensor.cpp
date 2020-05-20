@@ -47,7 +47,6 @@ namespace librealsense {
               _timestamp_reader(std::move(timestamp_reader)),
               _cs_stream(stream),
               _user_count(0),
-              _device_1(dev),
               _external_trigger_mode(false)
     {
         register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));

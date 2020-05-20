@@ -286,8 +286,6 @@ namespace librealsense {
         float get_inter_cam_sync_mode();
         bool query_inter_cam_sync_mode();
 
-        device* _device_1;
-
     private:
         void acquire_power();
 
