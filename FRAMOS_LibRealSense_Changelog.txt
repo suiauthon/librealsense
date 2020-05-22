@@ -8,6 +8,7 @@ v2.29.9 ()
     - fixed - wrong camera option and camera info enum mapping in C# wrapper
     - fixed - Fixed Frame not available for multiple cameras in ROS wrapper
     - changed - pyrealsense2 no longer creating context on import
+    - removed - firmware update option in realsense-viewer for D400e cameras
 
 v2.29.8 (2020-03-31)
 =====================
