@@ -84,7 +84,7 @@ namespace librealsense
         std::shared_ptr<lazy<rs2_extrinsics>> _color_extrinsic;
     };
 
-    class cs_depth : public virtual device, public debug_interface, public global_time_interface, public updatable
+    class cs_depth : public virtual device, public debug_interface, public global_time_interface
     {
     public:
         cs_depth(std::shared_ptr<context> ctx,
@@ -112,9 +112,6 @@ namespace librealsense
         void depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group);
 
         virtual double get_device_time_ms() override;
-        void enter_update_state() const override;
-        std::vector<uint8_t> backup_flash(update_progress_callback_ptr callback) override;
-        void update_flash(const std::vector<uint8_t>& image, update_progress_callback_ptr callback, int update_mode) override;
 
     protected:
         float get_stereo_baseline_mm() const;
