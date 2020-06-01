@@ -221,6 +221,7 @@ namespace librealsense
 
         frame_holder pipeline::wait_for_frames(unsigned int timeout_ms)
         {
+            LOG_DEBUG("WaitForFrames started with timeout_ms," << timeout_ms);
             std::lock_guard<std::mutex> lock(_mtx);
             if (!_active_profile)
             {
@@ -234,6 +235,7 @@ namespace librealsense
             frame_holder f;
             if (_aggregator->dequeue(&f, timeout_ms))
             {
+                LOG_DEBUG("WaitForFrames: Frame arrived (1st) within timeout_ms," << timeout_ms);
                 return f;
             }
 
@@ -248,15 +250,19 @@ namespace librealsense
 
                     if (_aggregator->dequeue(&f, timeout_ms))
                     {
+                        LOG_DEBUG("WaitForFrames: Frame arrived (2nd) within timeout_ms," << timeout_ms);
                         return f;
                     }
 
                 }
                 catch (const std::exception& e)
                 {
+                    LOG_DEBUG("Device disconnected. Failed to reconnect: " << e.what() << timeout_ms);
                     throw std::runtime_error(to_string() << "Device disconnected. Failed to recconect: " << e.what() << timeout_ms);
                 }
             }
+            throw std::runtime_error(to_string() << "Frame didn't arrive within " << timeout_ms);
+            LOG_DEBUG("WaitForFrames: Frame did not arrive within timeout_ms," << timeout_ms);
             throw std::runtime_error(to_string() << "Frame didn't arrive within " << timeout_ms);
         }
 
