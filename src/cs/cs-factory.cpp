@@ -4,6 +4,8 @@
 #include "cs/cs-factory.h"
 
 namespace librealsense {
+    cs_device_watcher* cs_device_watcher::cs_device_watcher_ = 0;
+
     std::shared_ptr <device_interface> cs_info::create(std::shared_ptr <context> ctx,
                                                        bool register_device_notifications) const {
         switch (get_camera_model(_hwm.id)) {
@@ -48,23 +50,85 @@ namespace librealsense {
 
     std::vector <platform::cs_device_info> cs_info::query_cs_devices() {
         std::vector <platform::cs_device_info> results;
-        std::string string_node;
 
+        auto cs_watcher = cs_device_watcher::get_cs_device_watcher();
+        cs_watcher->find_cs_devices(0.15);
+        results = cs_watcher->get_cs_devices();
+        return results;
+    }
+
+    cs_device_watcher::cs_device_watcher() {
+    }
+
+    void cs_device_watcher::init_cs_device_watcher() {
+        if (cs_device_watcher_ == 0)
+            cs_device_watcher_ = new cs_device_watcher();
+    }
+
+    bool cs_device_watcher::is_same_cs_device(platform::cs_device_info device1, platform::cs_device_info device2) {
+        if (device1.serial.compare(device2.serial) == 0 && device1.info.compare(device2.info) == 0 && device1.id.compare(device2.id) == 0)
+            return true;
+        else return false;
+    }
+
+    void cs_device_watcher::find_cs_devices(double timer) {
         auto smcs_api = smcs::GetCameraAPI();
-        smcs_api->FindAllDevices(0.15);
+        smcs_api->FindAllDevices(timer);
         auto devices = smcs_api->GetAllDevices();
 
         for (int i = 0; i < devices.size(); i++) {
             if ((devices[i]->IsOnNetwork()) && (devices[i]->IsSameSubnet())) {
+                bool already_on_the_list = false;
+
                 auto info = platform::cs_device_info();
                 info.serial = devices[i]->GetSerialNumber();
                 info.id = devices[i]->GetModelName();
                 info.info = devices[i]->GetManufacturerSpecificInfo();
-                results.push_back(info);
+
+                for (int j = 0; j < connected_cs_devices_.size(); j++) {
+                    if (is_same_cs_device(info, connected_cs_devices_[j])) already_on_the_list = true;
+                }
+
+                if (!already_on_the_list) connected_cs_devices_.push_back(info);
             }
         }
+    }
 
-        return results;
+    std::vector <platform::cs_device_info> cs_device_watcher::get_cs_devices() {
+        return connected_cs_devices_;
+    }
+
+    cs_device_watcher* cs_device_watcher::get_cs_device_watcher() {
+        return cs_device_watcher_;
+    }
+
+    void cs_device_watcher::deinit_cs_device_watcher() {
+        delete cs_device_watcher_;
+    }
+
+    void SMCS_CALL cs_device_watcher::cs_deivce_watcher_callback(smcs_ICameraAPI_HANDLE hApi, smcs_IDevice_HANDLE hDevice,
+                                                                 UINT32 eventType, const smcs_CallbackInfo* eventInfo) {
+        cs_device_watcher_->cs_callback_event_handler(hApi, hDevice, eventType, eventInfo);
+    }
+
+    void cs_device_watcher::cs_callback_event_handler(smcs_ICameraAPI_HANDLE hApi, smcs_IDevice_HANDLE hDevice,
+                                                      UINT32 eventType, const smcs_CallbackInfo* eventInfo) {
+        if (eventType == smcs_GCT_DISCONNECT) {
+            bool element_index = -1;
+            auto info = platform::cs_device_info();
+            info.serial = std::string(smcs_IDevice_GetSerialNumber(hDevice));
+            info.id = std::string(smcs_IDevice_GetModelName(hDevice));
+            info.info = std::string(smcs_IDevice_GetManufacturerSpecificInfo(hDevice));
+
+            for (int j = 0; j < connected_cs_devices_.size(); j++) {
+                if (is_same_cs_device(info, connected_cs_devices_[j])) {
+                    element_index = j;
+                }
+            }
+
+            if (element_index >= 0)
+                connected_cs_devices_.erase(connected_cs_devices_.begin() + element_index);
+        }
     }
 
     d400e_camera::d400e_camera(std::shared_ptr<context> ctx,

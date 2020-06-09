@@ -121,13 +121,17 @@ namespace librealsense
 
         if (_objects_count == 0) {
             smcs::InitCameraAPI();
+            cs_device_watcher::init_cs_device_watcher();
+
             auto smcs_api = smcs::GetCameraAPI();
+            auto cs_watcher = cs_device_watcher::get_cs_device_watcher();
             auto node = smcs_api->GetApiParametersNode("PacketResendGroupSize");
             if (node != nullptr) {
                 node->SetIntegerNodeValue(CS_PACKET_RESEND_GROUP_MAX_SIZE);
             }
             //heartbeat time set to default on the first call to get_instance()
             d400e::heartbeat_time::get_instance();
+            smcs_ICameraAPI_RegisterCallback(smcs_api, cs_device_watcher::cs_deivce_watcher_callback);
         }
 
         switch(type)
@@ -325,7 +329,12 @@ namespace librealsense
         _device_watcher->stop(); //ensure that the device watcher will stop before the _devices_changed_callback will be deleted
 
         if (_objects_count > 0) _objects_count--;
-        if (_objects_count == 0) smcs::ExitCameraAPI();
+        if (_objects_count == 0) {
+            auto smcs_api = smcs::GetCameraAPI();
+            smcs_ICameraAPI_UnregisterCallback(smcs_api, cs_device_watcher::cs_deivce_watcher_callback);
+            cs_device_watcher::deinit_cs_device_watcher();
+            smcs::ExitCameraAPI();
+        }
     }
 
     std::vector<std::shared_ptr<device_info>> context::query_devices(int mask) const
