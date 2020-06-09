@@ -640,7 +640,9 @@ namespace librealsense {
             else if (cs_format.compare("YUV422Packed") == 0)
                 npf = rs_fourcc('U', 'Y', 'V', 'Y');
             else if (cs_format.compare("Mono16") == 0)
-                npf = rs_fourcc('Z','1','6',' ');
+                npf = rs_fourcc('Z', '1', '6', ' ');
+            else if (cs_format.compare("Mono8") == 0)
+                npf = rs_fourcc('G', 'R', 'E', 'Y');
             else 
                 throw wrong_api_call_sequence_exception("Unsuported image format!");
 
@@ -649,11 +651,13 @@ namespace librealsense {
 
         uint32_t cs_device::native_pixel_format_to_cs_pixel_format(uint32_t native_format)
         {
-            if (native_format == rs_fourcc('Y','8','I',' ') || native_format == rs_fourcc('Z','1','6',' '))
+            if (native_format == rs_fourcc('Y', '8', 'I', ' ') || native_format == rs_fourcc('Z', '1', '6', ' '))
                 return GVSP_PIX_MONO16;
+            else if (native_format == rs_fourcc('G', 'R', 'E', 'Y'))
+                return GVSP_PIX_MONO8;
             else if (native_format == rs_fourcc('Y', 'U', 'Y', 'V'))
                 return GVSP_PIX_YUV422_YUYV_PACKED;
-            else if (native_format == rs_fourcc('U','Y','V','Y'))
+            else if (native_format == rs_fourcc('U', 'Y', 'V', 'Y'))
                 return GVSP_PIX_YUV422_PACKED;
             else
                 throw wrong_api_call_sequence_exception("Unable to map Realsense pixel format to CameraSuite pixel format!");
