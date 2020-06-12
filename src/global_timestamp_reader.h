@@ -37,7 +37,8 @@ namespace librealsense
         void reset();
         void add_value(CSample val);
         void update_linear_coefs(double x);
-        double calc_value(double x) const;
+        double calc_value(double x);
+        //double calc_value(double x) const;
         bool is_full() const;
 
     private:
@@ -52,6 +53,8 @@ namespace librealsense
         double _prev_time, _time_span_ms;
         mutable std::recursive_mutex _add_mtx;
         mutable std::recursive_mutex _stat_mtx;
+
+        double old_timestamp=0;
     };
 
     class global_time_interface;

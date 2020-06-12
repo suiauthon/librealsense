@@ -124,7 +124,7 @@ namespace librealsense {
                     frame_continuation release_and_enqueue(continuation, f.pixels);               
 
                     LOG_DEBUG("Cam_SN:" << this->get_info(RS2_CAMERA_INFO_SERIAL_NUMBER)
-                                               <<"FrameAccepted," << librealsense::get_string(req_profile_base->get_stream_type())
+                                               <<" ,FrameAccepted," << librealsense::get_string(req_profile_base->get_stream_type())
                                                << ",Counter," << std::dec << fr->additional_data.frame_number
                                                << ",Index," << req_profile_base->get_stream_index()
                                                << ",BackEndTS," << std::fixed << f.backend_time
@@ -157,11 +157,13 @@ namespace librealsense {
                     if (!requires_processing)
                     {
                         fh->attach_continuation(std::move(release_and_enqueue));
+                        LOG_DEBUG("Test debug");
                     }
 
                     if (fh->get_stream().get())
                     {
                         _source.invoke_callback(std::move(fh));
+                        LOG_DEBUG("Test debug 2");
                     }
 
                 }, selected_stream);
@@ -1576,7 +1578,7 @@ namespace librealsense {
                     _connected_device->GetImageInfo(&image_info_, channel);
 
                     if (image_info_ != nullptr) {
-
+                        LOG_DEBUG("image poll " << image_info_->GetImageID());
                         if (!is_profile_format(image_info_, _profiles[stream])) {
                             _connected_device->PopImage(image_info_);
                             return;
@@ -1584,7 +1586,9 @@ namespace librealsense {
 
                         auto frame_counter = image_info_->GetImageID();
                         auto timestamp_us = (uint64_t) image_info_->GetCameraTimestamp();
+                        
                         double timestamp = timestamp_us * TIMESTAMP_USEC_TO_MSEC;
+                        LOG_DEBUG("image_poll timestamp " << timestamp);
 
                         auto im = image_info_->GetRawData();
 

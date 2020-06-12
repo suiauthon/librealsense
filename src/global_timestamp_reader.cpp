@@ -22,7 +22,7 @@ namespace librealsense
     CLinearCoefficients::CLinearCoefficients(unsigned int buffer_size) :
         _base_sample(0, 0),
         _buffer_size(buffer_size),
-        _time_span_ms(1000) // Spread the linear equation modifications over a whole second.
+        _time_span_ms(1000) // Spread the linear equation modifications over a whole second.        
     {
     }
 
@@ -83,8 +83,9 @@ namespace librealsense
             a = (n*sum_xy - sum_x * sum_y) / (n*sum_x2 - sum_x * sum_x);
 
             if (crnt_time - _prev_time < _time_span_ms)
-            {
+            {              
                 dt = (crnt_time - _prev_time) / _time_span_ms;
+                LOG_DEBUG("CLinearCoefficients::calc_linear_coefs dt: " << dt);
             }
         }
         std::lock_guard<std::recursive_mutex> lock(_stat_mtx);
@@ -93,9 +94,12 @@ namespace librealsense
         _dest_a = a;
         _dest_b = b;
         _prev_time = crnt_time;
+
+        LOG_DEBUG("CLinearCoefficients::calc_linear_coefs -> _prev_a: " << _prev_a << " _prev_b: "<< _prev_b << " _dest_a: "<< _dest_a << " _dest_b: "<< _dest_b << " _prev_time: "<< _prev_time);
     }
 
-    double CLinearCoefficients::calc_value(double x) const
+    //double CLinearCoefficients::calc_value(double x) const
+    double CLinearCoefficients::calc_value(double x)
     {
         std::lock_guard<std::recursive_mutex> lock(_stat_mtx);
         double a(_dest_a), b(_dest_b);
@@ -104,9 +108,12 @@ namespace librealsense
             double dt( (x - _prev_time) / _time_span_ms );
             a = _dest_a * dt + _prev_a * (1 - dt);
             b = _dest_b * dt + _prev_b * (1 - dt);
+            LOG_DEBUG("CLinearCoefficients::calc_value: recalculate a, b: x= " << x <<
+                " _prev-time= " << _prev_time << ", _time_span_ms=  " << _time_span_ms << "_dest_a= " << _dest_a << " _dest_b= " << _dest_b);
         }
         double y(a * (x - _base_sample._x) + b + _base_sample._y);
         LOG_DEBUG("CLinearCoefficients::calc_value: " << x << " -> " << y << " with coefs:" << a << ", " << b << ", " << _base_sample._x << ", " << _base_sample._y);
+        old_timestamp = y;
         return y;
     }
 
@@ -122,7 +129,7 @@ namespace librealsense
                 polling(cancellable_timer);
             })
     {
-        //LOG_DEBUG("start new time_diff_keeper ");
+        LOG_DEBUG("start new time_diff_keeper ");
     }
 
     void time_diff_keeper::start()
@@ -157,6 +164,7 @@ namespace librealsense
     bool time_diff_keeper::update_diff_time()
     {
         using namespace std::chrono;
+        LOG_DEBUG("time_diff_keeper::update_diff_time called");
         try
         {
             if (!_users_count)
@@ -170,13 +178,14 @@ namespace librealsense
             if (sample_hw_time < _last_sample_hw_time)
             {
                 // A time loop happend:
-                //LOG_DEBUG("time_diff_keeper::call reset()");
+                LOG_DEBUG("time_diff_keeper::call reset()");
                 _coefs.reset();
             }
             _last_sample_hw_time = sample_hw_time;
             CSample crnt_sample(_last_sample_hw_time, system_time);
+            LOG_DEBUG("time_diff_keeper::update_diff_time _coefs.add_value _last_sample_hw_time= " << _last_sample_hw_time << " system_time=" << system_time);
             _coefs.add_value(crnt_sample);
-            _is_ready = true;
+            _is_ready = true;           
             return true;
         }
         catch (const wrong_api_call_sequence_exception& ex)
@@ -199,6 +208,7 @@ namespace librealsense
         unsigned int time_to_sleep = _poll_intervals_ms + _coefs.is_full() * (9 * _poll_intervals_ms);
         if (cancellable_timer.try_sleep(time_to_sleep))
         {
+            LOG_DEBUG("time_diff_keeper::polling");
             update_diff_time();
         }
         else
@@ -214,6 +224,7 @@ namespace librealsense
             std::lock_guard<std::recursive_mutex> lock(_read_mtx);
             if ((_last_sample_hw_time - crnt_hw_time) > possible_loop_time)
             {
+                LOG_DEBUG("time_diff_keeper::get_system_hw_time: _last_sample_hw_time_: " << _last_sample_hw_time << " crnt_hw_time: " << crnt_hw_time);
                 update_diff_time();
             }
         }

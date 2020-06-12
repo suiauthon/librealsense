@@ -231,7 +231,7 @@ namespace librealsense
         }
         return res;
     }
-
+    
     device_interface& sensor_base::get_device()
     {
         return *_owner;
@@ -265,6 +265,7 @@ namespace librealsense
 
         // update additional data
         additional_data.timestamp = timestamp_reader->get_frame_timestamp(fr);
+        LOG_DEBUG("generate_frame_from_data got frame timestamp");
         additional_data.last_frame_number = last_frame_number;
         additional_data.frame_number = timestamp_reader->get_frame_counter(fr);
         fr->additional_data = additional_data;
@@ -336,8 +337,9 @@ namespace librealsense
 
                     frame_continuation release_and_enqueue(continuation, f.pixels);
 
-                    LOG_DEBUG("FrameAccepted," << librealsense::get_string(req_profile_base->get_stream_type())
-                        << ",Counter," << std::dec << fr->additional_data.frame_number
+                    LOG_DEBUG("Cam_SN:" << this->get_info(RS2_CAMERA_INFO_SERIAL_NUMBER)
+                            <<" FrameAccepted," << librealsense::get_string(req_profile_base->get_stream_type())
+                            <<",Counter," << std::dec << fr->additional_data.frame_number
                             << ",Index," << req_profile_base->get_stream_index()
                             << ",BackEndTS," << std::fixed << f.backend_time
                             << ",SystemTime," << std::fixed << system_time

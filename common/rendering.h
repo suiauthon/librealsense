@@ -32,6 +32,7 @@
 #include <thread>
 #include <chrono>
 
+
 #ifdef _MSC_VER
 #ifndef GL_CLAMP_TO_BORDER
 #define GL_CLAMP_TO_BORDER  0x812D
@@ -40,7 +41,6 @@
 #define GL_CLAMP_TO_EDGE    0x812F
 #endif
 #endif
-
 namespace rs2
 {
     class fps_calc
@@ -70,6 +70,8 @@ namespace rs2
                 {
                     _delta = timestamp - _last_timestamp;
                     _num_of_frames = frame_counter - _last_frame_counter;
+                    //if (_delta < 0)
+                        //std::cout << "Delta: " << _delta << " at timestamp " << timestamp;
                 }
 
                 _last_frame_counter = frame_counter;
