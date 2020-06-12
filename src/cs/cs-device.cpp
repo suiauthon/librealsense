@@ -167,6 +167,13 @@ namespace librealsense
 
     double cs_device_interface::get_device_time_ms()
     {
+        if (_cs_device) {
+
+            return _cs_device->get_device_timestamp_ms();
+        }
+        else {
+            throw std::runtime_error("cs_color not initialized");
+        }
         if (!_hw_monitor)
             throw wrong_api_call_sequence_exception("_hw_monitor is not initialized yet");
 

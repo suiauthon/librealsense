@@ -173,6 +173,8 @@ namespace librealsense
             double system_time_start = duration<double, std::milli>(system_clock::now().time_since_epoch()).count();
 
             double sample_hw_time = _device->get_device_time_ms();
+            //hardkodirati prvo vrijeme + 1000
+            
             double system_time_finish = duration<double, std::milli>(system_clock::now().time_since_epoch()).count();
             double system_time((system_time_finish + system_time_start) / 2);
             if (sample_hw_time < _last_sample_hw_time)
@@ -181,9 +183,10 @@ namespace librealsense
                 LOG_DEBUG("time_diff_keeper::call reset()");
                 _coefs.reset();
             }
+            LOG_DEBUG("time_diff_keeper::update_diff_time _coefs.add_value _last_sample_hw_time= " << _last_sample_hw_time << " system_time=" << system_time);
             _last_sample_hw_time = sample_hw_time;
             CSample crnt_sample(_last_sample_hw_time, system_time);
-            LOG_DEBUG("time_diff_keeper::update_diff_time _coefs.add_value _last_sample_hw_time= " << _last_sample_hw_time << " system_time=" << system_time);
+            
             _coefs.add_value(crnt_sample);
             _is_ready = true;           
             return true;
