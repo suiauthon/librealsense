@@ -57,6 +57,31 @@ namespace rs2
 
             return buffer_count;
         }
+
+        inline rs2_cs_camera_config* create_cs_camera_config()
+        {
+            rs2_error* e = nullptr;
+            auto cam_conf = rs2_d400e_create_cs_camera_config(&e);
+            rs2::error::handle(e);
+
+            return cam_conf;
+        }
+
+        inline void add_ip_to_cs_camera_config(rs2_cs_camera_config* cs_config, std::string ip)
+        {
+            rs2_error* e = nullptr;
+            const char *cstr = ip.c_str();
+            rs2_d400e_add_ip_to_cs_camera_config(cs_config, cstr, &e);
+            rs2::error::handle(e);
+        }
+
+        inline void add_sn_to_cs_camera_config(rs2_cs_camera_config* cs_config, std::string sn)
+        {
+            rs2_error* e = nullptr;
+            const char *cstr = sn.c_str();
+            rs2_d400e_add_sn_to_cs_camera_config(cs_config, cstr, &e);
+            rs2::error::handle(e);
+        }
     }
 }
 #endif // LIBREALSENSE_RS2_D400E_HPP

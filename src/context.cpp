@@ -337,17 +337,17 @@ namespace librealsense
         }
     }
 
-    std::vector<std::shared_ptr<device_info>> context::query_devices(int mask) const
+    std::vector<std::shared_ptr<device_info>> context::query_devices(int mask, rs2_cs_camera_config *cs_config) const
     {
-
         platform::backend_device_group devices(_backend->query_uvc_devices(), _backend->query_usb_devices(), _backend->query_hid_devices(), _backend->query_cs_devices());
 
-        return create_devices(devices, _playback_devices, mask);
+        return create_devices(devices, _playback_devices, mask, cs_config);
     }
 
     std::vector<std::shared_ptr<device_info>> context::create_devices(platform::backend_device_group devices,
                                                                       const std::map<std::string, std::weak_ptr<device_info>>& playback_devices,
-                                                                      int mask) const
+                                                                      int mask,
+                                                                      rs2_cs_camera_config *cs_config) const
     {
         std::vector<std::shared_ptr<device_info>> list;
 
@@ -392,7 +392,7 @@ namespace librealsense
 
         if (mask & RS2_PRODUCT_LINE_CS)
         {
-            auto cs_devices = cs_info::pick_cs_devices(ctx, devices.cs_devices);
+            auto cs_devices = cs_info::pick_cs_devices(ctx, devices.cs_devices, cs_config);
             std::copy(begin(cs_devices), end(cs_devices), std::back_inserter(list));
         }
 

@@ -1296,6 +1296,7 @@ namespace librealsense
         uint16_t vid = 0;
         std::string info;
         std::string serial;
+        unsigned int ip_address;
 
         operator std::string()
         {
@@ -1303,8 +1304,9 @@ namespace librealsense
 
             s << "info- " << info <<
               "\nid- " << id <<
-                             "\nvid- " << std::hex << vid <<
-              "\nserial- " << serial;
+              "\nvid- " << std::hex << vid <<
+              "\nserial- " << serial <<
+              "\nip_address- " << ip_address;
 
             return s.str();
         }
@@ -1316,7 +1318,8 @@ namespace librealsense
         return  (a.id == b.id) &&
                 (a.vid == b.vid) &&
                 (a.serial == b.serial) &&
-                (a.info == b.info);
+                (a.info == b.info) &&
+                (a.ip_address == b.ip_address);
     }
 
 

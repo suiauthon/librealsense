@@ -185,17 +185,17 @@ int rs2_device_hub_is_device_connected(const rs2_device_hub* hub, const rs2_devi
 }
 HANDLE_EXCEPTIONS_AND_RETURN(0, hub, device)
 
-rs2_device_list* rs2_query_devices(const rs2_context* context, rs2_error** error)
+rs2_device_list* rs2_query_devices(const rs2_context* context, rs2_cs_camera_config *cs_camera_config, rs2_error** error)
 {
-    return rs2_query_devices_ex(context, RS2_PRODUCT_LINE_ANY_INTEL, error);
+    return rs2_query_devices_ex(context, RS2_PRODUCT_LINE_ANY_INTEL, cs_camera_config, error);
 }
 
-rs2_device_list* rs2_query_devices_ex(const rs2_context* context, int product_mask, rs2_error** error)
+rs2_device_list* rs2_query_devices_ex(const rs2_context* context, int product_mask, rs2_cs_camera_config *cs_camera_config, rs2_error** error)
 {
     VALIDATE_NOT_NULL(context);
 
     std::vector<rs2_device_info> results;
-    for (auto&& dev_info : context->ctx->query_devices(product_mask))
+    for (auto&& dev_info : context->ctx->query_devices(product_mask, cs_camera_config))
     {
         try
         {
@@ -2880,3 +2880,31 @@ void rs2_load_json(rs2_device* dev, const void* json_content, unsigned content_s
     serializable->load_json(std::string(static_cast<const char*>(json_content), content_size));
 }
 HANDLE_EXCEPTIONS_AND_RETURN(, dev, json_content, content_size)
+
+rs2_cs_camera_config* rs2_d400e_create_cs_camera_config(rs2_error** error) BEGIN_API_CALL
+{
+    return new rs2_cs_camera_config;
+}
+NOARGS_HANDLE_EXCEPTIONS_AND_RETURN(nullptr)
+
+void rs2_d400e_add_ip_to_cs_camera_config(rs2_cs_camera_config *cs_config, const char* ip_c, rs2_error** error) BEGIN_API_CALL
+{
+    VALIDATE_NOT_NULL(cs_config);
+    VALIDATE_NOT_NULL(ip_c);
+
+    std::string ip(ip_c);
+    cs_config->ips.push_back(ip);
+
+}
+HANDLE_EXCEPTIONS_AND_RETURN(, cs_config, ip_c)
+
+void rs2_d400e_add_sn_to_cs_camera_config(rs2_cs_camera_config *cs_config, const char* sn_c, rs2_error** error) BEGIN_API_CALL
+{
+    VALIDATE_NOT_NULL(cs_config);
+    VALIDATE_NOT_NULL(sn_c);
+
+    std::string ip(sn_c);
+    cs_config->serial_numbers.push_back(ip);
+
+}
+HANDLE_EXCEPTIONS_AND_RETURN(, cs_config, sn_c)
