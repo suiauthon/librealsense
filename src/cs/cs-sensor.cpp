@@ -270,7 +270,11 @@ namespace librealsense {
             {
                 _device->close(_cs_selected_streams);
             }
-            catch (...) {}
+            catch (...) 
+            {
+                LOG_ERROR("Error while closing stream!");
+                throw;
+            }
         }
         reset_streaming();
         if (Is<librealsense::global_time_interface>(_owner))
@@ -500,7 +504,6 @@ namespace librealsense {
                         close({ CS_STREAM_DEPTH }); // -> Source0
                         close({ CS_STREAM_COLOR }); // -> Source1
                     }
-                    //catch (...) {
                     catch (const std::exception& ex) {
                         LOG_ERROR(ex.what());
                     }
