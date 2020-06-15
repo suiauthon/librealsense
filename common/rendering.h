@@ -69,9 +69,7 @@ namespace rs2
                 if (_last_timestamp != 0)
                 {
                     _delta = timestamp - _last_timestamp;
-                    _num_of_frames = frame_counter - _last_frame_counter;
-                    //if (_delta < 0)
-                        //std::cout << "Delta: " << _delta << " at timestamp " << timestamp;
+                    _num_of_frames = frame_counter - _last_frame_counter;                   
                 }
 
                 _last_frame_counter = frame_counter;

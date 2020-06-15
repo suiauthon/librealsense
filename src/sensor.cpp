@@ -265,7 +265,6 @@ namespace librealsense
 
         // update additional data
         additional_data.timestamp = timestamp_reader->get_frame_timestamp(fr);
-        LOG_DEBUG("generate_frame_from_data got frame timestamp");
         additional_data.last_frame_number = last_frame_number;
         additional_data.frame_number = timestamp_reader->get_frame_counter(fr);
         fr->additional_data = additional_data;

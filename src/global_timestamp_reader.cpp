@@ -83,9 +83,8 @@ namespace librealsense
             a = (n*sum_xy - sum_x * sum_y) / (n*sum_x2 - sum_x * sum_x);
 
             if (crnt_time - _prev_time < _time_span_ms)
-            {              
+            {
                 dt = (crnt_time - _prev_time) / _time_span_ms;
-                LOG_DEBUG("CLinearCoefficients::calc_linear_coefs dt: " << dt);
             }
         }
         std::lock_guard<std::recursive_mutex> lock(_stat_mtx);
@@ -93,13 +92,10 @@ namespace librealsense
         _prev_b = _dest_b * dt + _prev_b * (1 - dt);
         _dest_a = a;
         _dest_b = b;
-        _prev_time = crnt_time;
-
-        LOG_DEBUG("CLinearCoefficients::calc_linear_coefs -> _prev_a: " << _prev_a << " _prev_b: "<< _prev_b << " _dest_a: "<< _dest_a << " _dest_b: "<< _dest_b << " _prev_time: "<< _prev_time);
+        _prev_time = crnt_time;       
     }
 
-    //double CLinearCoefficients::calc_value(double x) const
-    double CLinearCoefficients::calc_value(double x)
+    double CLinearCoefficients::calc_value(double x) const
     {
         std::lock_guard<std::recursive_mutex> lock(_stat_mtx);
         double a(_dest_a), b(_dest_b);
@@ -107,13 +103,10 @@ namespace librealsense
         {
             double dt( (x - _prev_time) / _time_span_ms );
             a = _dest_a * dt + _prev_a * (1 - dt);
-            b = _dest_b * dt + _prev_b * (1 - dt);
-            LOG_DEBUG("CLinearCoefficients::calc_value: recalculate a, b: x= " << x <<
-                " _prev-time= " << _prev_time << ", _time_span_ms=  " << _time_span_ms << "_dest_a= " << _dest_a << " _dest_b= " << _dest_b);
+            b = _dest_b * dt + _prev_b * (1 - dt);            
         }
         double y(a * (x - _base_sample._x) + b + _base_sample._y);
         LOG_DEBUG("CLinearCoefficients::calc_value: " << x << " -> " << y << " with coefs:" << a << ", " << b << ", " << _base_sample._x << ", " << _base_sample._y);
-        old_timestamp = y;
         return y;
     }
 
@@ -163,8 +156,7 @@ namespace librealsense
 
     bool time_diff_keeper::update_diff_time()
     {
-        using namespace std::chrono;
-        LOG_DEBUG("time_diff_keeper::update_diff_time called");
+        using namespace std::chrono;        
         try
         {
             if (!_users_count)
@@ -173,20 +165,16 @@ namespace librealsense
             double system_time_start = duration<double, std::milli>(system_clock::now().time_since_epoch()).count();
 
             double sample_hw_time = _device->get_device_time_ms();
-            //hardkodirati prvo vrijeme + 1000
-            
             double system_time_finish = duration<double, std::milli>(system_clock::now().time_since_epoch()).count();
             double system_time((system_time_finish + system_time_start) / 2);
             if (sample_hw_time < _last_sample_hw_time)
             {
                 // A time loop happend:
-                LOG_DEBUG("time_diff_keeper::call reset()");
+                //LOG_DEBUG("time_diff_keeper::call reset()");
                 _coefs.reset();
-            }
-            LOG_DEBUG("time_diff_keeper::update_diff_time _coefs.add_value _last_sample_hw_time= " << _last_sample_hw_time << " system_time=" << system_time);
+            }            
             _last_sample_hw_time = sample_hw_time;
-            CSample crnt_sample(_last_sample_hw_time, system_time);
-            
+            CSample crnt_sample(_last_sample_hw_time, system_time);           
             _coefs.add_value(crnt_sample);
             _is_ready = true;           
             return true;
@@ -226,8 +214,7 @@ namespace librealsense
         {
             std::lock_guard<std::recursive_mutex> lock(_read_mtx);
             if ((_last_sample_hw_time - crnt_hw_time) > possible_loop_time)
-            {
-                LOG_DEBUG("time_diff_keeper::get_system_hw_time: _last_sample_hw_time_: " << _last_sample_hw_time << " crnt_hw_time: " << crnt_hw_time);
+            {               
                 update_diff_time();
             }
         }

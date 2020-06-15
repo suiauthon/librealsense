@@ -156,14 +156,12 @@ namespace librealsense {
 
                     if (!requires_processing)
                     {
-                        fh->attach_continuation(std::move(release_and_enqueue));
-                        LOG_DEBUG("Test debug");
+                        fh->attach_continuation(std::move(release_and_enqueue));                       
                     }
 
                     if (fh->get_stream().get())
                     {
-                        _source.invoke_callback(std::move(fh));
-                        LOG_DEBUG("Test debug 2");
+                        _source.invoke_callback(std::move(fh));                        
                     }
 
                 }, selected_stream);
@@ -1549,13 +1547,15 @@ namespace librealsense {
                 throw io_exception("Unable to execute GevTimestampControlLatch");
 
             INT64 timestamp;
-            if (!_connected_device->GetIntegerNodeValue("GevTimestampValue", timestamp))
+            if (!_connected_device->GetIntegerNodeValue("GevTimestampValue", timestamp)) {
                 throw io_exception("Unable to read GevTimestampValue");
+                
+            }
 
-            std::stringstream ss;
-            ss << "device timestamp ms " << std::fixed << (timestamp * _timestamp_to_ms_factor) << "\n";
-            OutputDebugStringA(ss.str().c_str());
-
+            //std::stringstream ss;
+            //ss << "device timestamp ms " << std::fixed << (timestamp * _timestamp_to_ms_factor) << "\n";
+            //OutputDebugStringA(ss.str().c_str());
+            LOG_DEBUG("Got timestamp value: " << timestamp);
             return timestamp * _timestamp_to_ms_factor;
         }
 
@@ -1599,18 +1599,14 @@ namespace librealsense {
                 {
                     _connected_device->GetImageInfo(&image_info_, channel);
 
-                    if (image_info_ != nullptr) {
-                        LOG_DEBUG("image poll " << image_info_->GetImageID());
+                    if (image_info_ != nullptr) {                        
                         if (!is_profile_format(image_info_, _profiles[stream])) {
                             _connected_device->PopImage(image_info_);
                             return;
                         }
-
                         auto frame_counter = image_info_->GetImageID();
-                        auto timestamp_us = (uint64_t) image_info_->GetCameraTimestamp();
-                        
-                        double timestamp = timestamp_us * TIMESTAMP_USEC_TO_MSEC;
-                        LOG_DEBUG("image_poll timestamp " << timestamp);
+                        auto timestamp_us = (uint64_t) image_info_->GetCameraTimestamp();                        
+                        double timestamp = timestamp_us * TIMESTAMP_USEC_TO_MSEC;                       
 
                         auto im = image_info_->GetRawData();
 
