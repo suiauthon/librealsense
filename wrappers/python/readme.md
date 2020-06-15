@@ -8,9 +8,9 @@
 
 ## FRAMOS D400e cameras
 
-This Python wrapper for librealsense2 is modified to support FRAMOS D400e cameras. Please refer to the **readme_d400e.md** file instructions on how to install and use the wrapper with D400e cameras.
+This Python wrapper for librealsense2 is modified to support FRAMOS D400e cameras. Please refer to the file **readme_d400e.md** for instructions on how to install and use the wrapper with D400e cameras.
 
-Information in this document (**readme.md**) does not apply to FRAMOS D400e cameras except the chapter [Examples](#examples).
+Information in this readme file (**readme.md**) does not apply to FRAMOS D400e cameras except the chapter [Examples](#examples).
 
 ## Installation
 

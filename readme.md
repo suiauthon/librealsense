@@ -19,6 +19,12 @@ Information about the Intel® RealSense™ technology at [www.intelrealsense.com
 
 > :open_file_folder: Don't have access to a RealSense camera? Check-out [sample data](./doc/sample-data.md)
 
+## FRAMOS D400e cameras
+
+This version of **Intel® RealSense™ SDK 2.0** is modified to support FRAMOS D400e cameras. Please refer to the file **ReadMe.txt** for instructions on how to install and use the library with D400e cameras. 
+
+The information in this readme file (**readme.md**) does not apply to FRAMOS D400e cameras except the chapter [Ready to Hack!](#ready-to-hack).
+
 ## Building librealsense - Using vcpkg
 
 You can download and install librealsense using the [vcpkg](https://github.com/Microsoft/vcpkg) dependency manager:
