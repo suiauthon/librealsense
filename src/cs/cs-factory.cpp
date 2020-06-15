@@ -4,10 +4,10 @@
 #include "cs/cs-factory.h"
 
 namespace librealsense {
-    cs_device_watcher* cs_device_watcher::cs_device_watcher_ = 0;
 
     std::shared_ptr <device_interface> cs_info::create(std::shared_ptr <context> ctx,
-                                                       bool register_device_notifications) const {
+                                                       bool register_device_notifications) const 
+    {
         switch (get_camera_model(_hwm.id)) {
             case CS_D435E:            
             case CS_D415E:
@@ -19,13 +19,15 @@ namespace librealsense {
         }
     }
 
-    cs_camera_model cs_info::get_camera_model(std::string pid) {
+    cs_camera_model cs_info::get_camera_model(std::string pid) 
+    {
         if (pid.compare(CS_CAMERA_MODEL_D435e) == 0) return CS_D435E;
         else if (pid.compare(CS_CAMERA_MODEL_D415e) == 0) return CS_D415E;
         else return CS_UNDEFINED;
     }
 
-    bool cs_info::is_timestamp_supported(std::string pid) {
+    bool cs_info::is_timestamp_supported(std::string pid) 
+    {
         switch (get_camera_model(pid)) {
             case CS_D435E:
             case CS_D415E:
@@ -37,7 +39,8 @@ namespace librealsense {
 
     std::vector <std::shared_ptr<device_info>> cs_info::pick_cs_devices(
             std::shared_ptr <context> ctx,
-            std::vector <platform::cs_device_info> &cs) {
+            std::vector <platform::cs_device_info> &cs) 
+    {
         std::vector <std::shared_ptr<device_info>> results;
 
         for (auto &group : cs) {
@@ -48,87 +51,51 @@ namespace librealsense {
         return results;
     }
 
-    std::vector <platform::cs_device_info> cs_info::query_cs_devices() {
-        std::vector <platform::cs_device_info> results;
-
-        auto cs_watcher = cs_device_watcher::get_cs_device_watcher();
-        cs_watcher->find_cs_devices(0.15);
-        results = cs_watcher->get_cs_devices();
-        return results;
+    std::vector<platform::cs_device_info> cs_info::query_cs_devices() 
+    {
+        auto& cs_watcher = cs_device_watcher::get_cs_device_watcher();
+        cs_watcher.find_cs_devices(0.15);
+        return cs_watcher.get_cs_devices();
     }
 
-    cs_device_watcher::cs_device_watcher() {
+    cs_device_watcher::cs_device_watcher() 
+    {
+
     }
 
-    void cs_device_watcher::init_cs_device_watcher() {
-        if (cs_device_watcher_ == 0)
-            cs_device_watcher_ = new cs_device_watcher();
+    platform::cs_device_info cs_device_watcher::get_cs_device_info(smcs::IDevice device)
+    {
+        auto info = platform::cs_device_info();
+        info.serial = device->GetSerialNumber();
+        info.id = device->GetModelName();
+        info.info = device->GetManufacturerSpecificInfo();
+        return info;
     }
 
-    bool cs_device_watcher::is_same_cs_device(platform::cs_device_info device1, platform::cs_device_info device2) {
-        if (device1.serial.compare(device2.serial) == 0 && device1.info.compare(device2.info) == 0 && device1.id.compare(device2.id) == 0)
-            return true;
-        else return false;
-    }
-
-    void cs_device_watcher::find_cs_devices(double timer) {
+    void cs_device_watcher::find_cs_devices(double max_wait_time_s) 
+    {
         auto smcs_api = smcs::GetCameraAPI();
-        smcs_api->FindAllDevices(timer);
+        smcs_api->FindAllDevices(max_wait_time_s);
         auto devices = smcs_api->GetAllDevices();
-
-        for (int i = 0; i < devices.size(); i++) {
-            if ((devices[i]->IsOnNetwork()) && (devices[i]->IsSameSubnet())) {
-                bool already_on_the_list = false;
-
-                auto info = platform::cs_device_info();
-                info.serial = devices[i]->GetSerialNumber();
-                info.id = devices[i]->GetModelName();
-                info.info = devices[i]->GetManufacturerSpecificInfo();
-
-                for (int j = 0; j < connected_cs_devices_.size(); j++) {
-                    if (is_same_cs_device(info, connected_cs_devices_[j])) already_on_the_list = true;
-                }
-
-                if (!already_on_the_list) connected_cs_devices_.push_back(info);
-            }
-        }
+        for (const auto& device : devices)
+            if (device->IsOnNetwork() && device->IsSameSubnet())
+                connected_cs_devices_.insert(get_cs_device_info(device));
     }
 
-    std::vector <platform::cs_device_info> cs_device_watcher::get_cs_devices() {
-        return connected_cs_devices_;
+    std::vector<platform::cs_device_info> cs_device_watcher::get_cs_devices() 
+    {
+        return std::vector<platform::cs_device_info>(connected_cs_devices_.begin(), connected_cs_devices_.end());
     }
 
-    cs_device_watcher* cs_device_watcher::get_cs_device_watcher() {
-        return cs_device_watcher_;
+    void cs_device_watcher::OnDisconnect(smcs::IDevice device)
+    {
+        connected_cs_devices_.erase(get_cs_device_info(device));
     }
 
-    void cs_device_watcher::deinit_cs_device_watcher() {
-        delete cs_device_watcher_;
-    }
-
-    void SMCS_CALL cs_device_watcher::cs_deivce_watcher_callback(smcs_ICameraAPI_HANDLE hApi, smcs_IDevice_HANDLE hDevice,
-                                                                 UINT32 eventType, const smcs_CallbackInfo* eventInfo) {
-        cs_device_watcher_->cs_callback_event_handler(hApi, hDevice, eventType, eventInfo);
-    }
-
-    void cs_device_watcher::cs_callback_event_handler(smcs_ICameraAPI_HANDLE hApi, smcs_IDevice_HANDLE hDevice,
-                                                      UINT32 eventType, const smcs_CallbackInfo* eventInfo) {
-        if (eventType == smcs_GCT_DISCONNECT) {
-            int32_t element_index = -1;
-            auto info = platform::cs_device_info();
-            info.serial = std::string(smcs_IDevice_GetSerialNumber(hDevice));
-            info.id = std::string(smcs_IDevice_GetModelName(hDevice));
-            info.info = std::string(smcs_IDevice_GetManufacturerSpecificInfo(hDevice));
-
-            for (int j = 0; j < connected_cs_devices_.size(); j++) {
-                if (is_same_cs_device(info, connected_cs_devices_[j])) {
-                    element_index = j;
-                }
-            }
-
-            if (element_index >= 0)
-                connected_cs_devices_.erase(connected_cs_devices_.begin() + element_index);
-        }
+    cs_device_watcher& cs_device_watcher::get_cs_device_watcher() 
+    {
+        static cs_device_watcher instance;
+        return instance;
     }
 
     d400e_camera::d400e_camera(std::shared_ptr<context> ctx,

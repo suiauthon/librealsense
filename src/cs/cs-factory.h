@@ -40,27 +40,18 @@ namespace librealsense {
         platform::cs_device_info _hwm;
     };
 
-    class cs_device_watcher
+    class cs_device_watcher : public smcs::ICallbackEvent
     {
-        private:
-            cs_device_watcher(void);
+    public:
+        void OnDisconnect(smcs::IDevice device) override;
+        static cs_device_watcher& get_cs_device_watcher();
+        void find_cs_devices(double timer);
+        std::vector <platform::cs_device_info> get_cs_devices();
 
-            static cs_device_watcher* cs_device_watcher_;
-            void cs_callback_event_handler(smcs_ICameraAPI_HANDLE hApi, smcs_IDevice_HANDLE hDevice,
-                                           UINT32 eventType, const smcs_CallbackInfo* eventInfo);
-            bool is_same_cs_device(platform::cs_device_info device1, platform::cs_device_info device2);
-
-            std::vector <platform::cs_device_info> connected_cs_devices_;
-        public:
-            static void init_cs_device_watcher();
-            static void deinit_cs_device_watcher();
-            static cs_device_watcher* get_cs_device_watcher();
-
-            static void SMCS_CALL cs_deivce_watcher_callback(smcs_ICameraAPI_HANDLE hApi, smcs_IDevice_HANDLE hDevice,
-                                                             UINT32 eventType, const smcs_CallbackInfo* eventInfo);
-
-            void find_cs_devices(double timer);
-            std::vector <platform::cs_device_info> get_cs_devices();
+    private:
+        cs_device_watcher();
+        platform::cs_device_info get_cs_device_info(smcs::IDevice device);
+        std::set<platform::cs_device_info> connected_cs_devices_;
     };
 
     class d400e_camera : public cs_depth,
