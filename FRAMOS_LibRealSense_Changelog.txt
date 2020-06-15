@@ -2,6 +2,7 @@ v2.33.10 (2020-06-30)
 =====================
     - added - support for NVIDIA Jetson Xavier (ARM64 platform)
     - added - hardware timestamp support
+    - added - User Output Level control
     - added - setting buffer count for D400e cameras
     - added - setting heartbeat time in C# wrapper
     - fixed - camera disconnecting if broadcast fails to find it once

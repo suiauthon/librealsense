@@ -486,6 +486,11 @@ namespace librealsense
                 std::make_shared<cs_external_trigger_option>(raw_depth_sensor, RS2_OPTION_EXT_TRIGGER_SOURCE, CS_STREAM_DEPTH,
                     std::map<float, std::string>{ { 1.f, "Hardware" },
                     { 2.f, "Software" }}));
+
+            depth_sensor.register_option(RS2_OPTION_USER_OUTPUT_LEVEL,
+                std::make_shared<cs_user_output_level_option>(raw_depth_sensor, RS2_OPTION_USER_OUTPUT_LEVEL, CS_STREAM_DEPTH,
+                    std::map<float, std::string>{ { 1.f, "Low" },
+                    { 2.f, "High" }}));
         }
         enable_time_diff_keeper(true);
     }

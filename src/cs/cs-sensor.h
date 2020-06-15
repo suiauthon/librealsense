@@ -43,6 +43,12 @@ namespace librealsense {
         CS_INTERCAM_SYNC_MAX_COLOR
     } cs_inter_cam_mode_color;
 
+    typedef enum cs_user_output_level {
+        CS_USER_OUTPUT_LEVEL_LOW = 1,
+        CS_USER_OUTPUT_LEVEL_HIGH,
+        CS_USER_OUTPUT_LEVEL_MAX
+    } cs_user_output_level;
+
     class cs_firmware_version
     {
     public:

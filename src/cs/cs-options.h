@@ -168,9 +168,7 @@ namespace librealsense
             : cs_pu_option(ep, id, stream) {}
 
         cs_software_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
-            : cs_pu_option(ep, id, stream, description_per_value), _stream(stream), _id(id)
-        {
-        }
+            : cs_pu_option(ep, id, stream, description_per_value), _stream(stream), _id(id) {}
 
         option_range get_range() const override { return option_range{ 1,1,1,1 }; };
 
@@ -187,6 +185,23 @@ namespace librealsense
             : cs_pu_option(ep, id, stream), _stream(stream), _id(id) {}
 
         const char* get_description() const override { return "Forwards software trigger signal to all sensors"; }
+    private:
+        cs_stream _stream;
+        rs2_option _id;
+    };
+
+    class cs_user_output_level_option : public cs_pu_option
+    {
+    public:
+        cs_user_output_level_option(cs_sensor& ep, rs2_option id, cs_stream stream)
+            : cs_pu_option(ep, id, stream) {}
+
+        cs_user_output_level_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
+            : cs_pu_option(ep, id, stream, description_per_value), _stream(stream), _id(id) {}
+
+        option_range get_range() const override { return option_range{ 1,2,1,1 }; };
+
+        const char* get_description() const override { return "User Output Level"; }
     private:
         cs_stream _stream;
         rs2_option _id;
