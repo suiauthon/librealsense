@@ -23,10 +23,10 @@
 
 namespace librealsense
 {
-    class LRS_EXTENSION_API cs_global_time_option_Depth : public global_time_option
+    class LRS_EXTENSION_API cs_global_time_option_depth : public global_time_option
     {
     public:
-        cs_global_time_option_Depth(cs_depth* csDepth) : m_csDepth(csDepth) {}
+        cs_global_time_option_depth(cs_depth* cs_depth) : m_cs_depth(cs_depth) {}
 
         void set(float value) override
         {
@@ -34,18 +34,18 @@ namespace librealsense
                 throw invalid_value_exception(to_string() << "set(...) failed! " << value << " is not a valid value");
             _value = value;
 
-            m_csDepth->enable_time_diff_keeper((bool)(value));
+            m_cs_depth->enable_time_diff_keeper(value != 0);
         };
 
     private:
-        cs_depth* m_csDepth;
+        cs_depth* m_cs_depth;
     };
 
 
-    class LRS_EXTENSION_API cs_global_time_option_Color : public global_time_option
+    class LRS_EXTENSION_API cs_global_time_option_color : public global_time_option
     {
     public:
-        cs_global_time_option_Color(cs_color* csColor) : m_csColor(csColor) {}
+        cs_global_time_option_color(cs_color* cs_color) : m_cs_color(cs_color) {}
 
         void set(float value) override
         {
@@ -53,11 +53,11 @@ namespace librealsense
                 throw invalid_value_exception(to_string() << "set(...) failed! " << value << " is not a valid value");
             _value = value;
 
-            m_csColor->enable_time_diff_keeper((bool)(value));
+            m_cs_color->enable_time_diff_keeper(value != 0);
         };
 
     private:
-        cs_color* m_csColor;
+        cs_color* m_cs_color;
     };
 
     std::map<uint32_t, rs2_format> cs_depth_fourcc_to_rs2_format = {
@@ -205,28 +205,11 @@ namespace librealsense
     double cs_device_interface::get_device_time_ms()
     {
         if (_cs_device) {
-
             return _cs_device->get_device_timestamp_ms();
         }
         else {
             throw std::runtime_error("cs_device not initialized");
-        }/*
-        if (!_hw_monitor)
-            throw wrong_api_call_sequence_exception("_hw_monitor is not initialized yet");
-
-        command cmd(ds::MRD, ds::REGISTER_CLOCK_0, ds::REGISTER_CLOCK_0 + 4);
-        auto res = _hw_monitor->send(cmd);
-
-        if (res.size() < sizeof(uint64_t))
-        {
-            LOG_DEBUG("size(res):" << res.size());
-            throw std::runtime_error("Not enough bytes returned from the firmware!");
         }
-
-        uint64_t dt = *(uint64_t*)res.data();
-
-        double ts = dt * TIMESTAMP_USEC_TO_MSEC;
-        return ts;*/
     }
 
     cs_color::cs_color(std::shared_ptr<context> ctx,
@@ -514,8 +497,7 @@ namespace librealsense
         std::unique_ptr<frame_timestamp_reader> cs_timestamp_reader_backup(new cs_timestamp_reader(backend.create_time_service()));
         std::unique_ptr<frame_timestamp_reader> cs_timestamp_reader_metadata(new cs_timestamp_reader_from_metadata(std::move(cs_timestamp_reader_backup)));
 
-       // auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
-        auto enable_global_time_option = std::shared_ptr<global_time_option>(new cs_global_time_option_Color(this));
+        auto enable_global_time_option = std::shared_ptr<global_time_option>(new cs_global_time_option_color(this));
         auto raw_color_ep = std::make_shared<cs_sensor>("Raw RGB Camera", cs_device,
                 std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(cs_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)),
                 this, CS_STREAM_COLOR);
@@ -537,8 +519,7 @@ namespace librealsense
 
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_backup(new cs_timestamp_reader(backend.create_time_service()));
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_metadata(new cs_timestamp_reader_from_metadata(std::move(timestamp_reader_backup)));
-        //auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
-        auto enable_global_time_option = std::shared_ptr<global_time_option>(new cs_global_time_option_Depth(this));
+        auto enable_global_time_option = std::shared_ptr<global_time_option>(new cs_global_time_option_depth(this));
         auto raw_depth_ep = std::make_shared<cs_sensor>("Raw Depth Sensor", cs_device,
                 std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this, CS_STREAM_DEPTH);
 

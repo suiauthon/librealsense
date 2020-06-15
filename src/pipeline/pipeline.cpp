@@ -220,7 +220,7 @@ namespace librealsense
         }
 
         frame_holder pipeline::wait_for_frames(unsigned int timeout_ms)
-        {            
+        {
             std::lock_guard<std::mutex> lock(_mtx);
             if (!_active_profile)
             {
@@ -233,7 +233,7 @@ namespace librealsense
 
             frame_holder f;
             if (_aggregator->dequeue(&f, timeout_ms))
-            {                
+            {
                 return f;
             }
 
@@ -247,17 +247,17 @@ namespace librealsense
                     unsafe_start(prev_conf);
 
                     if (_aggregator->dequeue(&f, timeout_ms))
-                    {                        
+                    {
                         return f;
                     }
 
                 }
                 catch (const std::exception& e)
-                {                    
+                {
                     throw std::runtime_error(to_string() << "Device disconnected. Failed to recconect: " << e.what() << timeout_ms);
                 }
             }
-            throw std::runtime_error(to_string() << "Frame didn't arrive within " << timeout_ms);           
+            throw std::runtime_error(to_string() << "Frame didn't arrive within " << timeout_ms);
         }
 
         bool pipeline::poll_for_frames(frame_holder* frame)

@@ -75,7 +75,7 @@ namespace librealsense
     }
 
     void stream_profile_base::set_framerate(uint32_t val)
-    {        
+    {
         _framerate = val;
     }
 
