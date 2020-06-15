@@ -123,7 +123,8 @@ namespace librealsense {
 
                     frame_continuation release_and_enqueue(continuation, f.pixels);
 
-                    LOG_DEBUG("FrameAccepted," << librealsense::get_string(req_profile_base->get_stream_type())
+                    LOG_DEBUG("Serial number:" << this->get_info(RS2_CAMERA_INFO_SERIAL_NUMBER)
+                                               << ",FrameAccepted," << librealsense::get_string(req_profile_base->get_stream_type())
                                                << ",Counter," << std::dec << fr->additional_data.frame_number
                                                << ",Index," << req_profile_base->get_stream_index()
                                                << ",BackEndTS," << std::fixed << f.backend_time
@@ -269,7 +270,11 @@ namespace librealsense {
             {
                 _device->close(_cs_selected_streams);
             }
-            catch (...) {}
+            catch (...) 
+            {
+                LOG_ERROR("Error while closing stream!");
+                throw;
+            }
         }
         reset_streaming();
         if (Is<librealsense::global_time_interface>(_owner))
@@ -458,6 +463,12 @@ namespace librealsense {
                         _profiles = std::vector<stream_profile>(_number_of_streams);
                         _cs_firmware_version = cs_firmware_version(_connected_device);
 
+                        constexpr double S_TO_MS_FACTOR = 1000;
+                        INT64 frequency;
+                        if (!_connected_device->GetIntegerNodeValue("GevTimestampTickFrequency", frequency))
+                            throw io_exception("Unable to read GevTimestampTickFrequency");
+                        _timestamp_to_ms_factor = S_TO_MS_FACTOR / frequency;
+
                         for (int i = 0; i < _number_of_streams; i++)
                         {
                             _threads[i] = nullptr;
@@ -493,7 +504,6 @@ namespace librealsense {
                         close({ CS_STREAM_DEPTH }); // -> Source0
                         close({ CS_STREAM_COLOR }); // -> Source1
                     }
-                    //catch (...) {
                     catch (const std::exception& ex) {
                         LOG_ERROR(ex.what());
                     }
@@ -807,7 +817,14 @@ namespace librealsense {
                     else if (value == 2) return _connected_device->SetStringNodeValue("TriggerSource", "Software");
 
                 }
+                case RS2_OPTION_USER_OUTPUT_LEVEL:
+                {
+                    if (!select_source(stream))
+                        return false;
 
+                    if (value == CS_USER_OUTPUT_LEVEL_LOW) return _connected_device->SetBooleanNodeValue("UserOutputValue", false);
+                    else if (value == CS_USER_OUTPUT_LEVEL_HIGH) return _connected_device->SetBooleanNodeValue("UserOutputValue", true);
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -1124,7 +1141,19 @@ namespace librealsense {
                         return status;
                     }
                 }
+                case RS2_OPTION_USER_OUTPUT_LEVEL:
+                {
+                    if (!select_source(stream))
+                        return false;
 
+                    bool user_output_level;
+
+                    status = _connected_device->GetBooleanNodeValue("UserOutputValue", user_output_level);
+                    if (user_output_level == false) value = CS_USER_OUTPUT_LEVEL_LOW;
+                    else value = CS_USER_OUTPUT_LEVEL_HIGH;
+
+                    return status;
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -1538,6 +1567,18 @@ namespace librealsense {
             return _temperature_supported;
         }
 
+        double cs_device::get_device_timestamp_ms()
+        {
+            if (!_connected_device->CommandNodeExecute("GevTimestampControlLatch"))
+                throw io_exception("Unable to execute GevTimestampControlLatch");
+
+            INT64 timestamp;
+            if (!_connected_device->GetIntegerNodeValue("GevTimestampValue", timestamp))
+                throw io_exception("Unable to read GevTimestampValue");
+
+            return timestamp * _timestamp_to_ms_factor;
+        }
+
         bool cs_device::is_software_trigger_supported()
         {
             if (!_software_trigger_supported_checked) {
@@ -1579,12 +1620,10 @@ namespace librealsense {
                     _connected_device->GetImageInfo(&image_info_, channel);
 
                     if (image_info_ != nullptr) {
-
                         if (!is_profile_format(image_info_, _profiles[stream])) {
                             _connected_device->PopImage(image_info_);
                             return;
                         }
-
                         auto frame_counter = image_info_->GetImageID();
                         auto timestamp_us = (uint64_t) image_info_->GetCameraTimestamp();
                         double timestamp = timestamp_us * TIMESTAMP_USEC_TO_MSEC;
@@ -1657,11 +1696,13 @@ namespace librealsense {
 		{
             auto sync_mode = static_cast<int>(mode);
 
-            select_source(stream);			
+            bool operating_mode_supported = _connected_device->GetNode("STR_OperatingMode") != nullptr;
+
+            select_source(stream);
 
             if (stream == CS_STREAM_COLOR) {
                 switch (sync_mode) {
-                case cs::INTERCAM_SYNC_EXTERNAL_COLOR:
+                case CS_INTERCAM_SYNC_EXTERNAL_COLOR:
                     _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
                     _connected_device->SetStringNodeValue("TriggerMode", "On");
                     break;
@@ -1669,65 +1710,100 @@ namespace librealsense {
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
                     _connected_device->SetStringNodeValue("TriggerMode", "Off");
                 }
-            } else {
+            }
+            else {
                 switch (sync_mode) {
-                case cs::INTERCAM_SYNC_SLAVE:
+                case CS_INTERCAM_SYNC_SLAVE:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-					_connected_device->SetStringNodeValue("LineSelector", "Line1");
-					_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
-					_connected_device->SetStringNodeValue("TriggerMode", "On");
+                    if (operating_mode_supported) {
+                        _connected_device->SetStringNodeValue("STR_OperatingMode", "Slave");
+                    }
+                    else {
+                        _connected_device->SetStringNodeValue("LineSelector", "Line1");
+                        _connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+                    }
+                    _connected_device->SetStringNodeValue("TriggerMode", "On");
                     break;
-                case cs::INTERCAM_SYNC_MASTER:
+                case CS_INTERCAM_SYNC_MASTER:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-                    _connected_device->SetStringNodeValue("LineSelector", "Line1");
-                    _connected_device->SetStringNodeValue("LineSource", "VSync");
+                    if (operating_mode_supported) {
+                        _connected_device->SetStringNodeValue("STR_OperatingMode", "Master");
+                    }
+                    else {
+                        _connected_device->SetStringNodeValue("LineSelector", "Line1");
+                        _connected_device->SetStringNodeValue("LineSource", "VSync");
+                    }
                     _connected_device->SetStringNodeValue("TriggerMode", "Off");
-                    
+
                     break;
-                case cs::INTERCAM_SYNC_EXTERNAL:
+                case CS_INTERCAM_SYNC_EXTERNAL:
                     _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
-                    _connected_device->SetStringNodeValue("LineSelector", "Line1");
-                    _connected_device->SetStringNodeValue("LineSource", "VSync");
+                    if (!operating_mode_supported) {
+                        _connected_device->SetStringNodeValue("LineSelector", "Line1");
+                        _connected_device->SetStringNodeValue("LineSource", "VSync");
+                    }
                     _connected_device->SetStringNodeValue("TriggerMode", "On");
                     break;
                 default:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-                    _connected_device->SetStringNodeValue("LineSelector", "Line1");
-                    _connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+                    if (operating_mode_supported) {
+                        _connected_device->SetStringNodeValue("STR_OperatingMode", "Default");
+                    }
+                    else {
+                        _connected_device->SetStringNodeValue("LineSelector", "Line1");
+                        _connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+                    }
                     _connected_device->SetStringNodeValue("TriggerMode", "Off");
                 }
-			}
+            }
 		}
 
         float cs_device::get_trigger_mode(cs_stream stream)
         {
             select_source(stream);
 
-            std::string trigger_type, trigger_source, line_source, trigger_mode;
+            bool operating_mode_supported = _connected_device->GetNode("STR_OperatingMode") != nullptr;
+
+            std::string trigger_type, trigger_source, line_source, trigger_mode, operating_mode;
             _connected_device->GetStringNodeValue("TriggerType", trigger_type);
-            
+
             _connected_device->SetStringNodeValue("LineSelector", "Line1");
             _connected_device->GetStringNodeValue("LineSource", line_source);
             _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
             if (trigger_mode == "On") {
                 _connected_device->GetStringNodeValue("TriggerSource", trigger_source);
             }
+            if (operating_mode_supported) {
+                _connected_device->GetStringNodeValue("STR_OperatingMode", operating_mode);
+            }
 
             switch (stream) {
             case CS_STREAM_COLOR:
                 if (trigger_type == "ExternalEvent" && (trigger_source == "Line1" || trigger_source == "Software") && trigger_mode == "On")
-                    return cs::INTERCAM_SYNC_EXTERNAL_COLOR;
+                    return CS_INTERCAM_SYNC_EXTERNAL_COLOR;
                 else
-                    return cs::INTERCAM_SYNC_DEFAULT_COLOR;
+                    return CS_INTERCAM_SYNC_DEFAULT_COLOR;
             default:
-                if (trigger_type == "MultiCam_Sync" && trigger_source == "Line1" && line_source == "UserOutput1" && trigger_mode == "On")
-                    return cs::INTERCAM_SYNC_SLAVE;
-                else if (trigger_type == "MultiCam_Sync" && line_source == "VSync" && trigger_mode == "Off")
-                    return cs::INTERCAM_SYNC_MASTER;
-                else if (trigger_type == "ExternalEvent" && (trigger_source == "Line1" || trigger_source == "Software") && (line_source == "VSync" || line_source == "UserOutput1") && trigger_mode == "On")
-                    return cs::INTERCAM_SYNC_EXTERNAL;
-                else
-                    return cs::INTERCAM_SYNC_DEFAULT;
+                if (operating_mode_supported) {
+                    if (trigger_type == "MultiCam_Sync" && trigger_source == "Line1" && operating_mode == "Slave" && trigger_mode == "On")
+                        return CS_INTERCAM_SYNC_SLAVE;
+                    else if (trigger_type == "MultiCam_Sync" && operating_mode == "Master" && trigger_mode == "Off")
+                        return CS_INTERCAM_SYNC_MASTER;
+                    else if (trigger_type == "ExternalEvent" && (trigger_source == "Line1" || trigger_source == "Software") && trigger_mode == "On")
+                        return CS_INTERCAM_SYNC_EXTERNAL;
+                    else
+                        return CS_INTERCAM_SYNC_DEFAULT;
+                }
+                else {
+                    if (trigger_type == "MultiCam_Sync" && trigger_source == "Line1" && line_source == "UserOutput1" && trigger_mode == "On")
+                        return CS_INTERCAM_SYNC_SLAVE;
+                    else if (trigger_type == "MultiCam_Sync" && line_source == "VSync" && trigger_mode == "Off")
+                        return CS_INTERCAM_SYNC_MASTER;
+                    else if (trigger_type == "ExternalEvent" && (trigger_source == "Line1" || trigger_source == "Software") && (line_source == "VSync" || line_source == "UserOutput1") && trigger_mode == "On")
+                        return CS_INTERCAM_SYNC_EXTERNAL;
+                    else
+                        return CS_INTERCAM_SYNC_DEFAULT;
+                }
             }
         }
 

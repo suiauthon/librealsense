@@ -23,6 +23,43 @@
 
 namespace librealsense
 {
+    class LRS_EXTENSION_API cs_global_time_option_depth : public global_time_option
+    {
+    public:
+        cs_global_time_option_depth(cs_depth* cs_depth) : m_cs_depth(cs_depth) {}
+
+        void set(float value) override
+        {
+            if (!is_valid(value))
+                throw invalid_value_exception(to_string() << "set(...) failed! " << value << " is not a valid value");
+            _value = value;
+
+            m_cs_depth->enable_time_diff_keeper(value != 0);
+        };
+
+    private:
+        cs_depth* m_cs_depth;
+    };
+
+
+    class LRS_EXTENSION_API cs_global_time_option_color : public global_time_option
+    {
+    public:
+        cs_global_time_option_color(cs_color* cs_color) : m_cs_color(cs_color) {}
+
+        void set(float value) override
+        {
+            if (!is_valid(value))
+                throw invalid_value_exception(to_string() << "set(...) failed! " << value << " is not a valid value");
+            _value = value;
+
+            m_cs_color->enable_time_diff_keeper(value != 0);
+        };
+
+    private:
+        cs_color* m_cs_color;
+    };
+
     std::map<uint32_t, rs2_format> cs_depth_fourcc_to_rs2_format = {
             {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
             {rs_fourcc('Y','U','Y','V'), RS2_FORMAT_YUYV},
@@ -167,22 +204,12 @@ namespace librealsense
 
     double cs_device_interface::get_device_time_ms()
     {
-        if (!_hw_monitor)
-            throw wrong_api_call_sequence_exception("_hw_monitor is not initialized yet");
-
-        command cmd(ds::MRD, ds::REGISTER_CLOCK_0, ds::REGISTER_CLOCK_0 + 4);
-        auto res = _hw_monitor->send(cmd);
-
-        if (res.size() < sizeof(uint64_t))
-        {
-            LOG_DEBUG("size(res):" << res.size());
-            throw std::runtime_error("Not enough bytes returned from the firmware!");
+        if (_cs_device) {
+            return _cs_device->get_device_timestamp_ms();
         }
-
-        uint64_t dt = *(uint64_t*)res.data();
-
-        double ts = dt * TIMESTAMP_USEC_TO_MSEC;
-        return ts;
+        else {
+            throw std::runtime_error("cs_device not initialized");
+        }
     }
 
     cs_color::cs_color(std::shared_ptr<context> ctx,
@@ -293,6 +320,7 @@ namespace librealsense
                     std::map<float, std::string>{ { 1.f, "Hardware" },
                     { 2.f, "Software" }}));
         }
+        enable_time_diff_keeper(true);
     }
 
     void cs_depth::depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
@@ -458,7 +486,13 @@ namespace librealsense
                 std::make_shared<cs_external_trigger_option>(raw_depth_sensor, RS2_OPTION_EXT_TRIGGER_SOURCE, CS_STREAM_DEPTH,
                     std::map<float, std::string>{ { 1.f, "Hardware" },
                     { 2.f, "Software" }}));
+
+            depth_sensor.register_option(RS2_OPTION_USER_OUTPUT_LEVEL,
+                std::make_shared<cs_user_output_level_option>(raw_depth_sensor, RS2_OPTION_USER_OUTPUT_LEVEL, CS_STREAM_DEPTH,
+                    std::map<float, std::string>{ { 1.f, "Low" },
+                    { 2.f, "High" }}));
         }
+        enable_time_diff_keeper(true);
     }
 
     std::shared_ptr<synthetic_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
@@ -468,7 +502,7 @@ namespace librealsense
         std::unique_ptr<frame_timestamp_reader> cs_timestamp_reader_backup(new cs_timestamp_reader(backend.create_time_service()));
         std::unique_ptr<frame_timestamp_reader> cs_timestamp_reader_metadata(new cs_timestamp_reader_from_metadata(std::move(cs_timestamp_reader_backup)));
 
-        auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
+        auto enable_global_time_option = std::shared_ptr<global_time_option>(new cs_global_time_option_color(this));
         auto raw_color_ep = std::make_shared<cs_sensor>("Raw RGB Camera", cs_device,
                 std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(cs_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)),
                 this, CS_STREAM_COLOR);
@@ -490,7 +524,7 @@ namespace librealsense
 
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_backup(new cs_timestamp_reader(backend.create_time_service()));
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_metadata(new cs_timestamp_reader_from_metadata(std::move(timestamp_reader_backup)));
-        auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
+        auto enable_global_time_option = std::shared_ptr<global_time_option>(new cs_global_time_option_depth(this));
         auto raw_depth_ep = std::make_shared<cs_sensor>("Raw Depth Sensor", cs_device,
                 std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this, CS_STREAM_DEPTH);
 
@@ -523,29 +557,6 @@ namespace librealsense
 
         auto table = check_calib<coefficients_table>(*_depth_calib_table_raw);
         return fabs(table->baseline);
-    }
-
-    void cs_depth::enter_update_state() const
-    {
-        try {
-            LOG_INFO("entering to update state, device disconnect is expected");
-            command cmd(ds::DFU);
-            cmd.param1 = 1;
-            _hw_monitor->send(cmd);
-        }
-        catch (...) {
-            // The set command returns a failure because switching to DFU resets the device while the command is running.
-        }
-    }
-
-    void cs_depth::update_flash(const std::vector<uint8_t>& image, update_progress_callback_ptr callback, int update_mode)
-    {
-        throw std::runtime_error("update_flash is not supported by D400e");
-    }
-
-    std::vector<uint8_t> cs_depth::backup_flash(update_progress_callback_ptr callback)
-    {
-        throw std::runtime_error("update_flash is not supported by D400e");
     }
 
     std::vector<uint8_t> cs_color::get_raw_calibration_table(ds::calibration_table_id table_id) const

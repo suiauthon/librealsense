@@ -6,7 +6,7 @@ This readme file provides instructions on how to use the D400e camera series wit
 
 Linux x86_64 - Ubuntu 16 LTS, Ubuntu 18 LTS
 
-Linux ARM64 - Jetson TX2 L4T 32.3.1
+Linux ARM64 - Jetson TX2, Jetson Xavier, L4T 32.3.1
 
 Windows x86_64
 
@@ -41,7 +41,7 @@ Install Python packages required by some of the Python examples on x86_64:
 pip3 install --user opencv-python
 ```
 
-Install Python packages required by some of the Python examples on Jetson TX2:
+Install Python packages required by some of the Python examples on the Jetson platforms:
 
 ```
 sudo apt install python3-opencv

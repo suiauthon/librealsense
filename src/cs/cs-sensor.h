@@ -8,6 +8,7 @@
 #include <smcs_cpp/IImageBitmap.h>
 #include "sensor.h"
 #include "types.h"
+#include <unordered_map>
 
 namespace librealsense {
 
@@ -41,6 +42,12 @@ namespace librealsense {
         CS_INTERCAM_SYNC_EXTERNAL_COLOR,
         CS_INTERCAM_SYNC_MAX_COLOR
     } cs_inter_cam_mode_color;
+
+    typedef enum cs_user_output_level {
+        CS_USER_OUTPUT_LEVEL_LOW = 1,
+        CS_USER_OUTPUT_LEVEL_HIGH,
+        CS_USER_OUTPUT_LEVEL_MAX
+    } cs_user_output_level;
 
     class cs_firmware_version
     {
@@ -145,6 +152,7 @@ namespace librealsense {
             bool is_infrared_supported();
             bool is_option_supported(rs2_option opt, cs_stream stream);
             bool is_software_trigger_supported();
+            double get_device_timestamp_ms();
 
             void set_trigger_mode(float mode, cs_stream stream);
             float get_trigger_mode(cs_stream stream);
@@ -249,6 +257,8 @@ namespace librealsense {
             static std::map<std::string, int> _cs_device_num_objects_sn; // serial_number, number of objects per SN (device creation)
             static std::map<std::string, bool> _cs_device_initialized_sn; // serial_number, is device with SN initialized
             static std::map<std::string, bool> _cs_device_option_sw_trigger_all_flag_sn; // serial_number, is device with SN initialized
+
+            double _timestamp_to_ms_factor;
         };
     }
 

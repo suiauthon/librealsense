@@ -97,6 +97,7 @@ extern "C" {
         RS2_OPTION_SENSOR_MODE, /**< The resolution mode: see rs2_sensor_mode for values */
         RS2_OPTION_INTER_PACKET_DELAY, /**< Inter-packet delay for eth cameras*/
         RS2_OPTION_PACKET_SIZE, /**< Packet size for eth cameras*/
+        RS2_OPTION_USER_OUTPUT_LEVEL, /**< Set user output level */
         RS2_OPTION_COUNT /**< Number of enumeration values. Not a valid input: intended to be used in for-loops. */
     } rs2_option;
 
