@@ -87,3 +87,11 @@ Dynamic Calibration Tool needs to be restarted after each calibration.
 
 Troubleshooting:
 ----------------
+Issue: Under 30 fps on 1920x1080 resolution RGB Camera stream
+Cause: Automatically detected inter-packet delay too high
+Solution:
+- Lower the inter-packet delay manually if your use case requires RGB stream with resolution 1920x1080 at 30fps
+    - Note that lower inter-packet delay than the one detected may have a negative effect on performance of 
+    other stream combinations
+    - Please consult the Tuning System For Best Performance App Note for details on setting the correct inter-packet 
+    delay

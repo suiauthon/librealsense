@@ -8,6 +8,7 @@
 #include <smcs_cpp/IImageBitmap.h>
 #include "sensor.h"
 #include "types.h"
+#include <unordered_map>
 
 namespace librealsense {
 
