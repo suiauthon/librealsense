@@ -114,7 +114,7 @@ namespace librealsense {
     void cs_device_watcher::cs_callback_event_handler(smcs_ICameraAPI_HANDLE hApi, smcs_IDevice_HANDLE hDevice,
                                                       UINT32 eventType, const smcs_CallbackInfo* eventInfo) {
         if (eventType == smcs_GCT_DISCONNECT) {
-            bool element_index = -1;
+            int32_t element_index = -1;
             auto info = platform::cs_device_info();
             info.serial = std::string(smcs_IDevice_GetSerialNumber(hDevice));
             info.id = std::string(smcs_IDevice_GetModelName(hDevice));
