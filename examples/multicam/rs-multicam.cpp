@@ -13,7 +13,7 @@
 
 
 
-float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize);
+float get_optimal_inter_packet_delay(int num_parallel_streams, int packetSize);
 
 
 
@@ -38,15 +38,15 @@ int main(int argc, char * argv[]) try
                 //  - Two D400e cameras are streaming to single NIC on PC
                 //  - only depth and color streams are enabled on all cameras
                 //  - PacketSize is the same on all cameras
-                int numParallelStreams = 3; // (2 cameras * 2 streams) - 1
-                //float packetSize = 7996;  // Manual - select this value if jumbo frames on NIC are enabled
-                //float packetSize = 1500;  // Manual - select this value if jumbo frames on NIC are disabled
-                float packetSize = sensor.get_option(RS2_OPTION_PACKET_SIZE);   // Automatic packet size discovery
-                float interPacketDelay = getOptimalInterPacketDelay(numParallelStreams, packetSize);
+                int num_parallel_streams = 3; // (2 cameras * 2 streams) - 1
+                //float packet_size = 7996;  // Manual - select this value if jumbo frames on NIC are enabled
+                //float packet_size = 1500;  // Manual - select this value if jumbo frames on NIC are disabled
+                float packet_size = sensor.get_option(RS2_OPTION_PACKET_SIZE);   // Automatic packet size discovery
+                float inter_packet_delay = get_optimal_inter_packet_delay(num_parallel_streams, packet_size);
 
-                std::cout << sensor.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER) << ", Packet Size = " << packetSize << " InterPacketDelay = " << interPacketDelay << std::endl;
-                sensor.set_option(RS2_OPTION_PACKET_SIZE, packetSize);
-                sensor.set_option(RS2_OPTION_INTER_PACKET_DELAY, interPacketDelay);
+                std::cout << sensor.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER) << ", Packet Size = " << packet_size << " InterPacketDelay = " << inter_packet_delay << std::endl;
+                sensor.set_option(RS2_OPTION_PACKET_SIZE, packet_size);
+                sensor.set_option(RS2_OPTION_INTER_PACKET_DELAY, inter_packet_delay);
             }
         }
     }
@@ -116,15 +116,15 @@ catch (const std::exception & e)
 
 
 // calculate optimal InterPacketDelay for D400e camera based on PacketSize and number of parallel streams
-float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize)
+float get_optimal_inter_packet_delay(int num_parallel_streams, int packetSize)
 {
-    float interPacketDelay = 0;
-    float ethPacketSize = packetSize + 38;  // 38 bytes overhead
-    float nsPerByte = 8.0;  // for 1Gbps
+    float inter_packet_delay = 0;
+    float eth_packet_size = packetSize + 38;  // 38 bytes overhead
+    float ns_per_byte = 8.0;  // for 1Gbps
 
-    float timeToTransferPacket = (ethPacketSize * nsPerByte) / 1000.0;  // time in us
-    timeToTransferPacket = ceil(timeToTransferPacket + 0.5);            // round up
-    interPacketDelay = timeToTransferPacket * num_parallel_streams;
+    float time_to_transfer_packet = (eth_packet_size * ns_per_byte) / 1000.0;  // time in us
+    time_to_transfer_packet = ceil(time_to_transfer_packet + 0.5);            // round up
+    inter_packet_delay = time_to_transfer_packet * num_parallel_streams;
 
-    return interPacketDelay;
+    return inter_packet_delay;
 }

@@ -140,34 +140,49 @@ namespace Intel.RealSense
         /// <summary>Impose Inter-camera HW synchronization mode. Applicable for D400/Rolling Shutter SKUs</summary>
         InterCamSyncMode = 42,
 
+        /// <summary>Select external trigger type for eth cameras</summary>
+        ExtTriggerSource = 43,
+
+        /// <summary>Execute software trigger for eth cameras</summary>
+        SoftwareTrigger = 44,
+
+        /// <summary>Execute software trigger for eth cameras</summary>
+        SoftwareTriggerAllSensors = 45,
+
         /// <summary>Select a stream to process</summary>
-        StreamFilter = 43,
+        StreamFilter = 46,
 
         /// <summary>Select a stream format to process</summary>
-        StreamFormatFilter = 44,
+        StreamFormatFilter = 47,
 
         /// <summary>Select a stream index to process</summary>
-        StreamIndexFilter = 45,
+        StreamIndexFilter = 48,
 
         /// <summary>When supported, this option make the camera to switch the emitter state every frame. 0 for disabled, 1 for enabled</summary>
-        EmitterOnOff = 46,
+        EmitterOnOff = 49,
 
         /// <summary>Zero order point x</summary>
-        ZeroOrderPointX = 47,
+        ZeroOrderPointX = 50,
 
         /// <summary>Zero order point y</summary>
-        ZeroOrderPointY = 48,
+        ZeroOrderPointY = 51,
 
         /// <summary>LLD temperature</summary>
-        LLDTemperature = 49,
+        LLDTemperature = 52,
 
         /// <summary>MC temperature</summary>
-        MCTemperature = 50,
+        MCTemperature = 53,
 
         /// <summary>MA temperature</summary>
-        MATemperature = 51,
+        MATemperature = 54,
 
         /// <summary>APD temperature</summary>
-        APDTemperature = 54,
+        APDTemperature = 57,
+
+        /// <summary>Inter-packet delay for eth cameras</summary>
+        InterPacketDelay = 63,
+
+        /// <summary>Packet size for eth cameras</summary>
+        PacketSize = 64,
     }
 }

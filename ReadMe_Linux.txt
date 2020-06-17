@@ -1,5 +1,5 @@
 FRAMOS D400e Depth Camera Software Package for Linux
-v1.8.0 (2020-03-31)
+v1.9.0 (2020-06-30)
 ====================================================
 
 Components:
@@ -9,8 +9,8 @@ Components:
 
 Supported platforms:
 --------------------
-- Linux x86_64
-- Linux ARM64
+- Linux x86_64 - Ubuntu 16 LTS, Ubuntu 18 LTS
+- Linux ARM64 - Jetson TX2, Jetson Xavier, L4T 32.3.1
 
 Prerequisites:
 --------------
@@ -18,11 +18,17 @@ Prerequisites:
 
 Installation:
 -------------
-1. Make sure that kernel headers are installed on the system
+1. Update the package list
 
-    sudo apt-get update && sudo apt-get install linux-headers-$(uname -r)
+    sudo apt-get update
 
-2. Install FRAMOS CameraSuite
+2. Make sure that kernel headers are installed on the system
+
+    NOTE: Skip this step on the Jetson platforms.
+    
+    sudo apt-get install linux-headers-$(uname -r)
+
+3. Install FRAMOS CameraSuite
 
     - please uninstall any previous version of CameraSuite before proceeding 
         with installation
@@ -30,9 +36,9 @@ Installation:
         'video' group when prompted
     sudo apt install ./FRAMOS_CameraSuite*.deb
 
-3. Reboot the system
+4. Reboot the system
 
-4. Install Intel® RealSense™ SDK with support for D400e cameras
+5. Install Intel® RealSense™ SDK with support for D400e cameras
     - please uninstall other verions of Intel® RealSense™ SDK before proceeding 
         with installation
     sudo apt install ./FRAMOS-librealsense2*.deb
@@ -89,6 +95,11 @@ Multicam example:
 Notes on configuring a multi camera setup are located in
     /usr/src/librealsense2/examples/multicam/readme.md
 
+Software trigger example:
+-------------------------
+Notes on configuring a software trigger setup are located in
+    /usr/src/librealsense2/examples/software-trigger/readme.md
+
 Using Dynamic Calibration Tool:
 -------------------------------
 Launch the Dynamic Calibration Tool from terminal:
@@ -125,6 +136,15 @@ Scripts for disabling and reenabling reverse path filtering are also available:
     
 Troubleshooting:
 ----------------
+Issue: Under 30 fps on 1920x1080 resolution RGB Camera stream
+Cause: Automatically detected inter-packet delay too high
+Solution:
+- Lower the inter-packet delay manually if your use case requires RGB stream with resolution 1920x1080 at 30fps
+    - Note that lower inter-packet delay than the one detected may have a negative effect on performance of 
+    other stream combinations
+    - Please consult the Tuning System For Best Performance App Note for details on setting the correct inter-packet 
+    delay
+
 Issue: Driver not installed
 Cause: DKMS framework not installed
 Solution:
