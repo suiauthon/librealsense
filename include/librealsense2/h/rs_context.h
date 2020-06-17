@@ -86,7 +86,7 @@ void rs2_context_unload_tracking_module(rs2_context* ctx, rs2_error** error);
 * \param[out] error  if non-null, receives any error that occurs during this call, otherwise, errors are ignored
 * \return            the list of devices, should be released by rs2_delete_device_list
 */
-rs2_device_list* rs2_query_devices(const rs2_context* context, rs2_cs_camera_config *cs_camera_config, rs2_error** error);
+rs2_device_list* rs2_query_devices(const rs2_context* context, rs2_error** error);
 
 #define RS2_PRODUCT_LINE_ANY            0xff
 #define RS2_PRODUCT_LINE_ANY_INTEL      0xfe
@@ -106,7 +106,7 @@ rs2_device_list* rs2_query_devices(const rs2_context* context, rs2_cs_camera_con
 * \param[out] error  if non-null, receives any error that occurs during this call, otherwise, errors are ignored
 * \return            the list of devices, should be released by rs2_delete_device_list
 */
-rs2_device_list* rs2_query_devices_ex(const rs2_context* context, int product_mask, rs2_cs_camera_config *cs_camera_config, rs2_error** error);
+rs2_device_list* rs2_query_devices_ex(const rs2_context* context, int product_mask, rs2_error** error);
 
 /**
 * \brief Creates RealSense device_hub .

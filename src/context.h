@@ -35,12 +35,6 @@ struct rs2_stream_profile
     std::shared_ptr<librealsense::stream_profile_interface> clone;
 };
 
-struct rs2_cs_camera_config
-{
-    std::vector<std::string> ips;
-    std::vector<std::string> serial_numbers;
-};
-
 namespace librealsense
 {
     class device;
@@ -120,7 +114,7 @@ namespace librealsense
 
         void stop(){ if (!_devices_changed_callbacks.size()) _device_watcher->stop();}
         ~context();
-        std::vector<std::shared_ptr<device_info>> query_devices(int mask, rs2_cs_camera_config *cs_config = nullptr) const;
+        std::vector<std::shared_ptr<device_info>> query_devices(int mask) const;
         const platform::backend& get_backend() const { return *_backend; }
 
         uint64_t register_internal_device_callback(devices_changed_callback_ptr callback);
@@ -128,8 +122,7 @@ namespace librealsense
         void set_devices_changed_callback(devices_changed_callback_ptr callback);
 
         std::vector<std::shared_ptr<device_info>> create_devices(platform::backend_device_group devices,
-            const std::map<std::string, std::weak_ptr<device_info>>& playback_devices, int mask,
-                                                                 rs2_cs_camera_config *cs_config = nullptr) const;
+            const std::map<std::string, std::weak_ptr<device_info>>& playback_devices, int mask) const;
 
         std::shared_ptr<playback_device_info> add_device(const std::string& file);
         void remove_device(const std::string& file);

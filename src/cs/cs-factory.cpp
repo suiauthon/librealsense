@@ -37,130 +37,17 @@ namespace librealsense {
         }
     }
 
-    std::string cs_info::ip_address_to_string(unsigned int ip) {
-        unsigned char bytes[4];
-        char buffer[15];
-        bytes[0] = ip & 0xFF;
-        bytes[1] = (ip >> 8) & 0xFF;
-        bytes[2] = (ip >> 16) & 0xFF;
-        bytes[3] = (ip >> 24) & 0xFF;
-        sprintf(buffer, "%d.%d.%d.%d", bytes[3], bytes[2], bytes[1], bytes[0]);
-        return std::string(buffer);
-    }
-
-    uint32_t cs_info::ip_address_to_uint(const std::string ip) {
-        int a, b, c, d;
-        uint32_t addr = 0;
-
-        if (sscanf(ip.c_str(), "%d.%d.%d.%d", &a, &b, &c, &d) != 4)
-            return 0;
-
-        addr = a << 24;
-        addr |= b << 16;
-        addr |= c << 8;
-        addr |= d;
-        return addr;
-    }
-
-    bool cs_info::is_ip_in_range(const std::string ip, const std::string network, const std::string mask) {
-        uint32_t ip_addr = ip_address_to_uint(ip);
-        uint32_t network_addr = ip_address_to_uint(network);
-        uint32_t mask_addr = ip_address_to_uint(mask);
-
-        uint32_t net_lower = (network_addr & mask_addr);
-        uint32_t net_upper = (net_lower | (~mask_addr));
-
-        if (ip_addr >= net_lower &&
-            ip_addr <= net_upper)
-            return true;
-        return false;
-    }
-
-    std::string cs_info::convert_to_comparable_sn(std::string sn) {
-        std::string new_sn(sn);
-
-        new_sn.insert(2, ":");
-        new_sn.insert(5, ":");
-        new_sn.insert(8, ":");
-        new_sn.insert(11, ":");
-        new_sn.insert(14, ":");
-
-        return new_sn;
-    }
-
-    bool cs_info::is_device_on_list_sn(std::string sn, std::vector<std::string> sn_list) {
-        auto sn_char = sn.c_str();
-        bool is_on_list = false;
-
-        for (int i = 0; i < sn_list.size(); i++) {
-            auto sn_char_i = sn_list[i].c_str();
-            if (sn.length() == sn_list[i].length()) {
-                bool compare_flag = true;
-                for (int j = 0; j < sn.length(); j++) {
-                    if (sn_char_i[j] != '?') {
-                        if (sn_char_i[j] != sn_char[j]) {
-                            compare_flag = false;
-                            break;
-                        }
-                    }
-                }
-                is_on_list = compare_flag;
-            }
-            else is_on_list = false;
-
-            if (is_on_list) break;
-        }
-
-        return is_on_list;
-    }
-
-    bool cs_info::is_device_on_list_ip(std::string ip, std::vector<std::string> ip_list) {
-        bool is_on_list = false;
-
-        for (int i = 0; i < ip_list.size(); i++)
-        {
-            std::string temp_string(ip_list[i]);
-            temp_string.erase(std::remove(temp_string.begin(),temp_string.end(),' '),temp_string.end());
-            std::size_t found = temp_string.find(";");
-
-            if (found != std::string::npos) {
-                std::string network = temp_string.substr(0, found);
-                std::string mask = temp_string.substr(found + 1);
-
-                if (is_ip_in_range(ip, network, mask)) {
-                    is_on_list = true;
-                    break;
-                }
-            }
-        }
-        return is_on_list;
-    }
-
     std::vector <std::shared_ptr<device_info>> cs_info::pick_cs_devices(
             std::shared_ptr <context> ctx,
-            std::vector <platform::cs_device_info> &cs,
-            rs2_cs_camera_config *cs_config) {
+            std::vector <platform::cs_device_info> &cs) 
+    {
         std::vector <std::shared_ptr<device_info>> results;
 
         for (auto &group : cs) {
-            if (cs_config) {
-                if (!cs_config->serial_numbers.empty()) {
-                    if (is_device_on_list_sn(convert_to_comparable_sn(group.serial), cs_config->serial_numbers)) {
-                        auto info = std::make_shared<cs_info>(ctx, group);
-                        results.push_back(info);
-                    }
-                } else if (!cs_config->ips.empty()) {
-                    if (is_device_on_list_ip(ip_address_to_string(group.ip_address), cs_config->ips)) {
-                        auto info = std::make_shared<cs_info>(ctx, group);
-                        results.push_back(info);
-                    }
-                }
-            }
-            else {
-                auto info = std::make_shared<cs_info>(ctx, group);
-                results.push_back(info);
-            }
+            auto info = std::make_shared<cs_info>(ctx, group);
+            results.push_back(info);
         }
+
         return results;
     }
 
@@ -182,7 +69,6 @@ namespace librealsense {
         info.serial = device->GetSerialNumber();
         info.id = device->GetModelName();
         info.info = device->GetManufacturerSpecificInfo();
-		info.ip_address = devices[i]->GetIpAddress();
         return info;
     }
 

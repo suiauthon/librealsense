@@ -24,8 +24,7 @@ namespace librealsense {
 
         static std::vector <std::shared_ptr<device_info>> pick_cs_devices(
                 std::shared_ptr <context> ctx,
-                std::vector <platform::cs_device_info> &cs,
-                rs2_cs_camera_config *cs_config);
+                std::vector <platform::cs_device_info> &cs);
 
         platform::backend_device_group get_device_data() const override {
             return platform::backend_device_group({_hwm});
@@ -39,14 +38,6 @@ namespace librealsense {
 
     private:
         platform::cs_device_info _hwm;
-
-        static std::string ip_address_to_string(unsigned int ip);
-        static bool is_device_on_list_sn(std::string sn, std::vector<std::string> sn_list);
-        static bool is_device_on_list_ip(std::string ip, std::vector<std::string> ip_list);
-        static std::string convert_to_comparable_sn(std::string sn);
-        static uint32_t ip_address_to_uint(const std::string ip);
-        static bool is_ip_in_range(const std::string ip, const std::string network, const std::string mask);
-
     };
 
     class cs_device_watcher : public smcs::ICallbackEvent

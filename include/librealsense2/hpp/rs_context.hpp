@@ -109,11 +109,11 @@ namespace rs2
         * create a static snapshot of all connected devices at the time of the call
         * \return            the list of devices connected devices at the time of the call
         */
-        device_list query_devices(rs2_cs_camera_config *cs_camera_config = nullptr) const
+        device_list query_devices() const
         {
             rs2_error* e = nullptr;
             std::shared_ptr<rs2_device_list> list(
-                rs2_query_devices(_context.get(), cs_camera_config, &e),
+                rs2_query_devices(_context.get(), &e),
                 rs2_delete_device_list);
             error::handle(e);
 
@@ -124,11 +124,11 @@ namespace rs2
         * create a static snapshot of all connected devices at the time of the call
         * \return            the list of devices connected devices at the time of the call
         */
-        device_list query_devices(int mask, rs2_cs_camera_config *cs_camera_config = nullptr) const
+        device_list query_devices(int mask) const
         {
             rs2_error* e = nullptr;
             std::shared_ptr<rs2_device_list> list(
-                rs2_query_devices_ex(_context.get(), mask, cs_camera_config, &e),
+                rs2_query_devices_ex(_context.get(), mask, &e),
                 rs2_delete_device_list);
             error::handle(e);
 

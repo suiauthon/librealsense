@@ -348,7 +348,3 @@ EXPORTS
     rs2_get_calibration_table
     rs2_set_calibration_table
 
-    rs2_d400e_create_cs_camera_config
-    rs2_d400e_add_ip_to_cs_camera_config
-    rs2_d400e_add_sn_to_cs_camera_config
-
