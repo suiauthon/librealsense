@@ -1,7 +1,8 @@
 # Getting Started with RealSense™ SDK2.0 for LabVIEW®
 
 > **Download Links**:
-> * [**(Latest)** RealSense SDK2 for LabVIEW 1.0, 2.11.0, May 2018](http://realsense-hw-public.s3.amazonaws.com/Releases/RS4xx/Windows/labview_2.11_0.zip)
+> * [**(Latest)** RealSense SDK2 for LabVIEW 1.0, 2.33.0, Feb 2020](https://realsense-hw-public.s3-eu-west-1.amazonaws.com/Releases/RS4xx/Windows/labview_2_33_0.zip)
+> * [RealSense SDK2 for LabVIEW 1.0, 2.11.0, May 2018](http://realsense-hw-public.s3.amazonaws.com/Releases/RS4xx/Windows/labview_2.11_0.zip)
 > * [RealSense SDK2 for LabVIEW 1.0, 2.10.4, Apr 2018](http://realsense-hw-public.s3.amazonaws.com/Releases/RS4xx/Windows/labview_2_10_4.zip)
 > * [RealSense SDK2 for LabVIEW 1.0, 2.8.1, Nov 2017](http://realsense-hw-public.s3.amazonaws.com/Releases/RS4xx/Windows/labview_2_8_1.zip)
 
@@ -81,6 +82,19 @@ Note that frames can arrive asynchronously. You can query their time stamp or co
 
 
 Finally, it is VERY important that you use the Release Frame VI to release each frame when it is no longer needed, or you will very quickly stop streaming. Also, be sure to CLOSE everything properly, or you will have problems streaming the next time, and LabVIEW may crash. 
+
+
+
+
+# FRAMOS RealSense
+FRAMOS-librealsense2 extends the standard librealsense2 API with features applicable to the D400e cameras. Source files are located in FRAMOS-librealsense2 install folder, inside of *wrappers/labview* subfolder. It is necessary to copy realsense2.dll from *bin* to folder with LabVIEW source files.
+
+For D400 and D400e devices, FRAMOS-librealsense2 library currently supports following demos:
+* Monochrome + Depth: D4xx, D4xxe
+* Left-Rigth:   D4xx, D4xxe
+* PointCloud:   D4xxe
+* Third Color Camera:   D4xx, D4xxe
+
 
 
 -------------------
