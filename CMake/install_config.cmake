@@ -96,14 +96,17 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/config/realsense2.pc"
 
 set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
 set(CPACK_NSIS_MUI_ICON "${PROJECT_SOURCE_DIR}/tools/realsense-viewer/res/icon.ico")
+set(CPACK_NSIS_MUI_UNIICON "${PROJECT_SOURCE_DIR}/tools/realsense-viewer/res/icon.ico")
 #set(CPACK_PACKAGE_ICON "${PROJECT_SOURCE_DIR}/tools/realsense-viewer/res/icon.ico") causes error
 #set(CPACK_NSIS_MUI_HEADERIMAGE ) TODO
 set(CPACK_NSIS_DISPLAY_NAME "FRAMOS librealsense2")
 
-set(CPACK_PACKAGE_EXECUTABLES "realsense-viewer;FRAMOS Realsense Viewer")
-set(CPACK_PACKAGE_NAME "FRAMOS-librealsense2")
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "freeglut3")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "FRAMOS GmbH")
+
+set(CPACK_PACKAGE_EXECUTABLES "realsense-viewer;FRAMOS Realsense Viewer")
+set(CPACK_PACKAGE_NAME "FRAMOS-librealsense2")
+set(CPACK_PACKAGE_VENDOR "FRAMOS GmbH")
 set(CPACK_PACKAGE_VERSION_MAJOR 2)
 set(CPACK_PACKAGE_VERSION_MINOR 33)
 set(CPACK_PACKAGE_VERSION_PATCH 10)
