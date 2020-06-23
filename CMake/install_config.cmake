@@ -118,4 +118,6 @@ endif()
 
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA ${PROJECT_SOURCE_DIR}/postinst)
 
+set(CPACK_PROJECT_CONFIG_FILE "${PROJECT_SOURCE_DIR}/CPackOptions.cmake")
+
 include(CPack)
