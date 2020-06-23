@@ -97,6 +97,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/config/realsense2.pc"
 set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
 set(CPACK_NSIS_MUI_ICON "${PROJECT_SOURCE_DIR}/tools/realsense-viewer/res/icon.ico")
 set(CPACK_NSIS_MUI_UNIICON "${PROJECT_SOURCE_DIR}/tools/realsense-viewer/res/icon.ico")
+set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\realsense-viewer.exe")
 set(CPACK_NSIS_DISPLAY_NAME "FRAMOS librealsense2")
 
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "freeglut3")
