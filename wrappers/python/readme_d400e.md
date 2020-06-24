@@ -87,7 +87,7 @@ Copy the Python wrapper (name may be include additional information)
 
 - `pyrealsense2.pyd`
 
-Copy the RealSense library with support for D400e camera series from `Program Files\FRAMOS-librealsense2\bin`
+Copy the RealSense library with support for D400e camera series from `Program Files\FRAMOS\librealsense2\bin`
 
 - `realsense2.dll`
 
