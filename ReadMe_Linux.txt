@@ -71,6 +71,10 @@ Create a build folder:
 Generate Makefiles with cmake and specify build type:
     cmake .. -DCMAKE_BUILD_TYPE=Release
 
+CUDA support can be enabled on Jetson platforms to boost performance. 
+This requires CUDA to be installed on the Jetson.
+    cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_CUDA=true
+
 Build the project with make:
     make -j$(nproc)
 

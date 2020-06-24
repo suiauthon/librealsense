@@ -139,50 +139,51 @@ namespace Intel.RealSense
 
         /// <summary>Impose Inter-camera HW synchronization mode. Applicable for D400/Rolling Shutter SKUs</summary>
         InterCamSyncMode = 42,
-
-        /// <summary>Select external trigger type for eth cameras</summary>
-        ExtTriggerSource = 43,
-
-        /// <summary>Execute software trigger for eth cameras</summary>
-        SoftwareTrigger = 44,
-
-        /// <summary>Execute software trigger for eth cameras</summary>
-        SoftwareTriggerAllSensors = 45,
-
+        
         /// <summary>Select a stream to process</summary>
-        StreamFilter = 46,
+        StreamFilter = 43,
 
         /// <summary>Select a stream format to process</summary>
-        StreamFormatFilter = 47,
+        StreamFormatFilter = 44,
 
         /// <summary>Select a stream index to process</summary>
-        StreamIndexFilter = 48,
+        StreamIndexFilter = 45,
 
         /// <summary>When supported, this option make the camera to switch the emitter state every frame. 0 for disabled, 1 for enabled</summary>
-        EmitterOnOff = 49,
+        EmitterOnOff = 46,
 
         /// <summary>Zero order point x</summary>
-        ZeroOrderPointX = 50,
+        ZeroOrderPointX = 47,
 
         /// <summary>Zero order point y</summary>
-        ZeroOrderPointY = 51,
+        ZeroOrderPointY = 48,
 
         /// <summary>LLD temperature</summary>
-        LLDTemperature = 52,
+        LLDTemperature = 49,
 
         /// <summary>MC temperature</summary>
-        MCTemperature = 53,
+        MCTemperature = 50,
 
         /// <summary>MA temperature</summary>
-        MATemperature = 54,
+        MATemperature = 51,
 
         /// <summary>APD temperature</summary>
-        APDTemperature = 57,
+        APDTemperature = 54,
 
         /// <summary>Inter-packet delay for eth cameras</summary>
-        InterPacketDelay = 63,
+        InterPacketDelay = 71,
 
         /// <summary>Packet size for eth cameras</summary>
-        PacketSize = 64,
+        PacketSize = 72,
+        
+        /// <summary>Select external trigger type for eth cameras</summary>
+        ExtTriggerSource = 73,
+
+        /// <summary>Execute software trigger for eth cameras</summary>
+        SoftwareTrigger = 74,
+
+        /// <summary>Execute software trigger for eth cameras</summary>
+        SoftwareTriggerAllSensors = 75,
+
     }
 }
