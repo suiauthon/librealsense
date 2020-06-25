@@ -5,6 +5,7 @@ v2.33.10 (2020-06-30)
     - added - User Output Level control
     - added - setting buffer count for D400e cameras
     - added - setting heartbeat time in C# wrapper
+    - added - [WIN] signed installer
     - added - [WIN] start menu entry for FRAMOS Realsense Viewer
     - added - [WIN] license, icons and additional info in installation
     - fixed - camera disconnecting if broadcast fails to find it once
