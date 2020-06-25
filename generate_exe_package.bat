@@ -18,16 +18,10 @@ if ERRORLEVEL 1 goto ERROR
 
 CALL "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86
 
-msbuild librealsense2.sln /t:Build /p:Configuration=Release
-if ERRORLEVEL 1 goto ERROR
-
-if defined SIGN_BINARIES (
-    signtool.exe sign /q /ac "%ROOT_CA_PATH%" /f "%CODESIGN_CERT_PATH%\GlobalSign_FRAMOS_eToken.cer" /csp "eToken Base Cryptographic Provider" /kc "[{{%FRAMOS_TOKEN_PASSWORD%}}]=te-ee307152-4ddb-460e-bbc9-c87e75365a17" /tr http://rfc3161timestamp.globalsign.com/advanced /sha1 634217D4B35321AD8863A38BFF93C24594FA7C60 /td SHA256 Release\*.exe Release\*.dll
-)
-
 msbuild PACKAGE.vcxproj /t:Build /p:Configuration=Release
 if ERRORLEVEL 1 goto ERROR
 
+rem TODO sing the binaries inside the package
 if defined SIGN_BINARIES (
     signtool.exe sign /q /ac "%ROOT_CA_PATH%" /f "%CODESIGN_CERT_PATH%\GlobalSign_FRAMOS_eToken.cer" /csp "eToken Base Cryptographic Provider" /kc "[{{%FRAMOS_TOKEN_PASSWORD%}}]=te-ee307152-4ddb-460e-bbc9-c87e75365a17" /tr http://rfc3161timestamp.globalsign.com/advanced /sha1 634217D4B35321AD8863A38BFF93C24594FA7C60 /td SHA256 FRAMOS-librealsense2-*-Win64_x64.exe
 )
