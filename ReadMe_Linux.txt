@@ -109,6 +109,8 @@ Using Dynamic Calibration Tool:
 Launch the Dynamic Calibration Tool from terminal:
     DynamicCalibrator
 
+NOTE: Dynamic Calibration Tool is not supported on Jetson platforms.
+
 Calibration of RGB imager is currently not supported.
 
 Calibrating multiple cameras in a row is currently not supported.

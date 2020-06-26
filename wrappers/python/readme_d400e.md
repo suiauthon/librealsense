@@ -79,7 +79,32 @@ python3 align-depth2color.py
 
 ## Windows
 
-Follow the official instructions to build the `pyrealsense` wrapper.
+Build the Python the `pyrealsense` wrapper from source.
+
+Following tools are required for building the Intel® RealSense™ library:
+
+- Visual Studio 2015
+- CMake
+- Python
+
+Sources for Intel® RealSense™ library, tools and examples are located in
+
+```
+C:\Program Files\FRAMOS\librealsense2\src
+```
+
+This folder is owned by the administrator. Before proceeding with the build, 
+copy it to a location owned by the user.
+
+Launch the CMake GUI tool.
+Set ```Where is the source code``` to the location of the copied ```src``` folder.
+Set ```Where to build the binaries``` to the location of the copied ```src``` folder with the ```/build``` suffix.
+Select the option ```BUILD_PYTHON_BINDINGS```.
+Press the ```Configure``` button to update CMake values. 
+Make sure to select the ```Visual Studio 14 2015``` generator and ```x64``` optional platform when prompted.
+Press the ```Generate``` button to generate the Visual Studio Solution.
+Press the ```Open Project``` button to open the generated Visual Studio Solution.
+Inside the solution, set the build type to ```Release``` and build the wrapper by right clicking on the ```pyrealsense2``` projects and selecting ```Build```.
 
 The wrapper must be copied next to the Python script along with required dependencies.
 
