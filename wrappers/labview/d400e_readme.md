@@ -14,7 +14,6 @@ For D400e devices, FRAMOS-librealsense2 library currently supports following dem
 * Monochrome + Depth
 * Left-Right
 * PointCloud
-* PointCloud ext RGB
 * Third Color Camera
 
 Further details can be found in *readme* or inside demos.
