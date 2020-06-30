@@ -160,10 +160,17 @@ namespace librealsense
             uint8_t         report_type;        // Curently supported: IMU/Custom Temperature
             uint64_t        timestamp;          // Driver-produced/FW-based timestamp. Note that currently only the lower 32bit are used
         };
+
+        struct cs_header
+        {
+            uint8_t         length;
+            uint64_t        timestamp;
+        };
 #pragma pack(pop)
 
         constexpr uint8_t uvc_header_size = sizeof(uvc_header);
         constexpr uint8_t hid_header_size = sizeof(hid_header);
+        constexpr uint8_t cs_header_size = sizeof(cs_header);
 
         struct frame_object
         {
@@ -571,15 +578,13 @@ namespace librealsense
             std::vector<hid_device_info> hid_devices;
             std::vector<cs_device_info> cs_devices;
             std::vector<playback_device_info> playback_devices;
-            std::vector<tm2_device_info> tm2_devices;
 
             bool operator == (const backend_device_group& other)
             {
                 return !list_changed(uvc_devices, other.uvc_devices) &&
                     !list_changed(hid_devices, other.hid_devices) &&
                     !list_changed(playback_devices, other.playback_devices) &&
-                    !list_changed(cs_devices, other.cs_devices) &&
-                    !list_changed(tm2_devices, other.tm2_devices);
+                    !list_changed(cs_devices, other.cs_devices);
             }
 
             operator std::string()

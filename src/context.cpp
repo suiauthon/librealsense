@@ -25,7 +25,6 @@
 #include "fw-update/fw-update-factory.h"
 
 #ifdef WITH_TRACKING
-#include "tm2/tm-context.h"
 #include "tm2/tm-info.h"
 #endif
 
@@ -92,18 +91,20 @@ bool contains(const std::shared_ptr<librealsense::device_info>& first,
             second_data.playback_devices.end())
             return false;
     }
-    for (auto&& tm : first_data.tm2_devices)
-    {
-        if (std::find(second_data.tm2_devices.begin(),
-            second_data.tm2_devices.end(), tm) ==
-            second_data.tm2_devices.end())
-            return false;
-    }
     return true;
 }
 
 namespace librealsense
 {
+    const std::map<uint32_t, rs2_format> platform_color_fourcc_to_rs2_format = {
+        {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
+        {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY}
+    };
+    const std::map<uint32_t, rs2_stream> platform_color_fourcc_to_rs2_stream = {
+        {rs_fourcc('Y','U','Y','2'), RS2_STREAM_COLOR},
+        {rs_fourcc('U','Y','V','Y'), RS2_STREAM_COLOR}
+    };
+
     context::context(backend_type type,
                      const char* filename,
                      const char* section,
@@ -111,7 +112,12 @@ namespace librealsense
                      std::string min_api_version)
         : _devices_changed_callback(nullptr, [](rs2_devices_changed_callback*){})
     {
-        LOG_DEBUG("Librealsense " << std::string(std::begin(rs2_api_version),std::end(rs2_api_version)));
+        static bool version_logged=false;
+        if (!version_logged)
+        {
+            version_logged = true;
+            LOG_DEBUG("Librealsense " << std::string(std::begin(rs2_api_version),std::end(rs2_api_version)));
+        }
 
         if (_objects_count == 0) {
             smcs::InitCameraAPI();
@@ -122,25 +128,13 @@ namespace librealsense
             }
             //heartbeat time set to default on the first call to get_instance()
             d400e::heartbeat_time::get_instance();
+            smcs_api->RegisterCallback(&cs_device_watcher::get_cs_device_watcher());
         }
 
         switch(type)
         {
         case backend_type::standard:
             _backend = platform::create_backend();
-#if WITH_TRACKING
-            _tm2_context = std::make_shared<tm2_context>(this);
-            _tm2_context->on_device_changed += [this](std::shared_ptr<tm2_info> removed, std::shared_ptr<tm2_info> added)-> void
-            {
-                std::vector<rs2_device_info> rs2_devices_info_added;
-                std::vector<rs2_device_info> rs2_devices_info_removed;
-                if (removed)
-                    rs2_devices_info_removed.push_back({ shared_from_this(), removed });
-                if (added)
-                    rs2_devices_info_added.push_back({ shared_from_this(), added });
-                raise_devices_changed(rs2_devices_info_removed, rs2_devices_info_added);
-            };
-#endif
             break;
         case backend_type::record:
             _backend = std::make_shared<platform::record_backend>(platform::create_backend(), filename, section, mode);
@@ -234,14 +228,12 @@ namespace librealsense
         std::vector<platform::uvc_device_info> _uvcs;
     };
 
-    class platform_camera_sensor : public uvc_sensor
+    class platform_camera_sensor : public synthetic_sensor
     {
     public:
-        platform_camera_sensor(const std::shared_ptr<context>&,
-            device* owner,
-            std::shared_ptr<platform::uvc_device> uvc_device,
-            std::unique_ptr<frame_timestamp_reader> timestamp_reader)
-            : uvc_sensor("RGB Camera", uvc_device, move(timestamp_reader), owner),
+        platform_camera_sensor(device* owner,
+            std::shared_ptr<uvc_sensor> uvc_sensor)
+            : synthetic_sensor("RGB Camera", uvc_sensor, owner),
               _default_stream(new stream(RS2_STREAM_COLOR))
         {
         }
@@ -250,9 +242,9 @@ namespace librealsense
         {
             auto lock = environment::get_instance().get_extrinsics_graph().lock();
 
-            auto results = uvc_sensor::init_stream_profiles();
+            auto results = synthetic_sensor::init_stream_profiles();
 
-            for (auto p : results)
+            for (auto&& p : results)
             {
                 // Register stream types
                 assign_stream(_default_stream, p);
@@ -279,9 +271,11 @@ namespace librealsense
             std::vector<std::shared_ptr<platform::uvc_device>> devs;
             for (auto&& info : uvc_infos)
                 devs.push_back(ctx->get_backend().create_uvc_device(info));
-            auto color_ep = std::make_shared<platform_camera_sensor>(ctx, this,
-                                                                     std::make_shared<platform::multi_pins_uvc_device>(devs),
-                                                                     std::unique_ptr<ds5_timestamp_reader>(new ds5_timestamp_reader(environment::get_instance().get_time_service())));
+            auto raw_color_ep = std::make_shared<uvc_sensor>("Raw RGB Camera",
+                std::make_shared<platform::multi_pins_uvc_device>(devs),
+                std::unique_ptr<ds5_timestamp_reader>(new ds5_timestamp_reader(environment::get_instance().get_time_service())),
+                this);
+            auto color_ep = std::make_shared<platform_camera_sensor>(this, raw_color_ep);
             add_sensor(color_ep);
 
             register_info(RS2_CAMERA_INFO_NAME, "Platform Camera");
@@ -292,20 +286,20 @@ namespace librealsense
             register_info(RS2_CAMERA_INFO_PHYSICAL_PORT, uvc_infos.front().device_path);
             register_info(RS2_CAMERA_INFO_PRODUCT_ID, pid_str);
 
-            color_ep->register_pixel_format(pf_yuy2);
-            color_ep->register_pixel_format(pf_yuyv);
+            color_ep->register_processing_block(processing_block_factory::create_pbf_vector<uyvy_converter>(RS2_FORMAT_UYVY, map_supported_color_formats(RS2_FORMAT_UYVY), RS2_STREAM_COLOR));
+            color_ep->register_processing_block(processing_block_factory::create_pbf_vector<yuy2_converter>(RS2_FORMAT_YUYV, map_supported_color_formats(RS2_FORMAT_YUYV), RS2_STREAM_COLOR));
 
-            color_ep->try_register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
-            color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
-            color_ep->try_register_pu(RS2_OPTION_CONTRAST);
-            color_ep->try_register_pu(RS2_OPTION_EXPOSURE);
-            color_ep->try_register_pu(RS2_OPTION_GAMMA);
-            color_ep->try_register_pu(RS2_OPTION_HUE);
-            color_ep->try_register_pu(RS2_OPTION_SATURATION);
-            color_ep->try_register_pu(RS2_OPTION_SHARPNESS);
-            color_ep->try_register_pu(RS2_OPTION_WHITE_BALANCE);
-            color_ep->try_register_pu(RS2_OPTION_ENABLE_AUTO_EXPOSURE);
-            color_ep->try_register_pu(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
+            raw_color_ep->try_register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
+            raw_color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
+            raw_color_ep->try_register_pu(RS2_OPTION_CONTRAST);
+            raw_color_ep->try_register_pu(RS2_OPTION_EXPOSURE);
+            raw_color_ep->try_register_pu(RS2_OPTION_GAMMA);
+            raw_color_ep->try_register_pu(RS2_OPTION_HUE);
+            raw_color_ep->try_register_pu(RS2_OPTION_SATURATION);
+            raw_color_ep->try_register_pu(RS2_OPTION_SHARPNESS);
+            raw_color_ep->try_register_pu(RS2_OPTION_WHITE_BALANCE);
+            raw_color_ep->try_register_pu(RS2_OPTION_ENABLE_AUTO_EXPOSURE);
+            raw_color_ep->try_register_pu(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
         }
 
         virtual rs2_intrinsics get_intrinsics(unsigned int, const stream_profile&) const
@@ -332,16 +326,17 @@ namespace librealsense
         _device_watcher->stop(); //ensure that the device watcher will stop before the _devices_changed_callback will be deleted
 
         if (_objects_count > 0) _objects_count--;
-        if (_objects_count == 0) smcs::ExitCameraAPI();
+        if (_objects_count == 0) {
+            auto smcs_api = smcs::GetCameraAPI();
+            smcs_api->UnregisterCallback(&cs_device_watcher::get_cs_device_watcher());
+            smcs::ExitCameraAPI();
+        }
     }
 
     std::vector<std::shared_ptr<device_info>> context::query_devices(int mask) const
     {
 
         platform::backend_device_group devices(_backend->query_uvc_devices(), _backend->query_usb_devices(), _backend->query_hid_devices(), _backend->query_cs_devices());
-#ifdef WITH_TRACKING
-        if (_tm2_context) _tm2_context->create_manager();
-#endif
 
         return create_devices(devices, _playback_devices, mask);
     }
@@ -372,9 +367,9 @@ namespace librealsense
         }
 
 #ifdef WITH_TRACKING
-        if (_tm2_context)
+        if (mask & RS2_PRODUCT_LINE_T200)
         {
-            auto tm2_devices = tm2_info::pick_tm2_devices(ctx, _tm2_context->get_manager(), _tm2_context->query_devices());
+            auto tm2_devices = tm2_info::pick_tm2_devices(ctx, devices.usb_devices);
             std::copy(begin(tm2_devices), end(tm2_devices), std::back_inserter(list));
         }
 #endif
@@ -537,13 +532,12 @@ namespace librealsense
 
             for (auto&& hid : hids)
             {
-                if (hid.unique_id != "")
+                if( ! hid.unique_id.empty() )
                 {
                     std::stringstream(hid.vid) >> std::hex >> vid;
                     std::stringstream(hid.pid) >> std::hex >> pid;
 
-                    if ((hid.unique_id == unique_id) || // Linux check
-                        ((hid.unique_id == "*") && (hid.serial_number == device_serial))) // Windows check
+                    if (hid.unique_id == unique_id)
                     {
                         hid_group.push_back(hid);
                     }
@@ -601,7 +595,6 @@ namespace librealsense
 #if WITH_TRACKING
     void context::unload_tracking_module()
     {
-        _tm2_context.reset();
     }
 #endif
 

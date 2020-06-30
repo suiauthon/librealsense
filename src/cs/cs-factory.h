@@ -40,13 +40,26 @@ namespace librealsense {
         platform::cs_device_info _hwm;
     };
 
+    class cs_device_watcher : public smcs::ICallbackEvent
+    {
+    public:
+        void OnDisconnect(smcs::IDevice device) override;
+        static cs_device_watcher& get_cs_device_watcher();
+        void find_cs_devices(double timer);
+        std::vector <platform::cs_device_info> get_cs_devices();
+
+    private:
+        cs_device_watcher();
+        platform::cs_device_info get_cs_device_info(smcs::IDevice device);
+        std::set<platform::cs_device_info> connected_cs_devices_;
+    };
+
     class d400e_camera : public cs_depth,
                          public cs_color,
                          public cs_advanced_mode_base
     {
     public:
         d400e_camera(std::shared_ptr<context> ctx,
-                     const platform::cs_device_info &hwm_device,
                      const platform::backend_device_group& group,
                      bool register_device_notifications);
 
@@ -54,22 +67,23 @@ namespace librealsense {
 
         std::vector<tagged_profile> get_profiles_tags() const override;
 
-        cs_sensor& get_cs_sensor(size_t subdevice) { return dynamic_cast<cs_sensor&>(get_sensor(subdevice)); }
-
         void hardware_reset() override
         {
-            if (get_cs_sensor(_color_device_idx).is_streaming()) {
-                get_cs_sensor(_color_device_idx).stop();
-                get_cs_sensor(_color_device_idx).close();
+            auto& color_sensor = get_sensor(_color_device_idx);
+            if (color_sensor.is_streaming()) {
+                color_sensor.stop();
+                color_sensor.close();
             }
 
-            if (get_cs_sensor(_depth_device_idx).is_streaming()) {
-                get_cs_sensor(_depth_device_idx).stop();
-                get_cs_sensor(_depth_device_idx).close();
+            auto& depth_sensor = get_sensor(_depth_device_idx);
+            if (depth_sensor.is_streaming()) {
+                depth_sensor.stop();
+                depth_sensor.close();
             }
 
             _cs_device->reset();
         }
+
     private:
         std::string get_equivalent_pid(std::string id) const;
     };

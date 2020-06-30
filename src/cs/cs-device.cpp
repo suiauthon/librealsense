@@ -3,17 +3,106 @@
 
 #include "cs-device.h"
 #include "cs-timestamp.h"
+#include "cs-options.h"
 
 #include "proc/decimation-filter.h"
 #include "proc/threshold.h"
 #include "proc/disparity-transform.h"
 #include "proc/spatial-filter.h"
+#include "proc/colorizer.h"
 #include "proc/temporal-filter.h"
+#include "proc/y8i-to-y8y8.h"
+#include "proc/y12i-to-y16y16.h"
+#include "proc/color-formats-converter.h"
+#include "proc/syncer-processing-block.h"
 #include "proc/hole-filling-filter.h"
+#include "proc/depth-formats-converter.h"
+#include "proc/depth-decompress.h"
 #include "../common/fw/firmware-version.h"
+#include "../third-party/json.hpp"
 
 namespace librealsense
 {
+    class LRS_EXTENSION_API cs_global_time_option_depth : public global_time_option
+    {
+    public:
+        cs_global_time_option_depth(cs_depth* cs_depth) : m_cs_depth(cs_depth) {}
+
+        void set(float value) override
+        {
+            if (!is_valid(value))
+                throw invalid_value_exception(to_string() << "set(...) failed! " << value << " is not a valid value");
+            _value = value;
+
+            m_cs_depth->enable_time_diff_keeper(value != 0);
+        };
+
+    private:
+        cs_depth* m_cs_depth;
+    };
+
+
+    class LRS_EXTENSION_API cs_global_time_option_color : public global_time_option
+    {
+    public:
+        cs_global_time_option_color(cs_color* cs_color) : m_cs_color(cs_color) {}
+
+        void set(float value) override
+        {
+            if (!is_valid(value))
+                throw invalid_value_exception(to_string() << "set(...) failed! " << value << " is not a valid value");
+            _value = value;
+
+            m_cs_color->enable_time_diff_keeper(value != 0);
+        };
+
+    private:
+        cs_color* m_cs_color;
+    };
+
+    std::map<uint32_t, rs2_format> cs_depth_fourcc_to_rs2_format = {
+            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
+            {rs_fourcc('Y','U','Y','V'), RS2_FORMAT_YUYV},
+            {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY},
+            {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
+            {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
+            {rs_fourcc('W','1','0',' '), RS2_FORMAT_W10},
+            {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
+            {rs_fourcc('Y','1','2','I'), RS2_FORMAT_Y12I},
+            {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16},
+            {rs_fourcc('Z','1','6','H'), RS2_FORMAT_Z16H},
+            {rs_fourcc('R','G','B','2'), RS2_FORMAT_BGR8}
+
+    };
+    std::map<uint32_t, rs2_stream> cs_depth_fourcc_to_rs2_stream = {
+            {rs_fourcc('Y','U','Y','2'), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','U','Y','V'), RS2_STREAM_INFRARED},
+            {rs_fourcc('U','Y','V','Y'), RS2_STREAM_INFRARED},
+            {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
+            {rs_fourcc('W','1','0',' '), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','1','2','I'), RS2_STREAM_INFRARED},
+            {rs_fourcc('R','G','B','2'), RS2_STREAM_INFRARED},
+            {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH},
+            {rs_fourcc('Z','1','6','H'), RS2_STREAM_DEPTH}
+    };
+
+    std::map<uint32_t, rs2_format> cs_color_fourcc_to_rs2_format = {
+            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
+            {rs_fourcc('Y','U','Y','V'), RS2_FORMAT_YUYV},
+            {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY},
+            {rs_fourcc('M','J','P','G'), RS2_FORMAT_MJPEG},
+            {rs_fourcc('B','Y','R','2'), RS2_FORMAT_RAW16}
+    };
+    std::map<uint32_t, rs2_stream> cs_color_fourcc_to_rs2_stream = {
+            {rs_fourcc('Y','U','Y','2'), RS2_STREAM_COLOR},
+            {rs_fourcc('Y','U','Y','V'), RS2_STREAM_COLOR},
+            {rs_fourcc('U','Y','V','Y'), RS2_STREAM_COLOR},
+            {rs_fourcc('B','Y','R','2'), RS2_STREAM_COLOR},
+            {rs_fourcc('M','J','P','G'), RS2_STREAM_COLOR},
+    };
+
     cs_auto_exposure_roi_method::cs_auto_exposure_roi_method(const hw_monitor& hwm,
                                                              ds::fw_cmd cmd)
             : _hw_monitor(hwm), _cmd(cmd) {}
@@ -49,60 +138,7 @@ namespace librealsense
         return roi;
     }
 
-    ds::depth_table_control cs_depth_scale_option::get_depth_table(ds::advanced_query_mode mode) const
-    {
-        command cmd(ds::GET_ADV);
-        cmd.param1 = ds::etDepthTableControl;
-        cmd.param2 = mode;
-        auto res = _hwm.send(cmd);
-
-        if (res.size() < sizeof(ds::depth_table_control))
-            throw std::runtime_error("Not enough bytes returned from the firmware!");
-
-        auto table = (const ds::depth_table_control*)res.data();
-        return *table;
-    }
-
-    cs_depth_scale_option::cs_depth_scale_option(hw_monitor& hwm)
-            : _hwm(hwm)
-    {
-        _range = [this]()
-        {
-            auto min = get_depth_table(ds::GET_MIN);
-            auto max = get_depth_table(ds::GET_MAX);
-            return option_range{ (float)(0.000001 * min.depth_units),
-                                 (float)(0.000001 * max.depth_units),
-                                 0.000001f, 0.001f };
-        };
-    }
-
-    void cs_depth_scale_option::set(float value)
-    {
-        command cmd(ds::SET_ADV);
-        cmd.param1 = ds::etDepthTableControl;
-
-        auto depth_table = get_depth_table(ds::GET_VAL);
-        depth_table.depth_units = static_cast<uint32_t>(1000000 * value);
-        auto ptr = (uint8_t*)(&depth_table);
-        cmd.data = std::vector<uint8_t>(ptr, ptr + sizeof(ds::depth_table_control));
-
-        _hwm.send(cmd);
-        _record_action(*this);
-        notify(value);
-    }
-
-    float cs_depth_scale_option::query() const
-    {
-        auto table = get_depth_table(ds::GET_VAL);
-        return (float)(0.000001 * (float)table.depth_units);
-    }
-
-    option_range cs_depth_scale_option::get_range() const
-    {
-        return *_range;
-    }
-
-	cs_external_sync_mode::cs_external_sync_mode(hw_monitor& hwm, cs_depth_sensor& depth)
+	cs_external_sync_mode::cs_external_sync_mode(hw_monitor& hwm, cs_sensor& depth)
 		: _hwm(hwm), _depth(depth)
 	{
 		_range = [this]()
@@ -129,7 +165,7 @@ namespace librealsense
 		return *_range;
 	}
 
-	cs_external_sync_mode_color::cs_external_sync_mode_color(cs_color_sensor& color)
+	cs_external_sync_mode_color::cs_external_sync_mode_color(cs_sensor& color)
 		: _color(color)
 	{
 		_range = [this]()
@@ -156,11 +192,52 @@ namespace librealsense
 		return *_range;
 	}
 
+    cs_device_interface::cs_device_interface(std::shared_ptr<context> ctx,
+                                             const platform::backend_device_group& group)
+            : global_time_interface()
+    {
+        _cs_device_info = group.cs_devices.front();
+        _cs_device = ctx->get_backend().create_cs_device(_cs_device_info);
+
+        _hw_monitor = std::make_shared<hw_monitor>(std::make_shared<cs_command_transfer>(_cs_device));
+    }
+
+    double cs_device_interface::get_device_time_ms()
+    {
+        if (_cs_device) {
+            return _cs_device->get_device_timestamp_ms();
+        }
+        else {
+            throw std::runtime_error("cs_device not initialized");
+        }
+    }
+
+    cs_color::cs_color(std::shared_ptr<context> ctx,
+                       const platform::backend_device_group& group)
+            : device(ctx, group),
+              cs_device_interface(ctx, group),
+              _color_stream(new stream(RS2_STREAM_COLOR))
+    {
+        _color_device_idx = add_sensor(create_color_device(ctx, _cs_device));
+        color_init(ctx, group);
+    };
+
+    cs_depth::cs_depth(std::shared_ptr<context> ctx,
+                       const platform::backend_device_group& group)
+            : device(ctx, group),
+              cs_device_interface(ctx, group),
+              _depth_stream(new stream(RS2_STREAM_DEPTH)),
+              _left_ir_stream(new stream(RS2_STREAM_INFRARED, 1)),
+              _right_ir_stream(new stream(RS2_STREAM_INFRARED, 2)),
+              _device_capabilities(ds::d400_caps::CAP_UNDEFINED)
+    {
+        _depth_device_idx = add_sensor(create_depth_device(ctx, _cs_device));
+        depth_init(ctx, group);
+    }
+
     void cs_color::color_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
     {
         using namespace ds;
-
-        _hw_monitor = std::make_shared<hw_monitor>(&get_color_sensor());
 
         _color_calib_table_raw = [this]() { return get_raw_calibration_table(rgb_calibration_id); };
         _color_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]() { return from_pose(get_color_stream_extrinsic(*_color_calib_table_raw)); });
@@ -168,17 +245,90 @@ namespace librealsense
         register_stream_to_extrinsic_group(*_color_stream, 0);
 
         auto& color_ep = get_color_sensor();
+        auto& raw_color_sensor = get_raw_color_sensor();
 
-        roi_sensor_interface* roi_sensor;
-        if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&color_ep))
-            roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
+        std::vector<uint8_t> gvd_buff(HW_MONITOR_BUFFER_SIZE);
+        _hw_monitor->get_gvd(gvd_buff.size(), gvd_buff.data(), GVD);
+        // fooling tests recordings - don't remove
+        _hw_monitor->get_gvd(gvd_buff.size(), gvd_buff.data(), GVD);
+
+        auto fwv = _hw_monitor->get_firmware_version_string(gvd_buff, camera_fw_version_offset);
+        _fw_version = firmware_version(fwv);
+
+        color_ep.register_option(RS2_OPTION_BRIGHTNESS, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_BRIGHTNESS, CS_STREAM_COLOR));
+        color_ep.register_option(RS2_OPTION_CONTRAST, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_CONTRAST, CS_STREAM_COLOR));
+        color_ep.register_option(RS2_OPTION_GAIN, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_GAIN, CS_STREAM_COLOR));
+        color_ep.register_option(RS2_OPTION_HUE, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_HUE, CS_STREAM_COLOR));
+        color_ep.register_option(RS2_OPTION_SATURATION, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_SATURATION, CS_STREAM_COLOR));
+        color_ep.register_option(RS2_OPTION_SHARPNESS, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_SHARPNESS, CS_STREAM_COLOR));
+        color_ep.register_option(RS2_OPTION_GAMMA, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_GAMMA, CS_STREAM_COLOR));
+        color_ep.register_option(RS2_OPTION_BACKLIGHT_COMPENSATION, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_BACKLIGHT_COMPENSATION, CS_STREAM_COLOR));
+        color_ep.register_option(RS2_OPTION_AUTO_EXPOSURE_PRIORITY, std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_AUTO_EXPOSURE_PRIORITY, CS_STREAM_COLOR));
+
+        auto white_balance_option = std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_WHITE_BALANCE, CS_STREAM_COLOR);
+        auto auto_white_balance_option = std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, CS_STREAM_COLOR);
+        color_ep.register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
+        color_ep.register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
+        color_ep.register_option(RS2_OPTION_WHITE_BALANCE,
+                                 std::make_shared<auto_disabling_control>(
+                                         white_balance_option,
+                                         auto_white_balance_option));
+
+        auto exposure_option = std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_EXPOSURE, CS_STREAM_COLOR);
+        auto auto_exposure_option = std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_COLOR);
+        color_ep.register_option(RS2_OPTION_EXPOSURE, exposure_option);
+        color_ep.register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
+        color_ep.register_option(RS2_OPTION_EXPOSURE,
+                                 std::make_shared<auto_disabling_control>(
+                                         exposure_option,
+                                         auto_exposure_option));
+
+        color_ep.register_option(RS2_OPTION_POWER_LINE_FREQUENCY,
+                                 std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_POWER_LINE_FREQUENCY, CS_STREAM_COLOR,
+                                                                std::map<float, std::string>{ { 0.f, "Disabled"},
+                                                                                              { 1.f, "50Hz" },
+                                                                                              { 2.f, "60Hz" },
+                                                                                              { 3.f, "Auto" },
+                                                                                              { 4.f, "OutDoor" },}));
+        // Starting with firmware 5.10.9, auto-exposure ROI is available for color sensor
+        if (_fw_version >= firmware_version("5.10.9.0"))
+        {
+            roi_sensor_interface* roi_sensor;
+            if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&color_ep))
+                roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
+        }
+
+        if (_fw_version >= firmware_version("5.9.15.1"))
+        {
+            auto ext_sync_mode = std::make_shared<cs_external_sync_mode_color>(raw_color_sensor);
+            color_ep.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
+        }
+
+        auto inter_packet_delay_option = std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_COLOR);
+        color_ep.register_option(RS2_OPTION_INTER_PACKET_DELAY, inter_packet_delay_option);
+
+        auto packet_size_option = std::make_shared<cs_pu_option>(raw_color_sensor, RS2_OPTION_PACKET_SIZE, CS_STREAM_COLOR);
+        color_ep.register_option(RS2_OPTION_PACKET_SIZE, packet_size_option);
+
+        if (_cs_device->is_software_trigger_supported()) {
+            color_ep.register_option(RS2_OPTION_SOFTWARE_TRIGGER,
+                std::make_shared<cs_software_trigger_option>(raw_color_sensor, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_COLOR,
+                    std::map<float, std::string>{ { 1.f, "Trigger" }}));
+
+            color_ep.register_option(RS2_OPTION_EXT_TRIGGER_SOURCE,
+                std::make_shared<cs_external_trigger_option>(raw_color_sensor, RS2_OPTION_EXT_TRIGGER_SOURCE, CS_STREAM_COLOR,
+                    std::map<float, std::string>{ { 1.f, "Hardware" },
+                    { 2.f, "Software" }}));
+        }
+        enable_time_diff_keeper(true);
     }
 
     void cs_depth::depth_init(std::shared_ptr<context> ctx, const platform::backend_device_group& group)
     {
         using namespace ds;
 
-        _hw_monitor = std::make_shared<hw_monitor>(&get_depth_sensor());
+        auto&& backend = ctx->get_backend();
+        auto& raw_sensor = get_raw_depth_sensor();
 
         _depth_extrinsic = std::make_shared<lazy<rs2_extrinsics>>([this]()
                 {
@@ -214,28 +364,94 @@ namespace librealsense
         if (_fw_version >= firmware_version("5.10.4.0"))
             _device_capabilities = parse_device_capabilities(pid);
 
-        auto& depth_ep = get_depth_sensor();
+        auto& depth_sensor = get_depth_sensor();
+        auto& raw_depth_sensor = get_raw_depth_sensor();
+
         auto advanced_mode = is_camera_in_advanced_mode();
 
         using namespace platform;
 
-        if (advanced_mode)
+        if (_fw_version >= firmware_version("5.12.1.1"))
         {
-            depth_ep.register_pixel_format(pf_y8i); // L+R
-            depth_ep.register_pixel_format(pf_y12i); // L+R - Calibration not rectified
+            depth_sensor.register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Z16H, RS2_STREAM_DEPTH));
         }
 
-        roi_sensor_interface* roi_sensor;
-        if (roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_ep))
+        if (advanced_mode)
+        {
+            depth_sensor.register_processing_block(
+                    { {RS2_FORMAT_Y8I} },
+                    { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} , {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 2} },
+                    []() { return std::make_shared<y8i_to_y8y8>(); }
+            ); // L+R
+
+            depth_sensor.register_processing_block(
+                    {RS2_FORMAT_Y12I},
+                    {{RS2_FORMAT_Y16, RS2_STREAM_INFRARED, 1}, {RS2_FORMAT_Y16, RS2_STREAM_INFRARED, 2}},
+                    []() {return std::make_shared<y12i_to_y16y16>(); }
+            );
+        }
+
+        if (_fw_version >= firmware_version("5.6.3.0"))
+        {
+            auto gain_option = std::make_shared<cs_pu_option>(raw_depth_sensor, RS2_OPTION_GAIN, CS_STREAM_DEPTH);
+            depth_sensor.register_option(RS2_OPTION_GAIN, gain_option);
+
+            auto exposure_option = std::make_shared<cs_depth_exposure_option>(raw_depth_sensor, RS2_OPTION_EXPOSURE, CS_STREAM_DEPTH);
+            depth_sensor.register_option(RS2_OPTION_EXPOSURE, exposure_option);
+
+            auto auto_exposure_option = std::make_shared<cs_pu_option>(raw_depth_sensor, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_DEPTH);
+            depth_sensor.register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
+
+            depth_sensor.register_option(RS2_OPTION_EXPOSURE,
+                                         std::make_shared<auto_disabling_control>(
+                                                 exposure_option,
+                                                 auto_exposure_option));
+        }
+
+        auto emitter_enabled_option = std::make_shared<cs_pu_option>(raw_depth_sensor, RS2_OPTION_EMITTER_ENABLED, CS_STREAM_DEPTH);
+        depth_sensor.register_option(RS2_OPTION_EMITTER_ENABLED, emitter_enabled_option);
+
+        auto laser_power_option = std::make_shared<cs_pu_option>(raw_depth_sensor, RS2_OPTION_LASER_POWER, CS_STREAM_DEPTH);
+        depth_sensor.register_option(RS2_OPTION_LASER_POWER, laser_power_option);
+
+        depth_sensor.register_option(RS2_OPTION_LASER_POWER,
+                                     std::make_shared<auto_disabling_control>(
+                                             laser_power_option,
+                                             emitter_enabled_option,
+                                             std::vector<float>{0.f}, 1.f));
+
+        if (_fw_version >= firmware_version("5.5.8.0"))
+        {
+            if (_cs_device->is_option_supported(RS2_OPTION_ASIC_TEMPERATURE, CS_STREAM_DEPTH))
+                depth_sensor.register_option(RS2_OPTION_ASIC_TEMPERATURE,
+                                         std::make_shared<cs_asic_and_projector_temperature_options>(raw_depth_sensor,
+                                                                                                    RS2_OPTION_ASIC_TEMPERATURE,
+                                                                                                    CS_STREAM_DEPTH));
+            
+            if (_cs_device->is_option_supported(RS2_OPTION_PROJECTOR_TEMPERATURE, CS_STREAM_DEPTH))
+                depth_sensor.register_option(RS2_OPTION_PROJECTOR_TEMPERATURE,
+                                         std::make_shared<cs_asic_and_projector_temperature_options>(raw_depth_sensor,
+                                                                                                     RS2_OPTION_PROJECTOR_TEMPERATURE,
+                                                                                                     CS_STREAM_DEPTH));
+        }
+
+        if (_fw_version >= firmware_version("5.9.15.1"))
+        {
+            auto ext_sync_mode = std::make_shared<cs_external_sync_mode>(*_hw_monitor, raw_depth_sensor);
+            depth_sensor.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
+        }
+
+        roi_sensor_interface* roi_sensor = dynamic_cast<roi_sensor_interface*>(&depth_sensor);
+        if (roi_sensor)
             roi_sensor->set_roi_method(std::make_shared<cs_auto_exposure_roi_method>(*_hw_monitor));
 
-        depth_ep.register_option(RS2_OPTION_STEREO_BASELINE, std::make_shared<const_value_option>("Distance in mm between the stereo imagers",
-                                                                                                  lazy<float>([this]() { return get_stereo_baseline_mm(); })));
+        depth_sensor.register_option(RS2_OPTION_STEREO_BASELINE, std::make_shared<const_value_option>("Distance in mm between the stereo imagers",
+                                                                                                     lazy<float>([this]() { return get_stereo_baseline_mm(); })));
 
         if (advanced_mode && _fw_version >= firmware_version("5.6.3.0"))
         {
             auto depth_scale = std::make_shared<cs_depth_scale_option>(*_hw_monitor);
-            auto depth_sensor = As<cs_depth_sensor, cs_sensor>(&depth_ep);
+            auto depth_sensor = As<cs_depth_sensor, synthetic_sensor>(&get_depth_sensor());
             assert(depth_sensor);
 
             depth_scale->add_observer([depth_sensor](float val)
@@ -243,170 +459,83 @@ namespace librealsense
                                           depth_sensor->set_depth_scale(val);
                                       });
 
-            depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, depth_scale);
+            depth_sensor->register_option(RS2_OPTION_DEPTH_UNITS, depth_scale);
         }
         else
-            depth_ep.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
-                                                                                                  lazy<float>([]() { return 0.001f; })));
-        register_info(RS2_CAMERA_INFO_ADVANCED_MODE, ((advanced_mode) ? "YES" : "NO"));
-        
-        //added because ROS wrapper 2.2.9 requires this property
-        register_info(RS2_CAMERA_INFO_PHYSICAL_PORT, "N/A");
+            depth_sensor.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
+                                                                                                      lazy<float>([]() { return 0.001f; })));
 
-		auto depth_sensor = As<cs_depth_sensor, cs_sensor>(&depth_ep);
-		auto ext_sync_mode = std::make_shared<cs_external_sync_mode>(*_hw_monitor, *depth_sensor);
-		depth_ep.register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
+        auto inter_packet_delay_option = std::make_shared<cs_pu_option>(raw_depth_sensor, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_DEPTH);
+        depth_sensor.register_option(RS2_OPTION_INTER_PACKET_DELAY, inter_packet_delay_option);
+
+        auto packet_size_option = std::make_shared<cs_pu_option>(raw_depth_sensor, RS2_OPTION_PACKET_SIZE, CS_STREAM_DEPTH);
+        depth_sensor.register_option(RS2_OPTION_PACKET_SIZE, packet_size_option);
+
+        auto output_trigger_enabled_option = std::make_shared<cs_pu_option>(raw_depth_sensor, RS2_OPTION_OUTPUT_TRIGGER_ENABLED, CS_STREAM_DEPTH);
+        depth_sensor.register_option(RS2_OPTION_OUTPUT_TRIGGER_ENABLED, output_trigger_enabled_option);
 
         if (_cs_device->is_software_trigger_supported()) {
-            depth_ep.register_option(RS2_OPTION_SOFTWARE_TRIGGER,
-                std::make_shared<cs_software_trigger_option>(depth_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_DEPTH,
+            depth_sensor.register_option(RS2_OPTION_SOFTWARE_TRIGGER,
+                std::make_shared<cs_software_trigger_option>(raw_depth_sensor, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_DEPTH,
                     std::map<float, std::string>{ { 1.f, "Trigger" }}));
 
-            auto sw_trigger_all = std::make_shared<cs_software_trigger_all_option>(depth_ep, RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, CS_STREAM_DEPTH);
-            depth_ep.register_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, sw_trigger_all);
+            auto sw_trigger_all = std::make_shared<cs_software_trigger_all_option>(raw_depth_sensor, RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, CS_STREAM_DEPTH);
+            depth_sensor.register_option(RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS, sw_trigger_all);
 
-            depth_ep.register_option(RS2_OPTION_EXT_TRIGGER_SOURCE,
-                std::make_shared<cs_external_trigger_option>(depth_ep, RS2_OPTION_EXT_TRIGGER_SOURCE, CS_STREAM_DEPTH,
+            depth_sensor.register_option(RS2_OPTION_EXT_TRIGGER_SOURCE,
+                std::make_shared<cs_external_trigger_option>(raw_depth_sensor, RS2_OPTION_EXT_TRIGGER_SOURCE, CS_STREAM_DEPTH,
                     std::map<float, std::string>{ { 1.f, "Hardware" },
                     { 2.f, "Software" }}));
+
+            depth_sensor.register_option(RS2_OPTION_USER_OUTPUT_LEVEL,
+                std::make_shared<cs_user_output_level_option>(raw_depth_sensor, RS2_OPTION_USER_OUTPUT_LEVEL, CS_STREAM_DEPTH,
+                    std::map<float, std::string>{ { 1.f, "Low" },
+                    { 2.f, "High" }}));
         }
+        enable_time_diff_keeper(true);
     }
 
-    std::shared_ptr<cs_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
+    std::shared_ptr<synthetic_sensor> cs_color::create_color_device(std::shared_ptr<context> ctx,
                                                              std::shared_ptr<platform::cs_device> cs_device)
     {
         auto&& backend = ctx->get_backend();
         std::unique_ptr<frame_timestamp_reader> cs_timestamp_reader_backup(new cs_timestamp_reader(backend.create_time_service()));
         std::unique_ptr<frame_timestamp_reader> cs_timestamp_reader_metadata(new cs_timestamp_reader_from_metadata(std::move(cs_timestamp_reader_backup)));
 
-        auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
-        auto color_ep = std::make_shared<cs_color_sensor>(this, cs_device,
-                                                           std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(cs_timestamp_reader_metadata),
-                                                                                                                               _tf_keeper, enable_global_time_option)),
-                                                          ctx);
+        auto enable_global_time_option = std::shared_ptr<global_time_option>(new cs_global_time_option_color(this));
+        auto raw_color_ep = std::make_shared<cs_sensor>("Raw RGB Camera", cs_device,
+                std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(cs_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)),
+                this, CS_STREAM_COLOR);
 
+        auto color_ep = std::make_shared<cs_color_sensor>(this, raw_color_ep, cs_color_fourcc_to_rs2_format, cs_color_fourcc_to_rs2_stream);
         color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
-        color_ep->register_pixel_format(pf_yuyv);
-        color_ep->register_pixel_format(pf_uyvyc);
-
-        color_ep->try_register_pu(RS2_OPTION_BRIGHTNESS);
-        color_ep->try_register_pu(RS2_OPTION_CONTRAST);
-        color_ep->try_register_pu(RS2_OPTION_GAIN);
-        color_ep->try_register_pu(RS2_OPTION_HUE);
-        color_ep->try_register_pu(RS2_OPTION_SATURATION);
-        color_ep->try_register_pu(RS2_OPTION_SHARPNESS);
-        color_ep->try_register_pu(RS2_OPTION_GAMMA);
-        color_ep->try_register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
-
-        color_ep->register_option(RS2_OPTION_POWER_LINE_FREQUENCY,
-                                  std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_POWER_LINE_FREQUENCY, CS_STREAM_COLOR,
-                                                                  std::map<float, std::string>{ { 0.f, "Disabled"},
-                                                                                                { 1.f, "50Hz" },
-                                                                                                { 2.f, "60Hz" },
-                                                                                                { 3.f, "Auto" },
-                                                                                                { 4.f, "OutDoor" },}));
-
-        auto exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_EXPOSURE, CS_STREAM_COLOR);
-        auto auto_exposure_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_COLOR);
-        color_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
-        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
-        color_ep->register_option(RS2_OPTION_EXPOSURE,
-                                  std::make_shared<auto_disabling_control>(
-                                          exposure_option,
-                                          auto_exposure_option));
-
-        auto white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE, CS_STREAM_COLOR);
-        auto auto_white_balance_option = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, CS_STREAM_COLOR);
-        color_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
-        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
-        color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
-                                  std::make_shared<auto_disabling_control>(
-                                          white_balance_option,
-                                          auto_white_balance_option));
-
-        auto interPacketDelayOption = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_COLOR);
-        color_ep->register_option(RS2_OPTION_INTER_PACKET_DELAY, interPacketDelayOption);
-
-        auto packetSizeOption = std::make_shared<cs_pu_option>(*color_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_COLOR);
-        color_ep->register_option(RS2_OPTION_PACKET_SIZE, packetSizeOption);
-
-		auto color_sensor = As<cs_color_sensor, cs_sensor>(color_ep);
-		auto ext_sync_mode = std::make_shared<cs_external_sync_mode_color>(*color_sensor);
-		color_ep->register_option(RS2_OPTION_INTER_CAM_SYNC_MODE, ext_sync_mode);
-
-        if (cs_device->is_software_trigger_supported()) {
-            color_ep->register_option(RS2_OPTION_SOFTWARE_TRIGGER,
-                std::make_shared<cs_software_trigger_option>(*color_ep, RS2_OPTION_SOFTWARE_TRIGGER, CS_STREAM_COLOR,
-                    std::map<float, std::string>{ { 1.f, "Trigger" }}));
-
-            color_ep->register_option(RS2_OPTION_EXT_TRIGGER_SOURCE,
-                std::make_shared<cs_external_trigger_option>(*color_ep, RS2_OPTION_EXT_TRIGGER_SOURCE, CS_STREAM_COLOR,
-                    std::map<float, std::string>{ { 1.f, "Hardware" },
-                    { 2.f, "Software" }}));
-        }
-
-        color_ep->try_register_pu(RS2_OPTION_AUTO_EXPOSURE_PRIORITY);
+        color_ep->register_processing_block(processing_block_factory::create_pbf_vector<uyvy_converter>(RS2_FORMAT_UYVY, map_supported_color_formats(RS2_FORMAT_UYVY), RS2_STREAM_COLOR));
+        color_ep->register_processing_block(processing_block_factory::create_pbf_vector<yuy2_converter>(RS2_FORMAT_YUYV, map_supported_color_formats(RS2_FORMAT_YUYV), RS2_STREAM_COLOR));
+        color_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_RAW16, RS2_STREAM_COLOR));
 
         return color_ep;
     }
 
-    std::shared_ptr<cs_sensor> cs_depth::create_depth_device(std::shared_ptr<context> ctx,
-                                                             std::shared_ptr<platform::cs_device> cs_device)
+    std::shared_ptr<synthetic_sensor> cs_depth::create_depth_device(std::shared_ptr<context> ctx,
+                                                                    std::shared_ptr<platform::cs_device> cs_device)
     {
         auto&& backend = ctx->get_backend();
+
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_backup(new cs_timestamp_reader(backend.create_time_service()));
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_metadata(new cs_timestamp_reader_from_metadata(std::move(timestamp_reader_backup)));
-        auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
-        auto depth_ep = std::make_shared<cs_depth_sensor>(this, cs_device,
-                                                          std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata),
-                                                                                                                              _tf_keeper, enable_global_time_option)),
-                                                          ctx);
+        auto enable_global_time_option = std::shared_ptr<global_time_option>(new cs_global_time_option_depth(this));
+        auto raw_depth_ep = std::make_shared<cs_sensor>("Raw Depth Sensor", cs_device,
+                std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this, CS_STREAM_DEPTH);
 
-        depth_ep->try_register_pu(RS2_OPTION_GAIN);
-
-        auto exposure_option = std::make_shared<cs_depth_exposure_option>(*depth_ep, RS2_OPTION_EXPOSURE, CS_STREAM_DEPTH);
-        auto auto_exposure_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE, CS_STREAM_DEPTH);
-        depth_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
-        depth_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
-        depth_ep->register_option(RS2_OPTION_EXPOSURE,
-                                  std::make_shared<auto_disabling_control>(
-                                          exposure_option,
-                                          auto_exposure_option));
-
-        auto emitter_enabled_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_EMITTER_ENABLED, CS_STREAM_DEPTH);
-        auto laser_power_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_LASER_POWER, CS_STREAM_DEPTH);
-        depth_ep->register_option(RS2_OPTION_EMITTER_ENABLED, emitter_enabled_option);
-        depth_ep->register_option(RS2_OPTION_LASER_POWER, laser_power_option);
-        depth_ep->register_option(RS2_OPTION_LASER_POWER,
-                                  std::make_shared<auto_disabling_control>(
-                                          laser_power_option,
-                                          emitter_enabled_option,
-                                          std::vector<float>{0.f}, 1.f));
-
-
+        auto depth_ep = std::make_shared<cs_depth_sensor>(this, raw_depth_ep, cs_depth_fourcc_to_rs2_format, cs_depth_fourcc_to_rs2_stream);
         depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
-        
-        depth_ep->register_pixel_format(pf_z16);
-        depth_ep->register_pixel_format(pf_y8);
-        depth_ep->register_pixel_format(pf_yuyv);
 
-        auto inter_packet_delay_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_INTER_PACKET_DELAY, CS_STREAM_DEPTH);
-        depth_ep->register_option(RS2_OPTION_INTER_PACKET_DELAY, inter_packet_delay_option);
+        depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1));
+        depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Z16, RS2_STREAM_DEPTH));
 
-        auto packet_size_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_PACKET_SIZE, CS_STREAM_DEPTH);
-        depth_ep->register_option(RS2_OPTION_PACKET_SIZE, packet_size_option);
-
-        if (cs_device->is_temperature_supported()) {
-            auto asic_temperature_option = std::make_shared<cs_readonly_option>(*depth_ep, RS2_OPTION_ASIC_TEMPERATURE, CS_STREAM_DEPTH);
-            depth_ep->register_option(RS2_OPTION_ASIC_TEMPERATURE, asic_temperature_option);
-
-            auto projector_temperature_option = std::make_shared<cs_readonly_option>(*depth_ep, RS2_OPTION_PROJECTOR_TEMPERATURE, CS_STREAM_DEPTH);
-            depth_ep->register_option(RS2_OPTION_PROJECTOR_TEMPERATURE, projector_temperature_option);
-        }
-
-        auto output_trigger_enabled_option = std::make_shared<cs_pu_option>(*depth_ep, RS2_OPTION_OUTPUT_TRIGGER_ENABLED, CS_STREAM_DEPTH);
-        depth_ep->register_option(RS2_OPTION_OUTPUT_TRIGGER_ENABLED, output_trigger_enabled_option);
+        depth_ep->register_processing_block({ {RS2_FORMAT_W10} }, { {RS2_FORMAT_RAW10, RS2_STREAM_INFRARED, 1} }, []() { return std::make_shared<w10_converter>(RS2_FORMAT_RAW10); });
+        depth_ep->register_processing_block({ {RS2_FORMAT_W10} }, { {RS2_FORMAT_Y10BPACK, RS2_STREAM_INFRARED, 1} }, []() { return std::make_shared<w10_converter>(RS2_FORMAT_Y10BPACK); });
 
         return depth_ep;
     }
@@ -428,77 +557,6 @@ namespace librealsense
 
         auto table = check_calib<coefficients_table>(*_depth_calib_table_raw);
         return fabs(table->baseline);
-    }
-
-    void cs_depth::enter_update_state() const
-    {
-        try {
-            LOG_INFO("entering to update state, device disconnect is expected");
-            command cmd(ds::DFU);
-            cmd.param1 = 1;
-            _hw_monitor->send(cmd);
-        }
-        catch (...) {
-            // The set command returns a failure because switching to DFU resets the device while the command is running.
-        }
-    }
-
-    void cs_depth::update_flash(const std::vector<uint8_t>& image, update_progress_callback_ptr callback, int update_mode)
-    {
-        throw std::runtime_error("update_flash is not supported by D400e");
-    }
-
-    std::vector<uint8_t> cs_depth::backup_flash(update_progress_callback_ptr callback)
-    {
-        throw std::runtime_error("update_flash is not supported by D400e");
-    }
-
-    double cs_depth::get_device_time_ms()
-    {
-        // TODO: Refactor the following query with an extension.
-        if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
-        {
-            throw not_implemented_exception("device time not supported for backend.");
-        }
-
-        if (!_hw_monitor)
-            throw wrong_api_call_sequence_exception("_hw_monitor is not initialized yet");
-
-        command cmd(ds::MRD, ds::REGISTER_CLOCK_0, ds::REGISTER_CLOCK_0 + 4);
-        auto res = _hw_monitor->send(cmd);
-
-        if (res.size() < sizeof(uint32_t))
-        {
-            LOG_DEBUG("size(res):" << res.size());
-            throw std::runtime_error("Not enough bytes returned from the firmware!");
-        }
-        uint32_t dt = *(uint32_t*)res.data();
-        double ts = dt * TIMESTAMP_USEC_TO_MSEC;
-        return ts;
-    }
-
-    double cs_color::get_device_time_ms()
-    {
-        // TODO: Refactor the following query with an extension.
-        if (dynamic_cast<const platform::playback_backend*>(&(get_context()->get_backend())) != nullptr)
-        {
-            throw not_implemented_exception("device time not supported for backend.");
-        }
-
-        if (!_hw_monitor)
-            throw wrong_api_call_sequence_exception("_hw_monitor is not initialized yet");
-
-        command cmd(ds::MRD, ds::REGISTER_CLOCK_0, ds::REGISTER_CLOCK_0 + 4);
-        auto res = _hw_monitor->send(cmd);
-
-        if (res.size() < sizeof(uint32_t))
-        {
-            LOG_DEBUG("size(res):" << res.size());
-            throw std::runtime_error("Not enough bytes returned from the firmware!");
-        }
-        uint32_t dt = *(uint32_t*)res.data();
-        double ts = dt * TIMESTAMP_USEC_TO_MSEC;
-        return ts;
     }
 
     std::vector<uint8_t> cs_color::get_raw_calibration_table(ds::calibration_table_id table_id) const
@@ -608,6 +666,12 @@ namespace librealsense
         return _owner->get_cs_depth_recommended_proccesing_blocks();
     }
 
+    void cs_depth_sensor::open(const stream_profiles& requests)
+    {
+        _depth_units = get_option(RS2_OPTION_DEPTH_UNITS).query();
+        synthetic_sensor::open(requests);
+    }
+
     void cs_depth_sensor::create_snapshot(std::shared_ptr<depth_sensor>& snapshot) const
     {
         snapshot = std::make_shared<depth_sensor_snapshot>(get_depth_scale());
@@ -652,5 +716,78 @@ namespace librealsense
                     ds::calibration_table_id::coefficients_table_id,
                     profile.width, profile.height);
         }
+    }
+
+    stream_profiles cs_depth_sensor::init_stream_profiles()
+    {
+        auto lock = environment::get_instance().get_extrinsics_graph().lock();
+
+        auto&& results = synthetic_sensor::init_stream_profiles();
+
+        for (auto&& p : results)
+        {
+            // Register stream types
+            if (p->get_stream_type() == RS2_STREAM_DEPTH)
+            {
+                assign_stream(_owner->_depth_stream, p);
+            }
+            else if (p->get_stream_type() == RS2_STREAM_INFRARED && p->get_stream_index() < 2)
+            {
+                assign_stream(_owner->_left_ir_stream, p);
+            }
+            else if (p->get_stream_type() == RS2_STREAM_INFRARED  && p->get_stream_index() == 2)
+            {
+                assign_stream(_owner->_right_ir_stream, p);
+            }
+            auto&& vid_profile = dynamic_cast<video_stream_profile_interface*>(p.get());
+
+            // Register intrinsics
+            if (p->get_format() != RS2_FORMAT_Y16) // Y16 format indicate unrectified images, no intrinsics are available for these
+            {
+                const auto&& profile = to_profile(p.get());
+                std::weak_ptr<cs_depth_sensor> wp =
+                        std::dynamic_pointer_cast<cs_depth_sensor>(this->shared_from_this());
+                vid_profile->set_intrinsics([profile, wp]()
+                                            {
+                                                auto sp = wp.lock();
+                                                if (sp)
+                                                    return sp->get_intrinsics(profile);
+                                                else
+                                                    return rs2_intrinsics{};
+                                            });
+            }
+        }
+
+        return results;
+    }
+
+    stream_profiles cs_color_sensor::init_stream_profiles()
+    {
+        auto lock = environment::get_instance().get_extrinsics_graph().lock();
+        auto&& results = synthetic_sensor::init_stream_profiles();
+
+        for (auto&& p : results)
+        {
+            // Register stream types
+            if (p->get_stream_type() == RS2_STREAM_COLOR)
+            {
+                assign_stream(_owner->_color_stream, p);
+            }
+
+            auto&& video = dynamic_cast<video_stream_profile_interface*>(p.get());
+            const auto&& profile = to_profile(p.get());
+
+            std::weak_ptr<cs_color_sensor> wp =
+                    std::dynamic_pointer_cast<cs_color_sensor>(this->shared_from_this());
+            video->set_intrinsics([profile, wp]()
+                                  {
+                                      auto sp = wp.lock();
+                                      if (sp)
+                                          return sp->get_intrinsics(profile);
+                                      else
+                                          return rs2_intrinsics{};
+                                  });
+        }
+        return results;
     }
 }

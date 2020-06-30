@@ -22,7 +22,7 @@
 using sensor_action = std::pair<std::string, std::string>;
 std::vector<sensor_action> create_sensor_actions();
 
-float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize);
+float get_optimal_inter_packet_delay(int num_parallel_streams, int packetSize);
 void updateScreenInfo(rs2::sensor sensorStereo, rs2::sensor sensorRGB, std::vector<sensor_action> sensor_actions, bool init);
 int get_character_press();
 
@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) try
                 //float packetSize = 7996;  // Manual - select this value if jumbo frames on NIC are enabled
                 //float packetSize = 1500;  // Manual - select this value if jumbo frames on NIC are disabled
                 float packetSize = sensor.get_option(RS2_OPTION_PACKET_SIZE);   // Automatic packet size discovery
-                float interPacketDelay = getOptimalInterPacketDelay(numParallelStreams, packetSize);
+                float interPacketDelay = get_optimal_inter_packet_delay(numParallelStreams, packetSize);
 
                 std::cout << sensor.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER) << ", Packet Size = " << packetSize << " InterPacketDelay = " << interPacketDelay << std::endl;
                 sensor.set_option(RS2_OPTION_PACKET_SIZE, packetSize);
@@ -170,7 +170,7 @@ catch (const std::exception& e)
 
 
 // calculate optimal InterPacketDelay for D400e camera based on PacketSize and number of parallel streams
-float getOptimalInterPacketDelay(int num_parallel_streams, int packetSize)
+float get_optimal_inter_packet_delay(int num_parallel_streams, int packetSize)
 {
     float interPacketDelay = 0;
     float ethPacketSize = packetSize + 38;  // 38 bytes overhead

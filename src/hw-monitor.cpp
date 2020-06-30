@@ -115,14 +115,7 @@ namespace librealsense
     std::vector<uint8_t> hw_monitor::send(std::vector<uint8_t> data) const
     {
         if (_locked_transfer) return _locked_transfer->send_receive(data);
-        else
-        {
-            return static_cast<std::vector<uint8_t>>(_ep->invoke_powered(
-                    [this, &data](platform::cs_device& dev)
-                    {
-                        return dev.send_hwm(data);
-                    }));
-        }
+        else return _command_transfer->send_receive(data, 0, true);
     }
 
     std::vector<uint8_t> hw_monitor::send(command cmd) const

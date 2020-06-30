@@ -16,5 +16,17 @@ namespace Intel.RealSense
             object err;
             NativeMethods.rs2_d400e_set_heartbeat_time(time, out err);
         }
+
+        public static int GetBufferCount()
+        {
+            object err;
+            return NativeMethods.rs2_d400e_get_buffer_count(out err);
+        }
+
+        public static void SetBufferCount(int bufferCount)
+        {
+            object err;
+            NativeMethods.rs2_d400e_set_buffer_count(bufferCount, out err);
+        }
     }
 }

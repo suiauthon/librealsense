@@ -5,28 +5,6 @@ Copyright(c) 2017 Intel Corporation. All Rights Reserved. */
 #include "../include/librealsense2/hpp/rs_frame.hpp"
 
 void init_frame(py::module &m) {
-    // Support Python's buffer protocol
-    class BufData {
-    public:
-        void *_ptr = nullptr;         // Pointer to the underlying storage
-        size_t _itemsize = 0;         // Size of individual items in bytes
-        std::string _format;          // For homogeneous buffers, this should be set to format_descriptor<T>::format()
-        size_t _ndim = 0;             // Number of dimensions
-        std::vector<size_t> _shape;   // Shape of the tensor (1 entry per dimension)
-        std::vector<size_t> _strides; // Number of entries between adjacent entries (for each per dimension)
-    public:
-        BufData(void *ptr, size_t itemsize, const std::string& format, size_t ndim, const std::vector<size_t> &shape, const std::vector<size_t> &strides)
-            : _ptr(ptr), _itemsize(itemsize), _format(format), _ndim(ndim), _shape(shape), _strides(strides) {}
-        BufData(void *ptr, size_t itemsize, const std::string& format, size_t size)
-            : BufData(ptr, itemsize, format, 1, std::vector<size_t> { size }, std::vector<size_t> { itemsize }) { }
-        BufData(void *ptr, // Raw data pointer
-                size_t itemsize, // Size of the type in bytes
-                const std::string& format, // Data type's format descriptor (e.g. "@f" for float xyz)
-                size_t dim, // number of data elements per group (e.g. 3 for float xyz)
-                size_t count) // Number of groups
-            : BufData( ptr, itemsize, format, 2, std::vector<size_t> { count, dim }, std::vector<size_t> { itemsize*dim, itemsize })  { }
-    };
-
     py::class_<BufData> BufData_py(m, "BufData", py::buffer_protocol());
     BufData_py.def_buffer([](BufData& self)
     { return py::buffer_info(
@@ -79,6 +57,7 @@ void init_frame(py::module &m) {
         .def("is_default", &rs2::stream_profile::is_default, "Checks if the stream profile is marked/assigned as default, "
              "meaning that the profile will be selected when the user requests stream configuration using wildcards.")
         .def("__nonzero__", &rs2::stream_profile::operator bool, "Checks if the profile is valid")
+        .def("__bool__", &rs2::stream_profile::operator bool, "Checks if the profile is valid")
         .def("get_extrinsics_to", &rs2::stream_profile::get_extrinsics_to, "Get the extrinsic transformation between two profiles (representing physical sensors)", "to"_a)
         .def("register_extrinsics_to", &rs2::stream_profile::register_extrinsics_to, "Assign extrinsic transformation parameters "
              "to a specific profile (sensor). The extrinsic information is generally available as part of the camera calibration, "
@@ -132,6 +111,7 @@ void init_frame(py::module &m) {
         .def(py::init<rs2::frame>())
         .def("swap", &rs2::frame::swap, "Swap the internal frame handle with the one in parameter", "other"_a)
         .def("__nonzero__", &rs2::frame::operator bool, "check if internal frame handle is valid")
+        .def("__bool__", &rs2::frame::operator bool, "check if internal frame handle is valid")
         .def("get_timestamp", &rs2::frame::get_timestamp, "Retrieve the time at which the frame was captured")
         .def_property_readonly("timestamp", &rs2::frame::get_timestamp, "Time at which the frame was captured. Identical to calling get_timestamp.")
         .def("get_frame_timestamp_domain", &rs2::frame::get_frame_timestamp_domain, "Retrieve the timestamp domain.")
@@ -256,7 +236,7 @@ void init_frame(py::module &m) {
         .def("size", &rs2::frameset::size, "Return the size of the frameset")
         .def("__len__", &rs2::frameset::size, "Return the size of the frameset")
         .def("foreach", [](const rs2::frameset& self, std::function<void(rs2::frame)> callable) {
-            self.foreach(callable);
+            self.foreach_rs(callable);
         }, "Extract internal frame handles from the frameset and invoke the action function", "callable"_a)
         .def("__getitem__", &rs2::frameset::operator[])
         .def("get_depth_frame", &rs2::frameset::get_depth_frame, "Retrieve the first depth frame, if no frame is found, return an empty frame instance.")

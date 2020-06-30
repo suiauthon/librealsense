@@ -94,12 +94,22 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/config/realsense2.pc"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
 )
 
-set(CPACK_PACKAGE_NAME "FRAMOS-librealsense2")
+set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
+set(CPACK_NSIS_MUI_ICON "${PROJECT_SOURCE_DIR}/tools/realsense-viewer/res/icon.ico")
+set(CPACK_NSIS_MUI_UNIICON "${PROJECT_SOURCE_DIR}/tools/realsense-viewer/res/icon.ico")
+set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\realsense-viewer.exe")
+set(CPACK_NSIS_DISPLAY_NAME "FRAMOS librealsense2")
+
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "freeglut3")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "FRAMOS GmbH")
+
+set(CPACK_PACKAGE_EXECUTABLES "realsense-viewer;FRAMOS Realsense Viewer")
+set(CPACK_PACKAGE_NAME "FRAMOS-librealsense2")
+set(CPACK_PACKAGE_VENDOR "FRAMOS GmbH")
+set(CPACK_PACKAGE_ICON "${PROJECT_SOURCE_DIR}\\\\installer.bmp")
 set(CPACK_PACKAGE_VERSION_MAJOR 2)
-set(CPACK_PACKAGE_VERSION_MINOR 29)
-set(CPACK_PACKAGE_VERSION_PATCH 8)
+set(CPACK_PACKAGE_VERSION_MINOR 33)
+set(CPACK_PACKAGE_VERSION_PATCH 10)
 
 # Workaround for path length limitation of NSIS (260 characters)
 if (WIN32)
@@ -108,5 +118,7 @@ if (WIN32)
 endif()
 
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA ${PROJECT_SOURCE_DIR}/postinst)
+
+set(CPACK_PROJECT_CONFIG_FILE "${PROJECT_SOURCE_DIR}/CPackOptions.cmake")
 
 include(CPack)

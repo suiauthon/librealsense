@@ -1,9 +1,16 @@
 # Python Wrapper
 
 ## Table of Contents
+* [FRAMOS D400e cameras](#framos-d400e-cameras)
 * [Installation](#installation)
 * [Building from source](#building-from-source)
 * [Examples](#examples)
+
+## FRAMOS D400e cameras
+
+This Python wrapper for librealsense2 is modified to support FRAMOS D400e cameras. Please refer to the file **readme_d400e.md** for instructions on how to install and use the wrapper with D400e cameras.
+
+Information in this readme file (**readme.md**) does not apply to FRAMOS D400e cameras except the chapter [Examples](#examples).
 
 ## Installation
 
@@ -20,7 +27,7 @@ Package is available at https://pypi.python.org/pypi/pyrealsense2
 To install the package, run:
 > `pip install pyrealsense2`
 
-Windows users can install the RealSense SDK 2.0 from the release tab to get pre-compiled binaries of the wrapper, for both x86 and x64 architectures. (Note that these binaries are built with Python 2.7, and cannot be import using Python 3).
+Windows users can install the RealSense SDK 2.0 from the release tab to get pre-compiled binaries of the wrapper, for both x86 and x64 architectures. (Both Python 2.7 and Python 3 are supported).
 
 
 ## Building From Source

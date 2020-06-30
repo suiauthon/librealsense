@@ -16,7 +16,6 @@ set(PYRS_CPP
     c_files.cpp
     pyrs_advanced_mode.cpp
     pyrs_context.cpp
-	pyrs_d400e.cpp
     pyrs_device.cpp
     pyrs_export.cpp
     pyrs_frame.cpp
@@ -27,6 +26,7 @@ set(PYRS_CPP
     pyrs_record_playback.cpp
     pyrs_sensor.cpp
     pyrs_types.cpp
+    pyrs_d400e.cpp
     pyrsutil.cpp
 )
 
@@ -60,6 +60,7 @@ if(UNIX)
         ../../src/libusb/device-libusb.cpp
         ../../src/libusb/messenger-libusb.cpp
         ../../src/libusb/enumerator-libusb.cpp
+        ../../src/libusb/request-libusb.cpp
     )
 endif()
 
@@ -70,6 +71,7 @@ if(WIN32)
         ../../src/winusb/device-winusb.cpp
         ../../src/winusb/messenger-winusb.cpp
         ../../src/winusb/enumerator-winusb.cpp
+        ../../src/winusb/request-winusb.cpp
     )
 endif()
 
@@ -89,22 +91,28 @@ if(${BACKEND} STREQUAL RS2_USE_WMF_BACKEND)
     )
 endif()
 
+if(${FORCE_RSUSB_BACKEND})
+    list(APPEND RAW_RS
+        ../../src/rsusb-backend/rsusb-backend.h
+        ../../src/rsusb-backend/rsusb-backend.cpp
+        ../../src/uvc/uvc-device.cpp
+        ../../src/uvc/uvc-parser.cpp
+        ../../src/uvc/uvc-streamer.cpp
+        ../../src/hid/hid-device.cpp
+    )
+endif()
+
 if(${BACKEND} STREQUAL RS2_USE_WINUSB_UVC_BACKEND)
     list(APPEND RAW_RS
-        ../../src/win7/win7-uvc.cpp
-        ../../src/win7/win7-usb.cpp
-        ../../src/win7/win7-hid.cpp
-        ../../src/win7/win7-backend.cpp
-        ../../src/win7/winusb_uvc/winusb_uvc.cpp
+        ../../src/win7/rsusb-backend-windows.h
+        ../../src/win7/rsusb-backend-windows.cpp
     )
 endif()
 
 if(${BACKEND} STREQUAL RS2_USE_LIBUVC_BACKEND)
     list(APPEND RAW_RS
-        ../../src/libusb/interface-libusb.cpp
-        ../../src/libusb/device-libusb.cpp
-        ../../src/libusb/messenger-libusb.cpp
-        ../../src/libusb/enumerator-libusb.cpp
+        ../../src/libuvc/rsusb-backend-linux.h
+        ../../src/libuvc/rsusb-backend-linux.cpp
     )
 endif()
 
@@ -113,7 +121,6 @@ pybind11_add_module(pybackend2 SHARED ${RAW_RS})
 if(USE_EXTERNAL_USB)
     add_dependencies(pybackend2 libusb)
 endif()
-
 target_compile_definitions(pybackend2 PRIVATE SKIP_CS_SUPPORT)
 target_link_libraries(pybackend2 PRIVATE usb ${CMAKE_THREAD_LIBS_INIT})
 set_target_properties(pybackend2 PROPERTIES

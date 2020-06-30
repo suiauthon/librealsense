@@ -8,6 +8,7 @@
 #include <smcs_cpp/IImageBitmap.h>
 #include "sensor.h"
 #include "types.h"
+#include <unordered_map>
 
 namespace librealsense {
 
@@ -27,7 +28,7 @@ namespace librealsense {
         CS_D415E,
         CS_UNDEFINED
     };
-    
+
     typedef enum cs_inter_cam_sync_mode {
         CS_INTERCAM_SYNC_DEFAULT,
         CS_INTERCAM_SYNC_MASTER,
@@ -41,6 +42,12 @@ namespace librealsense {
         CS_INTERCAM_SYNC_EXTERNAL_COLOR,
         CS_INTERCAM_SYNC_MAX_COLOR
     } cs_inter_cam_mode_color;
+
+    typedef enum cs_user_output_level {
+        CS_USER_OUTPUT_LEVEL_LOW = 1,
+        CS_USER_OUTPUT_LEVEL_HIGH,
+        CS_USER_OUTPUT_LEVEL_MAX
+    } cs_user_output_level;
 
     class cs_firmware_version
     {
@@ -143,12 +150,13 @@ namespace librealsense {
 
             enum rs2_format get_rgb_format();
             bool is_infrared_supported();
-            bool is_temperature_supported();
+            bool is_option_supported(rs2_option opt, cs_stream stream);
             bool is_software_trigger_supported();
+            double get_device_timestamp_ms();
 
             void set_trigger_mode(float mode, cs_stream stream);
             float get_trigger_mode(cs_stream stream);
-            float get_intercam_mode(cs_stream stream);
+            bool get_intercam_mode(cs_stream stream);
             void update_external_trigger_mode_flag(cs_stream stream, float value);
 
         protected:
@@ -215,13 +223,15 @@ namespace librealsense {
 
             int get_optimal_inter_packet_delay(int packetSize);
 
-            static bool inc_device_count_SN(std::string serialNum);
-            static bool dec_device_count_SN(std::string serialNum);
-            static int get_device_count_SN(std::string serialNum);
-            static bool set_device_init_flag_SN(std::string serialNum, bool setInitFlag);
-            static bool get_device_init_flag_SN(std::string serialNum);
-            static bool set_device_option_sw_trigger_all_flag_SN(std::string serialNum, bool setTriggerAllFlag);
-            static bool get_device_option_sw_trigger_all_flag_SN(std::string serialNum);
+            static bool inc_device_count_sn(std::string serialNum);
+            static bool dec_device_count_sn(std::string serialNum);
+            static int get_device_count_sn(std::string serialNum);
+            static bool set_device_init_flag_sn(std::string serialNum, bool setInitFlag);
+            static bool get_device_init_flag_sn(std::string serialNum);
+            static bool set_device_option_sw_trigger_all_flag_sn(std::string serialNum, bool setTriggerAllFlag);
+            static bool get_device_option_sw_trigger_all_flag_sn(std::string serialNum);
+
+            bool is_temperature_supported();
 
             // members
             std::vector<std::unique_ptr <std::thread>> _threads;
@@ -235,6 +245,7 @@ namespace librealsense {
             std::unordered_map<cs_stream, UINT32, std::hash<int>> _stream_channels;
             std::vector<frame_callback> _callbacks;
             cs_firmware_version _cs_firmware_version;
+            metadata_framos_basic _md;
             enum rs2_format _rgb_pixel_format;
             bool _infrared_supported;
             bool _temperature_supported_checked;
@@ -243,9 +254,11 @@ namespace librealsense {
             bool _software_trigger_supported;
             INT64 _selected_source;
             bool _selected_source_initialized;
-            static std::map<std::string, int> _cs_device_num_objects_SN; // serial_number, number of objects per SN (device creation)
-            static std::map<std::string, bool> _cs_device_initialized_SN; // serial_number, is device with SN initialized
-            static std::map<std::string, bool> _cs_device_option_sw_trigger_all_flag_SN; // serial_number, is device with SN initialized
+            static std::map<std::string, int> _cs_device_num_objects_sn; // serial_number, number of objects per SN (device creation)
+            static std::map<std::string, bool> _cs_device_initialized_sn; // serial_number, is device with SN initialized
+            static std::map<std::string, bool> _cs_device_option_sw_trigger_all_flag_sn; // serial_number, is device with SN initialized
+
+            double _timestamp_to_ms_factor;
         };
     }
 
@@ -253,27 +266,16 @@ namespace librealsense {
     {
     public:
         explicit cs_sensor(std::string name, std::shared_ptr<platform::cs_device> cs_device,
-                           std::unique_ptr<frame_timestamp_reader> timestamp_reader, device* dev, cs_stream stream)
-                : sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
-                  _timestamp_reader(std::move(timestamp_reader)),
-                  _device(std::move(cs_device)),
-                  _cs_stream(stream),
-                  _user_count(0),
-                  _external_trigger_mode(false)
-        {
-            register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
-        }
+            std::unique_ptr<frame_timestamp_reader> timestamp_reader, device* dev, cs_stream stream);
+        virtual ~cs_sensor() override;
 
         rs2_extension stream_to_frame_types(rs2_stream stream);
 
         virtual stream_profiles init_stream_profiles() override;
 
         void open(const stream_profiles& requests) override;
-
         void close() override;
-
         void start(frame_callback_ptr callback) override;
-
         void stop() override;
 
         template<class T>
@@ -301,7 +303,6 @@ namespace librealsense {
 
         void reset_streaming();
 
-        cs_stream get_stream(const std::vector<std::shared_ptr<stream_profile_interface>>& requests);
         cs_stream get_stream(rs2_stream type, int index);
 
         struct power
@@ -342,140 +343,17 @@ namespace librealsense {
         std::atomic<bool> _external_trigger_mode;
     };
 
-    class cs_pu_option : public option
+    class cs_command_transfer : public platform::command_transfer
     {
     public:
-        void set(float value) override;
+        std::vector<uint8_t> send_receive(const std::vector<uint8_t>& data, int, bool require_response) override;
 
-        float query() const override;
-
-        option_range get_range() const override;
-
-        bool is_enabled() const override
-        {
-            if (_id == RS2_OPTION_PACKET_SIZE) {
-                return !_ep.is_streaming();
-            }
-            else {
-                return true;
-            }
-        }
-
-        cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-                : _ep(ep), _id(id), _stream(stream)
-        {
-        }
-
-        cs_pu_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
-                : _ep(ep), _id(id), _stream(stream), _description_per_value(description_per_value)
-        {
-        }
-
-        virtual ~cs_pu_option() = default;
-
-        const char* get_description() const override;
-
-        const char* get_value_description(float val) const override
-        {
-            if (_description_per_value.find(val) != _description_per_value.end())
-                return _description_per_value.at(val).c_str();
-            return nullptr;
-        }
-        void enable_recording(std::function<void(const option &)> record_action) override
-        {
-            _record = record_action;
-        }
+        cs_command_transfer(std::shared_ptr<platform::cs_device> device)
+            : _device(std::move(device))
+        {};
 
     private:
-        cs_stream _stream;
-        rs2_option _id;
-        const std::map<float, std::string> _description_per_value;
-        std::function<void(const option &)> _record = [](const option &) {};
-
-    protected:
-        cs_sensor& _ep;
-    };
-
-    class cs_depth_exposure_option : public cs_pu_option
-    {
-    public:
-        cs_depth_exposure_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-            : cs_pu_option(ep, id, stream) {}
-        const char* get_description() const override { return "Depth Exposure (usec)"; }
-    };
-
-    class cs_external_trigger_option : public cs_pu_option
-    {
-    public:
-        cs_external_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-            : cs_pu_option(ep, id, stream) {}
-
-        cs_external_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
-            : cs_pu_option(ep, id, stream, description_per_value), _stream(stream), _id(id)
-        {
-        }
-
-        option_range get_range() const override { return option_range{ 1,2,1,1 }; };
-
-        const char* get_description() const override { return "External Trigger Source"; }
-    private:
-        cs_stream _stream;
-        rs2_option _id;
-    };
-
-    class cs_software_trigger_option : public cs_pu_option
-    {
-    public:
-        cs_software_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-            : cs_pu_option(ep, id, stream) {}
-
-        cs_software_trigger_option(cs_sensor& ep, rs2_option id, cs_stream stream, const std::map<float, std::string>& description_per_value)
-            : cs_pu_option(ep, id, stream, description_per_value), _stream(stream), _id(id)
-        {
-        }
-
-        option_range get_range() const override { return option_range{ 1,1,1,1 }; };
-
-        const char* get_description() const override { return "Software Trigger"; }
-    private:
-        cs_stream _stream;
-        rs2_option _id;
-    };
-
-    class cs_software_trigger_all_option : public cs_pu_option
-    {
-    public:
-        cs_software_trigger_all_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-            : cs_pu_option(ep, id, stream), _stream(stream), _id(id) {}
-
-        const char* get_description() const override { return "Forwards software trigger signal to all sensors"; }
-    private:
-        cs_stream _stream;
-        rs2_option _id;
-    };
-
-    class cs_readonly_option : public cs_pu_option
-    {
-    public:
-        bool is_read_only() const override { return true; }
-
-        void set(float) override
-        {
-            throw not_implemented_exception("This option is read-only!");
-        }
-
-        bool is_enabled() const override
-        {
-            return _ep.is_streaming();
-        }
-
-        void enable_recording(std::function<void(const option &)> record_action) override
-        {
-            //empty
-        }
-
-        explicit cs_readonly_option(cs_sensor& ep, rs2_option id, cs_stream stream)
-            : cs_pu_option(ep, id, stream) {}
+        std::shared_ptr<platform::cs_device> _device;
     };
 }
 

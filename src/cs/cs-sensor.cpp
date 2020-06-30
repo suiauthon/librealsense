@@ -2,11 +2,16 @@
 // Copyright(c) 2019 FRAMOS GmbH.
 
 #include "cs/cs-sensor.h"
+#include "cs/cs-options.h"
 #include "global_timestamp_reader.h"
 #include "stream.h"
 #include "device.h"
-#include "backend.h"
 #include <regex>
+
+#include <array>
+#include <set>
+#include <unordered_set>
+#include <iomanip>
 
 namespace librealsense {
 
@@ -32,6 +37,37 @@ namespace librealsense {
 
     }
 
+    cs_sensor::cs_sensor(std::string name,
+                         std::shared_ptr<platform::cs_device> cs_device,
+                         std::unique_ptr<frame_timestamp_reader> timestamp_reader,
+                         device* dev,
+                         cs_stream stream)
+            : sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
+              _device(std::move(cs_device)),
+              _timestamp_reader(std::move(timestamp_reader)),
+              _cs_stream(stream),
+              _user_count(0),
+              _external_trigger_mode(false)
+    {
+        register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
+    }
+
+    cs_sensor::~cs_sensor()
+    {
+        try
+        {
+            if (_is_streaming)
+                cs_sensor::stop();
+
+            if (_is_opened)
+                cs_sensor::close();
+        }
+        catch(...)
+        {
+            LOG_ERROR("An error has occurred while stop_streaming()!");
+        }
+    }
+
     void cs_sensor::open(const stream_profiles& requests)
     {
         std::lock_guard<std::mutex> lock(_configure_lock);
@@ -46,101 +82,71 @@ namespace librealsense {
             throw wrong_api_call_sequence_exception("GigE filter driver not loaded! Please make sure that the driver is installed and available.");
 
         _source.init(_metadata_parsers);
-        _source.set_sensor(this->shared_from_this());
-        auto mapping = resolve_requests(requests);
-
-        auto timestamp_reader = _timestamp_reader.get();
+        _source.set_sensor(_source_owner->shared_from_this());
 
         std::vector<platform::stream_profile> commited;
 
         _cs_selected_streams.clear();
-        for (auto&& mode : mapping)
+
+        for (auto&& req_profile : requests)
         {
-            auto selected_stream = get_stream(mode.original_requests);
+            auto&& req_profile_base = std::dynamic_pointer_cast<stream_profile_base>(req_profile);
+            auto selected_stream = get_stream(req_profile->get_stream_type(), req_profile->get_stream_index());
 
-            auto infrared_stream = selected_stream == CS_STREAM_IR_LEFT || selected_stream == CS_STREAM_IR_RIGHT;
-            if (infrared_stream && !_device->is_infrared_supported())
-                throw wrong_api_call_sequence_exception("Device does not support infrared streams!");
-
-            unsigned long long last_frame_number = 0;
-            rs2_time_t last_timestamp = 0;
-            _device->probe_and_commit(mode.profile,
-                [this, mode, timestamp_reader, requests, last_frame_number, last_timestamp]
-            (platform::stream_profile p, platform::frame_object f,
-                std::function<void()> continuation) mutable
+            try
             {
-                auto system_time = environment::get_instance().get_time_service()->get_time();
-                if (!this->is_streaming())
+                auto infrared_stream = selected_stream == CS_STREAM_IR_LEFT || selected_stream == CS_STREAM_IR_RIGHT;
+                if (infrared_stream && !_device->is_infrared_supported())
+                    throw wrong_api_call_sequence_exception("Device does not support infrared streams!");
+
+                unsigned long long last_frame_number = 0;
+                rs2_time_t last_timestamp = 0;
+                _device->probe_and_commit(req_profile_base->get_backend_profile(),
+                                          [this, req_profile_base, req_profile, last_frame_number, last_timestamp](platform::stream_profile p, platform::frame_object f, std::function<void()> continuation) mutable
                 {
-                    LOG_WARNING("Frame received with streaming inactive,"
-                        << librealsense::get_string(mode.unpacker->outputs.front().stream_desc.type)
-                        << mode.unpacker->outputs.front().stream_desc.index
-                        << ", Arrived," << std::fixed << f.backend_time << " " << system_time);
-                    return;
-                }
-                frame_continuation release_and_enqueue(continuation, f.pixels);
+                    const auto&& system_time = environment::get_instance().get_time_service()->get_time();
+                    const auto&& fr = generate_frame_from_data(f, _timestamp_reader.get(), last_timestamp, last_frame_number, req_profile_base);
+                    const auto&& requires_processing = true; // TODO - Ariel add option
+                    const auto&& timestamp_domain = _timestamp_reader->get_frame_timestamp_domain(fr);
+                    const auto&& bpp = get_image_bpp(req_profile_base->get_format());
+                    auto&& frame_counter = fr->additional_data.frame_number;
+                    auto&& timestamp = fr->additional_data.timestamp;
 
-                // Ignore any frames which appear corrupted or invalid
-                // Determine the timestamp for this frame
-                auto timestamp = timestamp_reader->get_frame_timestamp(mode, f);
-                auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(mode, f);
-                auto frame_counter = timestamp_reader->get_frame_counter(mode, f);
-
-                auto requires_processing = mode.requires_processing();
-
-                std::vector<byte *> dest;
-                std::vector<frame_holder> refs;
-
-                auto&& unpacker = *mode.unpacker;
-                for (auto&& output : unpacker.outputs)
-                {
-                    LOG_DEBUG("FrameAccepted," << librealsense::get_string(output.stream_desc.type)
-                        << ",Counter," << std::dec << frame_counter
-                        << ",Index," << output.stream_desc.index
-                        << ",BackEndTS," << std::fixed << f.backend_time
-                        << ",SystemTime," << std::fixed << system_time
-                        << " ,diff_ts[Sys-BE]," << system_time - f.backend_time
-                        << ",TS," << std::fixed << timestamp << ",TS_Domain," << rs2_timestamp_domain_to_string(timestamp_domain)
-                        << ",last_frame_number," << last_frame_number << ",last_timestamp," << last_timestamp);
-
-                    std::shared_ptr<stream_profile_interface> request = nullptr;
-                    for (auto&& original_prof : mode.original_requests)
+                    if (!this->is_streaming())
                     {
-                        if (original_prof->get_format() == output.format &&
-                            original_prof->get_stream_type() == output.stream_desc.type &&
-                            original_prof->get_stream_index() == output.stream_desc.index)
-                        {
-                            request = original_prof;
-                        }
+                        LOG_WARNING("Frame received with streaming inactive,"
+                                            << librealsense::get_string(req_profile_base->get_stream_type())
+                                            << req_profile_base->get_stream_index()
+                                            << ", Arrived," << std::fixed << f.backend_time << " " << system_time);
+                        return;
                     }
 
-                    auto bpp = get_image_bpp(output.format);
-                    frame_additional_data additional_data(timestamp,
-                        frame_counter,
-                        system_time,
-                        static_cast<uint8_t>(f.metadata_size),
-                        (const uint8_t*)f.metadata,
-                        f.backend_time,
-                        last_timestamp,
-                        last_frame_number,
-                        false);
+                    frame_continuation release_and_enqueue(continuation, f.pixels);
+
+                    LOG_DEBUG("Serial number:" << this->get_info(RS2_CAMERA_INFO_SERIAL_NUMBER)
+                                               << ",FrameAccepted," << librealsense::get_string(req_profile_base->get_stream_type())
+                                               << ",Counter," << std::dec << fr->additional_data.frame_number
+                                               << ",Index," << req_profile_base->get_stream_index()
+                                               << ",BackEndTS," << std::fixed << f.backend_time
+                                               << ",SystemTime," << std::fixed << system_time
+                                               << " ,diff_ts[Sys-BE]," << system_time - f.backend_time
+                                               << ",TS," << std::fixed << timestamp << ",TS_Domain," << rs2_timestamp_domain_to_string(timestamp_domain)
+                                               << ",last_frame_number," << last_frame_number << ",last_timestamp," << last_timestamp);
 
                     last_frame_number = frame_counter;
                     last_timestamp = timestamp;
 
-                    auto res = output.stream_resolution({ mode.profile.width, mode.profile.height });
-                    auto width = res.width;
-                    auto height = res.height;
-
-                    frame_holder frame = _source.alloc_frame(stream_to_frame_types(output.stream_desc.type), width * height * bpp / 8, additional_data, requires_processing);
-                    if (frame.frame)
+                    const auto&& vsp = As<video_stream_profile, stream_profile_interface>(req_profile);
+                    int width = vsp ? vsp->get_width() : 0;
+                    int height = vsp ? vsp->get_height() : 0;
+                    frame_holder fh = _source.alloc_frame(stream_to_frame_types(req_profile_base->get_stream_type()), width * height * bpp / 8, fr->additional_data, requires_processing);
+                    if (fh.frame)
                     {
-                        auto video = (video_frame*)frame.frame;
+                        memcpy((void*)fh->get_frame_data(), fr->data.data(), sizeof(byte)*fr->data.size());
+                        auto&& video = (video_frame*)fh.frame;
                         video->assign(width, height, width * bpp / 8, bpp);
                         video->set_timestamp_domain(timestamp_domain);
-                        dest.push_back(const_cast<byte*>(video->get_frame_data()));
-                        frame->set_stream(request);
-                        refs.push_back(std::move(frame));
+                        fh->set_stream(req_profile_base);
                     }
                     else
                     {
@@ -148,38 +154,25 @@ namespace librealsense {
                         return;
                     }
 
-                }
-
-                // Unpack the frame
-                if (requires_processing && (dest.size() > 0))
-                {
-                    unpacker.unpack(dest.data(), reinterpret_cast<const byte *>(f.pixels), mode.profile.width, mode.profile.height, f.frame_size);
-                }
-
-                // If any frame callbacks were specified, dispatch them now
-                for (auto&& pref : refs)
-                {
                     if (!requires_processing)
                     {
-                        pref->attach_continuation(std::move(release_and_enqueue));
+                        fh->attach_continuation(std::move(release_and_enqueue));
                     }
 
-                    if (_on_before_frame_callback)
+                    if (fh->get_stream().get())
                     {
-                        //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
-                        auto callback = _source.begin_callback();
-                        auto stream_type = pref->get_stream()->get_stream_type();
-                        _on_before_frame_callback(stream_type, pref, std::move(callback));
+                        _source.invoke_callback(std::move(fh));
                     }
-                    if (pref->get_stream().get())
-                    {
-                        //printf("Frame data: %d\n",pref.frame->get_frame_data()[0]);
-                        _source.invoke_callback(std::move(pref));
-                    }
-                }
-            }, selected_stream);
+
+                }, selected_stream);
+            }
+            catch (...)
+            {
+                _device->close(_cs_selected_streams);
+                throw;
+            }
             _cs_selected_streams.push_back(selected_stream);
-            commited.push_back(mode.profile);
+            commited.push_back(req_profile_base->get_backend_profile());
         }
 
         _internal_config = commited;
@@ -198,15 +191,25 @@ namespace librealsense {
         }
         catch (...)
         {
-            try {
-                _device->close(_cs_selected_streams);
+            std::stringstream error_msg;
+            error_msg << "\tFormats: \n";
+            for (auto&& profile : _internal_config)
+            {
+                rs2_format fmt = fourcc_to_rs2_format(profile.format);
+                error_msg << "\t " << std::string(rs2_format_to_string(fmt)) << std::endl;
+                try {
+                    _device->close(_cs_selected_streams);
+                }
+                catch (...) {}
             }
-            catch (...) {}
+            error_msg << std::endl;
             reset_streaming();
             _power.reset();
             _is_opened = false;
-            throw;
+
+            throw std::runtime_error(error_msg.str());
         }
+
         if (Is<librealsense::global_time_interface>(_owner))
         {
             As<librealsense::global_time_interface>(_owner)->enable_time_diff_keeper(true);
@@ -218,10 +221,7 @@ namespace librealsense {
     {
         auto lock = environment::get_instance().get_extrinsics_graph().lock();
 
-        std::unordered_set<std::shared_ptr<video_stream_profile>> results;
-        std::set<uint32_t> unregistered_formats;
-        std::set<uint32_t> supported_formats;
-
+        std::unordered_set<std::shared_ptr<video_stream_profile>> profiles;
         power on(std::dynamic_pointer_cast<cs_sensor>(shared_from_this()));
 
         if (_uvc_profiles.empty()){}
@@ -229,76 +229,21 @@ namespace librealsense {
 
         for (auto&& p : _uvc_profiles)
         {
-            supported_formats.insert(p.format);
-            native_pixel_format pf{};
-            if (try_get_pf(p, pf))
-            {
-                for (auto&& unpacker : pf.unpackers)
-                {
-                    for (auto&& output : unpacker.outputs)
-                    {
-                        auto profile = std::make_shared<video_stream_profile>(p);
-                        auto res = output.stream_resolution({ p.width, p.height });
-                        profile->set_dims(res.width, res.height);
-                        profile->set_stream_type(output.stream_desc.type);
-                        profile->set_stream_index(output.stream_desc.index);
-                        profile->set_format(output.format);
-                        profile->set_framerate(p.fps);
-                        results.insert(profile);
-                    }
-                }
-            }
-            else
-            {
-                unregistered_formats.insert(p.format);
-            }
+            const auto&& rs2_fmt = fourcc_to_rs2_format(p.format);
+            if (rs2_fmt == RS2_FORMAT_ANY)
+                continue;
+
+            auto&& profile = std::make_shared<video_stream_profile>(p);
+            profile->set_dims(p.width, p.height);
+            profile->set_stream_type(fourcc_to_rs2_stream(p.format));
+            profile->set_stream_index(0);
+            profile->set_format(rs2_fmt);
+            profile->set_framerate(p.fps);
+            profiles.insert(profile);
         }
 
-        if (unregistered_formats.size())
-        {
-            std::stringstream ss;
-            ss << "Unregistered Media formats : [ ";
-            for (auto& elem : unregistered_formats)
-            {
-                uint32_t device_fourcc = reinterpret_cast<const big_endian<uint32_t>&>(elem);
-                char fourcc[sizeof(device_fourcc) + 1];
-                librealsense::copy(fourcc, &device_fourcc, sizeof(device_fourcc));
-                fourcc[sizeof(device_fourcc)] = 0;
-                ss << fourcc << " ";
-            }
-
-            ss << "]; Supported: [ ";
-            for (auto& elem : supported_formats)
-            {
-                uint32_t device_fourcc = reinterpret_cast<const big_endian<uint32_t>&>(elem);
-                char fourcc[sizeof(device_fourcc) + 1];
-                librealsense::copy(fourcc, &device_fourcc, sizeof(device_fourcc));
-                fourcc[sizeof(device_fourcc)] = 0;
-                ss << fourcc << " ";
-            }
-            ss << "]";
-            LOG_INFO(ss.str());
-        }
-
-        auto rgbFormat = _device->get_rgb_format();
-
-        // Sort the results to make sure that the user will receive predictable deterministic output from the API
-        stream_profiles res{ begin(results), end(results) };
-        std::sort(res.begin(), res.end(), [&rgbFormat](const std::shared_ptr<stream_profile_interface>& ap,
-                                             const std::shared_ptr<stream_profile_interface>& bp)
-        {
-            auto a = to_profile(ap.get());
-            auto b = to_profile(bp.get());
-
-            // stream == RS2_STREAM_COLOR && format == rgbFormat element works around the fact that Y16 gets priority over RGB8 when both
-            // are available for pipeline stream resolution
-            auto at = std::make_tuple(a.stream, a.width, a.height, a.fps, a.stream == RS2_STREAM_COLOR && a.format == rgbFormat, a.format);
-            auto bt = std::make_tuple(b.stream, b.width, b.height, b.fps, b.stream == RS2_STREAM_COLOR && b.format == rgbFormat, b.format);
-
-            return at > bt;
-        });
-
-        return res;
+        stream_profiles result{ profiles.begin(), profiles.end() };
+        return result;
     }
 
     rs2_extension cs_sensor::stream_to_frame_types(rs2_stream stream)
@@ -319,11 +264,18 @@ namespace librealsense {
         else if (!_is_opened)
             throw wrong_api_call_sequence_exception("close() failed. CS device was not opened!");
 
-        try // Handle disconnect event
+        for (auto&& profile : _internal_config)
         {
-            _device->close(_cs_selected_streams);
+            try // Handle disconnect event
+            {
+                _device->close(_cs_selected_streams);
+            }
+            catch (...) 
+            {
+                LOG_ERROR("Error while closing stream!");
+                throw;
+            }
         }
-        catch (...) {}
         reset_streaming();
         if (Is<librealsense::global_time_interface>(_owner))
         {
@@ -342,9 +294,9 @@ namespace librealsense {
         else if(!_is_opened)
             throw wrong_api_call_sequence_exception("start_streaming(...) failed. CS device was not opened!");
 
+        raise_on_before_streaming_changes(true); //Required to be just before actual start allow recording to work
         _source.set_callback(callback);
         _is_streaming = true;
-        raise_on_before_streaming_changes(true); //Required to be just before actual start allow recording to work
     }
 
     void cs_sensor::stop()
@@ -364,6 +316,7 @@ namespace librealsense {
         {
             if (_device->set_power_state(platform::D0) != platform::D0)
                 throw wrong_api_call_sequence_exception("set power state(...) failed. CS device cannot be turned on!");
+            //for (auto&& xu : _xus) _device->init_xu(xu);
         }
     }
 
@@ -382,28 +335,6 @@ namespace librealsense {
         _source.flush();
         _source.reset();
         _timestamp_reader->reset();
-    }
-
-    cs_stream cs_sensor::get_stream(const std::vector<std::shared_ptr<stream_profile_interface>>& requests)
-    {
-        if (requests.size() == 2) {
-            auto ir_left = std::find_if(requests.begin(), requests.end(), 
-                [this](std::shared_ptr<stream_profile_interface> request) { 
-                    return get_stream(request->get_stream_type(), request->get_stream_index()) == CS_STREAM_IR_LEFT; 
-                }
-            );
-            if (ir_left != requests.end()) {
-                auto ir_right = std::find_if(requests.begin(), requests.end(), 
-                    [this](std::shared_ptr<stream_profile_interface> request) { 
-                        return get_stream(request->get_stream_type(), request->get_stream_index()) == CS_STREAM_IR_RIGHT; 
-                    }
-                );
-                if (ir_right != requests.end())
-                    return get_stream((*ir_right)->get_stream_type(), (*ir_right)->get_stream_index());
-            }
-        }
-
-        return get_stream(requests[0]->get_stream_type(), requests[0]->get_stream_index());
     }
 
     cs_stream cs_sensor::get_stream(rs2_stream type, int index)
@@ -472,9 +403,9 @@ namespace librealsense {
 
     namespace platform
     {
-        std::map<std::string, int> cs_device::_cs_device_num_objects_SN;
-        std::map<std::string, bool> cs_device::_cs_device_initialized_SN;
-        std::map<std::string, bool> cs_device::_cs_device_option_sw_trigger_all_flag_SN;
+        std::map<std::string, int> cs_device::_cs_device_num_objects_sn;
+        std::map<std::string, bool> cs_device::_cs_device_initialized_sn;
+        std::map<std::string, bool> cs_device::_cs_device_option_sw_trigger_all_flag_sn;
 
         cs_device::cs_device(cs_device_info hwm)
                 : _device_info(std::move(hwm)),
@@ -506,7 +437,7 @@ namespace librealsense {
                             }
                             else {
                                 // initialize this part (inter-packet delay) only once
-                                if (get_device_init_flag_SN(_device_info.serial) == false) { 
+                                if (get_device_init_flag_sn(_device_info.serial) == false) { 
                                     INT64 numOfCameraStream;
                                     _connected_device->GetIntegerNodeValue("GevStreamChannelCount", numOfCameraStream);
                                     for (int i = 0; i < numOfCameraStream; i++)
@@ -519,7 +450,7 @@ namespace librealsense {
                                         int interPacketDelay = get_optimal_inter_packet_delay(packetSize);
                                         _connected_device->SetIntegerNodeValue("GevSCPD", interPacketDelay);
                                     }
-                                    set_device_init_flag_SN(_device_info.serial, true);
+                                    set_device_init_flag_sn(_device_info.serial, true);
                                 }
                             }
                         }
@@ -532,6 +463,12 @@ namespace librealsense {
                         _profiles = std::vector<stream_profile>(_number_of_streams);
                         _cs_firmware_version = cs_firmware_version(_connected_device);
 
+                        constexpr double S_TO_MS_FACTOR = 1000;
+                        INT64 frequency;
+                        if (!_connected_device->GetIntegerNodeValue("GevTimestampTickFrequency", frequency))
+                            throw io_exception("Unable to read GevTimestampTickFrequency");
+                        _timestamp_to_ms_factor = S_TO_MS_FACTOR / frequency;
+
                         for (int i = 0; i < _number_of_streams; i++)
                         {
                             _threads[i] = nullptr;
@@ -543,7 +480,7 @@ namespace librealsense {
                         }
 
                         // increment device counter for device with current SN
-                        inc_device_count_SN(_device_info.serial);
+                        inc_device_count_sn(_device_info.serial);
                     }
                     // found device with SN
                     break;
@@ -555,19 +492,18 @@ namespace librealsense {
         }
 
         cs_device::~cs_device() {
-            dec_device_count_SN(_device_info.serial);
+            dec_device_count_sn(_device_info.serial);
             for (int i = 0; i < _number_of_streams; i++) {
                 deinit_stream((cs_stream)i);
             }
             
-            if (get_device_count_SN(_device_info.serial) == 0) {
+            if (get_device_count_sn(_device_info.serial) == 0) {
                 if (_connected_device->IsConnected()) {
                     try {
                         //TODO - close all streams
                         close({ CS_STREAM_DEPTH }); // -> Source0
                         close({ CS_STREAM_COLOR }); // -> Source1
                     }
-                    //catch (...) {
                     catch (const std::exception& ex) {
                         LOG_ERROR(ex.what());
                     }
@@ -652,6 +588,8 @@ namespace librealsense {
                 }
             }
 
+            set_region(stream, false);
+
             return all_stream_profiles;
         }
 
@@ -689,6 +627,8 @@ namespace librealsense {
 
             if (!_connected_device->SetStringNodeValue("FrameRate", frameRateValue))
                 return false;
+
+            return true;
         }
 
         bool cs_device::is_profile_format(const smcs::IImageInfo& image_info, const stream_profile& profile)
@@ -710,7 +650,9 @@ namespace librealsense {
             else if (cs_format.compare("YUV422Packed") == 0)
                 npf = rs_fourcc('U', 'Y', 'V', 'Y');
             else if (cs_format.compare("Mono16") == 0)
-                npf = rs_fourcc('Z','1','6',' ');
+                npf = rs_fourcc('Z', '1', '6', ' ');
+            else if (cs_format.compare("Mono8") == 0)
+                npf = rs_fourcc('G', 'R', 'E', 'Y');
             else 
                 throw wrong_api_call_sequence_exception("Unsuported image format!");
 
@@ -719,16 +661,27 @@ namespace librealsense {
 
         uint32_t cs_device::native_pixel_format_to_cs_pixel_format(uint32_t native_format)
         {
-            if (native_format == pf_y8i.fourcc || native_format == pf_z16.fourcc)
+            if (native_format == rs_fourcc('Y', '8', 'I', ' ') || native_format == rs_fourcc('Z', '1', '6', ' '))
                 return GVSP_PIX_MONO16;
-            else if (native_format == pf_raw8.fourcc)
+            else if (native_format == rs_fourcc('G', 'R', 'E', 'Y'))
                 return GVSP_PIX_MONO8;
-            else if (native_format == pf_yuyv.fourcc)
+            else if (native_format == rs_fourcc('Y', 'U', 'Y', 'V'))
                 return GVSP_PIX_YUV422_YUYV_PACKED;
-            else if (native_format == pf_uyvyl.fourcc)
+            else if (native_format == rs_fourcc('U', 'Y', 'V', 'Y'))
                 return GVSP_PIX_YUV422_PACKED;
             else
                 throw wrong_api_call_sequence_exception("Unable to map Realsense pixel format to CameraSuite pixel format!");
+        }
+
+        bool cs_device::is_option_supported(rs2_option opt, cs_stream stream)
+        {
+            switch (opt)
+            {
+                case RS2_OPTION_ASIC_TEMPERATURE:
+                case RS2_OPTION_PROJECTOR_TEMPERATURE:
+                    return is_temperature_supported();
+                default: return false;
+            }
         }
 
         bool cs_device::get_pu(rs2_option opt, int32_t& value, cs_stream stream)
@@ -864,7 +817,14 @@ namespace librealsense {
                     else if (value == 2) return _connected_device->SetStringNodeValue("TriggerSource", "Software");
 
                 }
+                case RS2_OPTION_USER_OUTPUT_LEVEL:
+                {
+                    if (!select_source(stream))
+                        return false;
 
+                    if (value == CS_USER_OUTPUT_LEVEL_LOW) return _connected_device->SetBooleanNodeValue("UserOutputValue", false);
+                    else if (value == CS_USER_OUTPUT_LEVEL_HIGH) return _connected_device->SetBooleanNodeValue("UserOutputValue", true);
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -879,7 +839,7 @@ namespace librealsense {
                 auto rounded = step * std::round(value / static_cast<double>(step));
                 if (rounded < min) return min;
                 else if (rounded > max) return max;
-                else return rounded;
+                else return static_cast<int32_t>(rounded);
             }
             else
             {
@@ -937,7 +897,6 @@ namespace librealsense {
 
         bool cs_device::get_cs_param_min(rs2_option option, int32_t &value, cs_stream stream)
         {
-            double double_value;
             smcs::StringList node_value_list;
             INT64 int_value;
             bool status;
@@ -983,7 +942,6 @@ namespace librealsense {
 
         bool cs_device::get_cs_param_max(rs2_option option, int32_t &value, cs_stream stream)
         {
-            double double_value;
             smcs::StringList node_value_list;
             INT64 int_value;
             bool status;
@@ -1001,7 +959,6 @@ namespace librealsense {
                 case RS2_OPTION_GAIN:
                 case RS2_OPTION_HUE:
                 {
-                    //if (_connected_device->IsImplemented(get_cs_param_name(option, stream))
                     status = _connected_device->GetIntegerNodeMax(get_cs_param_name(option, stream), int_value);
                     value = static_cast<int32_t>(int_value);
                     return status;
@@ -1010,18 +967,6 @@ namespace librealsense {
                     status = _connected_device->GetEnumNodeValuesList(get_cs_param_name(option, stream), node_value_list);
                     value = static_cast<int32_t>(node_value_list.size()-1);
                     return status;
-                /*case RS2_OPTION_EXPOSURE:
-                {
-                    status = _connected_device->GetFloatNodeMax(get_cs_param_name(option, stream), double_value);
-                    value = static_cast<int32_t>(double_value);
-                    return status;
-                }
-                case RS2_OPTION_GAMMA:
-                {
-                    status = _connected_device->GetFloatNodeMax(get_cs_param_name(option), double_value);
-                    value = static_cast<int32_t>(double_value);
-                    return status;
-                }*/
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
@@ -1089,7 +1034,6 @@ namespace librealsense {
 
         bool cs_device::get_cs_param_value(rs2_option option, int32_t &value, cs_stream stream)
         {
-            double double_value;
             std::string string_value;
             INT64 int_value;
             bool status;
@@ -1123,25 +1067,6 @@ namespace librealsense {
                     else value = 1;
                     return status;
                 }
-                /*case RS2_OPTION_EXPOSURE:
-                {
-                    status = _connected_device->GetFloatNodeValue(get_cs_param_name(option, stream), double_value);
-                    value = static_cast<int32_t>(double_value);
-                    return status;
-                }
-                case RS2_OPTION_GAMMA:
-                {
-                    status = _connected_device->GetFloatNodeValue(get_cs_param_name(option), double_value);
-                    value = static_cast<int32_t>(double_value);
-                    return status;
-                }
-                case RS2_OPTION_ENABLE_AUTO_EXPOSURE:
-                {
-                    status = _connected_device->GetStringNodeValue(get_cs_param_name(option), string_value);
-                    if (string_value.compare(std::string("Off")) == 0) value = 0;
-                    else if (string_value.compare(std::string("Continuous")) == 0) value = 1;
-                    return true;
-                }*/
                 case RS2_OPTION_INTER_PACKET_DELAY:
                 case RS2_OPTION_PACKET_SIZE:
                 {
@@ -1201,22 +1126,34 @@ namespace librealsense {
                     status = _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
                     if (trigger_mode == "Off")
                     {
-                        value = 1.f;
+                        value = 1;
                         return status;
                     }
                     else
                     {
                         status = _connected_device->GetStringNodeValue("TriggerSource", trigger_source);
                         if (trigger_source == "Line1")
-                            value = 1.f;
+                            value = 1;
                         else if (trigger_source == "Software")
-                            value = 2.f;
+                            value = 2;
                         else
-                            value = 1.f;
+                            value = 1;
                         return status;
                     }
                 }
+                case RS2_OPTION_USER_OUTPUT_LEVEL:
+                {
+                    if (!select_source(stream))
+                        return false;
 
+                    bool user_output_level;
+
+                    status = _connected_device->GetBooleanNodeValue("UserOutputValue", user_output_level);
+                    if (user_output_level == false) value = CS_USER_OUTPUT_LEVEL_LOW;
+                    else value = CS_USER_OUTPUT_LEVEL_HIGH;
+
+                    return status;
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -1528,7 +1465,7 @@ namespace librealsense {
             _connected_device->CommandNodeExecute("STR_HWmTxBufferSend");
 
             _connected_device->GetNode("STR_HWmRxBuffer")->GetRegisterNodeLength(regLength);
-            restSize = regLength - 4;
+            restSize = static_cast<UINT32>(regLength - 4);
             _connected_device->GetNode("STR_HWmRxBuffer")->GetRegisterNodeAddress(address);
 
             _connected_device->CommandNodeExecute("STR_HWmRxBufferReceive");
@@ -1630,6 +1567,18 @@ namespace librealsense {
             return _temperature_supported;
         }
 
+        double cs_device::get_device_timestamp_ms()
+        {
+            if (!_connected_device->CommandNodeExecute("GevTimestampControlLatch"))
+                throw io_exception("Unable to execute GevTimestampControlLatch");
+
+            INT64 timestamp;
+            if (!_connected_device->GetIntegerNodeValue("GevTimestampValue", timestamp))
+                throw io_exception("Unable to read GevTimestampValue");
+
+            return timestamp * _timestamp_to_ms_factor;
+        }
+
         bool cs_device::is_software_trigger_supported()
         {
             if (!_software_trigger_supported_checked) {
@@ -1665,30 +1614,36 @@ namespace librealsense {
         {
             smcs::IImageInfo image_info_ = nullptr;
 
-            double timestamp;
             if (_connected_device.IsValid() && _connected_device->IsConnected() && _connected_device->IsOnNetwork()) {
                 if (_connected_device->WaitForImage(1, channel))
                 {
                     _connected_device->GetImageInfo(&image_info_, channel);
 
                     if (image_info_ != nullptr) {
-
                         if (!is_profile_format(image_info_, _profiles[stream])) {
                             _connected_device->PopImage(image_info_);
                             return;
                         }
-
-                        //if (cs_info::is_timestamp_supported(_device_info.id))
-                        //timestamp = image_info_->GetCameraTimestamp() / 1000000.0;
-                        timestamp = -1;
+                        auto frame_counter = image_info_->GetImageID();
+                        auto timestamp_us = (uint64_t) image_info_->GetCameraTimestamp();
+                        double timestamp = timestamp_us * TIMESTAMP_USEC_TO_MSEC;
 
                         auto im = image_info_->GetRawData();
-                        auto image_size = image_info_->GetRawDataSize();
 
-                        frame_object fo{ image_size, 0, im, NULL, timestamp };
+                        UINT32 pixel_type, width, height;
+                        image_info_->GetPixelType(pixel_type);
+                        image_info_->GetSize(width, height);
+                        auto c = GvspGetBitsPerPixel((GVSP_PIXEL_TYPES) pixel_type) / 8;
+                        auto image_size = width * height * c;
 
                         {
                             std::lock_guard<std::mutex> lock(_stream_lock);
+
+                            _md.header.timestamp = timestamp_us;
+                            _md.payload.frame_counter = frame_counter;
+
+                            frame_object fo{image_size, sizeof(metadata_framos_basic), im, &_md, timestamp};
+
                             _callbacks[stream](_profiles[stream], fo, []() {});
                         }
 
@@ -1705,7 +1660,7 @@ namespace librealsense {
         {
             if (stream < _number_of_streams)
             {
-                if (!_is_capturing[stream]/* && !_callbacks[stream]*/)
+                if (!_is_capturing[stream])
                 {
                     _profiles[stream] = profile;
                     _callbacks[stream] = callback;
@@ -1729,6 +1684,8 @@ namespace librealsense {
                 if (!_connected_device->SetStringNodeValue("Resolution", new_resolution))
                     throw wrong_api_call_sequence_exception("Failed to set resolution!");
 
+            _connected_device->GetStringNodeValue("Resolution", old_resolution);
+
             // FrameRate does not exist on D435e with FW 1.3.4.0
             if (_connected_device->GetNode("FrameRate") != nullptr 
                 && !_connected_device->SetStringNodeValue("FrameRate", "FPS_" + std::to_string(profile.fps)))
@@ -1739,7 +1696,9 @@ namespace librealsense {
 		{
             auto sync_mode = static_cast<int>(mode);
 
-            select_source(stream);			
+            bool operating_mode_supported = _connected_device->GetNode("STR_OperatingMode") != nullptr;
+
+            select_source(stream);
 
             if (stream == CS_STREAM_COLOR) {
                 switch (sync_mode) {
@@ -1751,48 +1710,71 @@ namespace librealsense {
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
                     _connected_device->SetStringNodeValue("TriggerMode", "Off");
                 }
-            } else {
+            }
+            else {
                 switch (sync_mode) {
                 case CS_INTERCAM_SYNC_SLAVE:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-					_connected_device->SetStringNodeValue("LineSelector", "Line1");
-					_connected_device->SetStringNodeValue("LineSource", "UserOutput1");
-					_connected_device->SetStringNodeValue("TriggerMode", "On");
+                    if (operating_mode_supported) {
+                        _connected_device->SetStringNodeValue("STR_OperatingMode", "Slave");
+                    }
+                    else {
+                        _connected_device->SetStringNodeValue("LineSelector", "Line1");
+                        _connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+                    }
+                    _connected_device->SetStringNodeValue("TriggerMode", "On");
                     break;
                 case CS_INTERCAM_SYNC_MASTER:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-                    _connected_device->SetStringNodeValue("LineSelector", "Line1");
-                    _connected_device->SetStringNodeValue("LineSource", "VSync");
+                    if (operating_mode_supported) {
+                        _connected_device->SetStringNodeValue("STR_OperatingMode", "Master");
+                    }
+                    else {
+                        _connected_device->SetStringNodeValue("LineSelector", "Line1");
+                        _connected_device->SetStringNodeValue("LineSource", "VSync");
+                    }
                     _connected_device->SetStringNodeValue("TriggerMode", "Off");
-                    
+
                     break;
                 case CS_INTERCAM_SYNC_EXTERNAL:
                     _connected_device->SetStringNodeValue("TriggerType", "ExternalEvent");
-                    _connected_device->SetStringNodeValue("LineSelector", "Line1");
-                    _connected_device->SetStringNodeValue("LineSource", "VSync");
+                    if (!operating_mode_supported) {
+                        _connected_device->SetStringNodeValue("LineSelector", "Line1");
+                        _connected_device->SetStringNodeValue("LineSource", "VSync");
+                    }
                     _connected_device->SetStringNodeValue("TriggerMode", "On");
                     break;
                 default:
                     _connected_device->SetStringNodeValue("TriggerType", "MultiCam_Sync");
-                    _connected_device->SetStringNodeValue("LineSelector", "Line1");
-                    _connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+                    if (operating_mode_supported) {
+                        _connected_device->SetStringNodeValue("STR_OperatingMode", "Default");
+                    }
+                    else {
+                        _connected_device->SetStringNodeValue("LineSelector", "Line1");
+                        _connected_device->SetStringNodeValue("LineSource", "UserOutput1");
+                    }
                     _connected_device->SetStringNodeValue("TriggerMode", "Off");
                 }
-			}
+            }
 		}
 
         float cs_device::get_trigger_mode(cs_stream stream)
         {
             select_source(stream);
 
-            std::string trigger_type, trigger_source, line_source, trigger_mode;
+            bool operating_mode_supported = _connected_device->GetNode("STR_OperatingMode") != nullptr;
+
+            std::string trigger_type, trigger_source, line_source, trigger_mode, operating_mode;
             _connected_device->GetStringNodeValue("TriggerType", trigger_type);
-            
+
             _connected_device->SetStringNodeValue("LineSelector", "Line1");
             _connected_device->GetStringNodeValue("LineSource", line_source);
             _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
             if (trigger_mode == "On") {
                 _connected_device->GetStringNodeValue("TriggerSource", trigger_source);
+            }
+            if (operating_mode_supported) {
+                _connected_device->GetStringNodeValue("STR_OperatingMode", operating_mode);
             }
 
             switch (stream) {
@@ -1802,14 +1784,26 @@ namespace librealsense {
                 else
                     return CS_INTERCAM_SYNC_DEFAULT_COLOR;
             default:
-                if (trigger_type == "MultiCam_Sync" && trigger_source == "Line1" && line_source == "UserOutput1" && trigger_mode == "On")
-                    return CS_INTERCAM_SYNC_SLAVE;
-                else if (trigger_type == "MultiCam_Sync" && line_source == "VSync" && trigger_mode == "Off")
-                    return CS_INTERCAM_SYNC_MASTER;
-                else if (trigger_type == "ExternalEvent" && (trigger_source == "Line1" || trigger_source == "Software") && (line_source == "VSync" || line_source == "UserOutput1") && trigger_mode == "On")
-                    return CS_INTERCAM_SYNC_EXTERNAL;
-                else
-                    return CS_INTERCAM_SYNC_DEFAULT;
+                if (operating_mode_supported) {
+                    if (trigger_type == "MultiCam_Sync" && trigger_source == "Line1" && operating_mode == "Slave" && trigger_mode == "On")
+                        return CS_INTERCAM_SYNC_SLAVE;
+                    else if (trigger_type == "MultiCam_Sync" && operating_mode == "Master" && trigger_mode == "Off")
+                        return CS_INTERCAM_SYNC_MASTER;
+                    else if (trigger_type == "ExternalEvent" && (trigger_source == "Line1" || trigger_source == "Software") && trigger_mode == "On")
+                        return CS_INTERCAM_SYNC_EXTERNAL;
+                    else
+                        return CS_INTERCAM_SYNC_DEFAULT;
+                }
+                else {
+                    if (trigger_type == "MultiCam_Sync" && trigger_source == "Line1" && line_source == "UserOutput1" && trigger_mode == "On")
+                        return CS_INTERCAM_SYNC_SLAVE;
+                    else if (trigger_type == "MultiCam_Sync" && line_source == "VSync" && trigger_mode == "Off")
+                        return CS_INTERCAM_SYNC_MASTER;
+                    else if (trigger_type == "ExternalEvent" && (trigger_source == "Line1" || trigger_source == "Software") && (line_source == "VSync" || line_source == "UserOutput1") && trigger_mode == "On")
+                        return CS_INTERCAM_SYNC_EXTERNAL;
+                    else
+                        return CS_INTERCAM_SYNC_DEFAULT;
+                }
             }
         }
 
@@ -1818,48 +1812,46 @@ namespace librealsense {
             switch (stream)
             {
             case CS_STREAM_COLOR:
-                if (value == 1.f) set_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_RGB", true); else set_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_RGB", false);
+                if (value == 1.f) set_device_option_sw_trigger_all_flag_sn(_device_info.serial + "_RGB", true); else set_device_option_sw_trigger_all_flag_sn(_device_info.serial + "_RGB", false);
                 break;
             case CS_STREAM_DEPTH:
             case CS_STREAM_IR_LEFT:
             case CS_STREAM_IR_RIGHT:
-                if (value == 3.f) set_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_Stereo", true); else set_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_Stereo", false);
+                if (value == 3.f) set_device_option_sw_trigger_all_flag_sn(_device_info.serial + "_Stereo", true); else set_device_option_sw_trigger_all_flag_sn(_device_info.serial + "_Stereo", false);
                 break;
             default: throw linux_backend_exception(to_string() << "wrong stream cid ");
             }
 
         }
 
-        float cs_device::get_intercam_mode(cs_stream stream)
+        bool cs_device::get_intercam_mode(cs_stream stream)
         {
             switch (stream) {
             case CS_STREAM_COLOR:
-                return get_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_RGB");
+                return get_device_option_sw_trigger_all_flag_sn(_device_info.serial + "_RGB");
             default:
-                return get_device_option_sw_trigger_all_flag_SN(_device_info.serial + "_Stereo");;
+                return get_device_option_sw_trigger_all_flag_sn(_device_info.serial + "_Stereo");;
             }
         }
 
-        int cs_device::get_optimal_inter_packet_delay(int packetSize)
+        int cs_device::get_optimal_inter_packet_delay(int packet_size)
         {
-            float interPacketDelay = 0;
-            float ethPacketSize = packetSize + 38;  // 38 bytes overhead
-            float nsPerByte = 8.0;  // for 1Gbps
+            double eth_packet_size = packet_size + 38;  // 38 bytes overhead
+            float ns_per_byte = 8.0;  // for 1Gbps
 
-            float timeToTransferPacket = (ethPacketSize * nsPerByte) / 1000.0;  // time in us
-            timeToTransferPacket = ceil(timeToTransferPacket + 0.5);            // round up
-            interPacketDelay = (int)timeToTransferPacket;
+            double time_to_transfer_packet = (eth_packet_size * ns_per_byte) / 1000.0;  // time in us
+            time_to_transfer_packet = ceil(time_to_transfer_packet + 0.5);            // round up
 
-            return interPacketDelay;
+            return static_cast<int>(time_to_transfer_packet);
         }
 
-        bool cs_device::inc_device_count_SN(std::string serialNum)
+        bool cs_device::inc_device_count_sn(std::string serial_num)
         {
             bool result = true;
 
-            auto it = _cs_device_num_objects_SN.find(serialNum);
-            if (it == _cs_device_num_objects_SN.end()) {    // does not exist
-                _cs_device_num_objects_SN.insert({serialNum, 1});
+            auto it = _cs_device_num_objects_sn.find(serial_num);
+            if (it == _cs_device_num_objects_sn.end()) {    // does not exist
+                _cs_device_num_objects_sn.insert({serial_num, 1});
             } 
             else {
                 it->second++;
@@ -1868,12 +1860,12 @@ namespace librealsense {
             return result;
         }
 
-        bool cs_device::dec_device_count_SN(std::string serialNum)
+        bool cs_device::dec_device_count_sn(std::string serial_num)
         {
             bool result = true;
 
-            auto it = _cs_device_num_objects_SN.find(serialNum);
-            if (it == _cs_device_num_objects_SN.end()) {    // does not exist
+            auto it = _cs_device_num_objects_sn.find(serial_num);
+            if (it == _cs_device_num_objects_sn.end()) {    // does not exist
                 result = false;
             }
             else {
@@ -1883,12 +1875,12 @@ namespace librealsense {
             return result;
         }
 
-        int cs_device::get_device_count_SN(std::string serialNum)
+        int cs_device::get_device_count_sn(std::string serial_num)
         {
             int devCount = -1;
             
-            auto it = _cs_device_num_objects_SN.find(serialNum);
-            if (it == _cs_device_num_objects_SN.end()) {    // does not exist
+            auto it = _cs_device_num_objects_sn.find(serial_num);
+            if (it == _cs_device_num_objects_sn.end()) {    // does not exist
                 devCount = -1;
             }
             else {
@@ -1898,27 +1890,27 @@ namespace librealsense {
             return devCount;
         }
 
-        bool cs_device::set_device_init_flag_SN(std::string serialNum, bool setInitFlag)
+        bool cs_device::set_device_init_flag_sn(std::string serial_num, bool set_init_flag)
         {
             bool result = true;
 
-            auto it = _cs_device_initialized_SN.find(serialNum);
-            if (it == _cs_device_initialized_SN.end()) {    // does not exist
-                _cs_device_initialized_SN.insert({serialNum, setInitFlag});
+            auto it = _cs_device_initialized_sn.find(serial_num);
+            if (it == _cs_device_initialized_sn.end()) {    // does not exist
+                _cs_device_initialized_sn.insert({serial_num, set_init_flag});
             }
             else {
-                it->second = setInitFlag;
+                it->second = set_init_flag;
             }
 
             return result;
         }
 
-        bool cs_device::get_device_init_flag_SN(std::string serialNum)
+        bool cs_device::get_device_init_flag_sn(std::string serial_num)
         {
             bool flag = false;
 
-            auto it = _cs_device_initialized_SN.find(serialNum);
-            if (it == _cs_device_initialized_SN.end()) {    // does not exist
+            auto it = _cs_device_initialized_sn.find(serial_num);
+            if (it == _cs_device_initialized_sn.end()) {    // does not exist
                 flag = false;
             }
             else {
@@ -1928,27 +1920,27 @@ namespace librealsense {
             return flag;
         }
 
-        bool cs_device::set_device_option_sw_trigger_all_flag_SN(std::string serialNum, bool setTriggerAllFlag)
+        bool cs_device::set_device_option_sw_trigger_all_flag_sn(std::string serial_num, bool set_trigger_all_flag)
         {
             bool result = true;
 
-            auto it = _cs_device_option_sw_trigger_all_flag_SN.find(serialNum);
-            if (it == _cs_device_option_sw_trigger_all_flag_SN.end()) {    // does not exist
-                _cs_device_option_sw_trigger_all_flag_SN.insert({ serialNum, setTriggerAllFlag });
+            auto it = _cs_device_option_sw_trigger_all_flag_sn.find(serial_num);
+            if (it == _cs_device_option_sw_trigger_all_flag_sn.end()) {    // does not exist
+                _cs_device_option_sw_trigger_all_flag_sn.insert({ serial_num, set_trigger_all_flag });
             }
             else {
-                it->second = setTriggerAllFlag;
+                it->second = set_trigger_all_flag;
             }
 
             return result;
         }
 
-        bool cs_device::get_device_option_sw_trigger_all_flag_SN(std::string serialNum)
+        bool cs_device::get_device_option_sw_trigger_all_flag_sn(std::string serial_num)
         {
             bool flag = false;
 
-            auto it = _cs_device_option_sw_trigger_all_flag_SN.find(serialNum);
-            if (it == _cs_device_option_sw_trigger_all_flag_SN.end()) {    // does not exist
+            auto it = _cs_device_option_sw_trigger_all_flag_sn.find(serial_num);
+            if (it == _cs_device_option_sw_trigger_all_flag_sn.end()) {    // does not exist
                 flag = false;
             }
             else {
@@ -1959,73 +1951,19 @@ namespace librealsense {
         }
     }
 
-    void cs_pu_option::set(float value)
+    std::vector<uint8_t> cs_command_transfer::send_receive(const std::vector<uint8_t>& data, int, bool require_response)
     {
-        _ep.invoke_powered(
-                [this, value](platform::cs_device& dev)
-                {
-                    if (!dev.set_pu(_id, static_cast<int32_t>(value), _stream))
-                        throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
-
-                    _record(*this);
-                });
-    }
-
-    float cs_pu_option::query() const
-    {
-        return static_cast<float>(_ep.invoke_powered(
-                [this](platform::cs_device& dev)
-                {
-                    int32_t value = 0;
-                    if (!dev.get_pu(_id, value, _stream))
-                        throw invalid_value_exception(to_string() << "get_pu(id=" << std::to_string(_id) << ") failed!" << " Last Error: " << strerror(errno));
-                    return static_cast<float>(value);
-                }));
-    }
-
-    option_range cs_pu_option::get_range() const
-    {
-        auto cs_range = _ep.invoke_powered(
-                [this](platform::cs_device& dev)
-                {
-                    return dev.get_pu_range(_id, _stream);
-                });
-
-        if (cs_range.min.size() < sizeof(int32_t)) return option_range{0,0,1,0};
-
-        auto min = *(reinterpret_cast<int32_t*>(cs_range.min.data()));
-        auto max = *(reinterpret_cast<int32_t*>(cs_range.max.data()));
-        auto step = *(reinterpret_cast<int32_t*>(cs_range.step.data()));
-        auto def = *(reinterpret_cast<int32_t*>(cs_range.def.data()));
-        return option_range{static_cast<float>(min),
-                            static_cast<float>(max),
-                            static_cast<float>(step),
-                            static_cast<float>(def)};
-    }
-
-    const char* cs_pu_option::get_description() const
-    {
-        switch(_id)
+        if (data.size() > HW_MONITOR_BUFFER_SIZE)
         {
-            case RS2_OPTION_BACKLIGHT_COMPENSATION: return "Enable / disable backlight compensation";
-            case RS2_OPTION_BRIGHTNESS: return "Image brightness";
-            case RS2_OPTION_CONTRAST: return "Image contrast";
-            case RS2_OPTION_EXPOSURE: return "Controls exposure time of color camera. Setting any value will disable auto exposure";
-            case RS2_OPTION_GAIN: return "Image gain";
-            case RS2_OPTION_GAMMA: return "Image gamma setting";
-            case RS2_OPTION_HUE: return "Image hue";
-            case RS2_OPTION_SATURATION: return "Image saturation setting";
-            case RS2_OPTION_SHARPNESS: return "Image sharpness setting";
-            case RS2_OPTION_WHITE_BALANCE: return "Controls white balance of color image. Setting any value will disable auto white balance";
-            case RS2_OPTION_ENABLE_AUTO_EXPOSURE: return "Enable / disable auto-exposure";
-            case RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE: return "Enable / disable auto-white-balance";
-            case RS2_OPTION_POWER_LINE_FREQUENCY: return "Power Line Frequency";
-            case RS2_OPTION_AUTO_EXPOSURE_PRIORITY: return "Limit exposure time when auto-exposure is ON to preserve constant fps rate";
-            case RS2_OPTION_INTER_PACKET_DELAY: return "Inter-packet delay";
-            case RS2_OPTION_PACKET_SIZE: return "Packet size";
-            case RS2_OPTION_ASIC_TEMPERATURE: return "Current Asic Temperature (degree celsius)";
-            case RS2_OPTION_PROJECTOR_TEMPERATURE: return "Current Projector Temperature (degree celsius)";
-            default: return _ep.get_option_name(_id);
+            LOG_ERROR("HW monitor command size is invalid");
+            throw invalid_value_exception(to_string() << "Requested HW monitor command size " <<
+                                                      std::dec << data.size() << " exceeds permitted limit " << HW_MONITOR_BUFFER_SIZE);
         }
+
+        std::vector<uint8_t> transmit_buf(data);
+
+        return static_cast<std::vector<uint8_t>>(_device->send_hwm(transmit_buf));
     }
+
+
 }

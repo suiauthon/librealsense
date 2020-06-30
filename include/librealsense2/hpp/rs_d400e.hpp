@@ -33,6 +33,30 @@ namespace rs2
 
             return time;
         }
+
+        /**
+        * set buffer count for d400e devices
+        * \param[in] buffer_count     number of buffers
+        */
+        inline void set_buffer_count(int buffer_count)
+        {
+            rs2_error* e = nullptr;
+            rs2_d400e_set_buffer_count(buffer_count, &e);
+            rs2::error::handle(e);
+        }
+
+        /**
+        * retrieve buffer count for d400e devices
+        * \return             buffer count in seconds
+        */
+        inline int get_buffer_count()
+        {
+            rs2_error* e = nullptr;
+            auto buffer_count = rs2_d400e_get_buffer_count(&e);
+            rs2::error::handle(e);
+
+            return buffer_count;
+        }
     }
 }
 #endif // LIBREALSENSE_RS2_D400E_HPP
