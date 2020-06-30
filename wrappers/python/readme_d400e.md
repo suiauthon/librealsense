@@ -108,7 +108,7 @@ Inside the solution, set the build type to ```Release``` and build the wrapper b
 
 The wrapper must be copied next to the Python script along with required dependencies.
 
-Copy the Python wrapper (name may be include additional information)
+Copy the Python wrapper (name may include additional information)
 
 - `pyrealsense2.pyd`
 

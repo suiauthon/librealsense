@@ -8,15 +8,15 @@ v2.33.10 (2020-06-30)
     - added - [WIN] signed installer
     - added - [WIN] start menu entry for FRAMOS Realsense Viewer
     - added - [WIN] license, icons and additional info in installation
-    - fixed - camera disconnecting if broadcast fails to find it once
+    - fixed - D400e cameras might get disconnected even if logical link was still active
     - fixed - not able to set fps in some cases
     - fixed - depth stream sometimes enabled when only infrared stream is selected
     - fixed - wrong camera option and camera info enum mapping in C# wrapper
     - fixed - Fixed Frame not available for multiple cameras in ROS wrapper
-    - fixed - __bool__ operator for frame not implemented in Python wrapper
+    - fixed - operator "__bool__" for frame was not implemented in Python wrapper
     - changed - base Intel® RealSense™ version 2.33.1
     - changed - pyrealsense2 no longer creating context on import
-    - changed - [WIN] installation path to Program Files/FRAMOS/librealsense2
+    - changed - [WIN] installation path to "Program Files/FRAMOS/librealsense2"
     - removed - firmware update option in realsense-viewer for D400e cameras
 
 v2.29.8 (2020-03-31)
