@@ -13,11 +13,6 @@ CALL:INIT
 MKDIR build\%TARGET_SYSTEM% 2> nul
 CD build\%TARGET_SYSTEM%
 
-rem temp
-rem IF "%SMARTEK_VISION_PATH%"=="" SET SMARTEK_VISION_PATH=C:\SmartekVision
-rem SET CAMERA_SUITE_PATH=%SMARTEK_VISION_PATH%\Projects\CameraSuite
-rem SET CAMERA_SUITE_PACKAGE=%CAMERA_SUITE_PATH%\CS_SDK\cmake_packages
-
 IF "%TARGET_SYSTEM%" == "Win64_x64" (
     SET GENERATOR="Visual Studio 14 2015 Win64"
     SET INSTALL_DYNAMIC_CALIBRATOR=ON
@@ -37,7 +32,7 @@ if ERRORLEVEL 1 goto ERROR
 
 rem TODO sing the binaries inside the package
 if defined SIGN_BINARIES (
-    signtool.exe sign /q /ac "%ROOT_CA_PATH%" /f "%CODESIGN_CERT_PATH%\GlobalSign_FRAMOS_eToken.cer" /csp "eToken Base Cryptographic Provider" /kc "[{{%FRAMOS_TOKEN_PASSWORD%}}]=te-ee307152-4ddb-460e-bbc9-c87e75365a17" /tr http://rfc3161timestamp.globalsign.com/advanced /sha1 634217D4B35321AD8863A38BFF93C24594FA7C60 /td SHA256 FRAMOS-librealsense2-*-Win64_x64.exe
+    signtool.exe sign /q /ac "%ROOT_CA_PATH%" /f "%CODESIGN_CERT_PATH%\GlobalSign_FRAMOS_eToken.cer" /csp "eToken Base Cryptographic Provider" /kc "[{{%FRAMOS_TOKEN_PASSWORD%}}]=te-ee307152-4ddb-460e-bbc9-c87e75365a17" /tr http://rfc3161timestamp.globalsign.com/advanced /sha1 634217D4B35321AD8863A38BFF93C24594FA7C60 /td SHA256 FRAMOS-librealsense2-*-%TARGET_SYSTEM%.exe
 )
 
 goto:eof

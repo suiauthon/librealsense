@@ -9,26 +9,9 @@ SET PWD=%~dp0
 CD %PWD%
 CALL:INIT
 IF ERRORLEVEL 1 GOTO ERROR
-CALL:READARGUMENTS %*
 
-IF "%TARGET_SYSTEM%"=="Win64_x64" SET CAMERA_SUITE_ARCH=_x64
-IF "%TARGET_SYSTEM%"=="Win32_x86" SET CAMERA_SUITE_ARCH=_x86
-
-RD /S /Q FRAMOS_D400e_Software_Package
-MKDIR FRAMOS_D400e_Software_Package
-CD FRAMOS_D400e_Software_Package
-COPY "%CAMERA_SUITE_PACKAGE_PATH%\*_%CAMERA_SUITE_ARCH%.exe" . > nul
-COPY ..\build\%TARGET_SYSTEM%\*.exe . > nul
-COPY ..\FRAMOS_D400e_Software_Package_Changelog.txt . > nul
-COPY ..\FRAMOS_LibRealSense_Changelog.txt . > nul
-SET CAMERA_SUITE_CHANGELOG=%CAMERA_SUITE_CHANGELOG:/=\%
-COPY "%CAMERA_SUITE_CHANGELOG%" FRAMOS_CameraSuite_Changelog.txt > nul
-COPY ..\ReadMe_Windows.txt ReadMe.txt > nul
-SET /p VERSION_AND_DATE=< FRAMOS_D400e_Software_Package_Changelog.txt
-FOR /F %%a in ("%VERSION_AND_DATE%") do SET VERSION=%%a
-SET VERSION=%VERSION:.=-%
-CD ..
-"C:\Program Files\7-Zip\7z" a FRAMOS_D400e_Software_Package_%VERSION%_%TARGET_SYSTEM%.zip FRAMOS_D400e_Software_Package\
+CALL:GENERATE_ZIP_PACKAGE Win64_x64
+CALL:GENERATE_ZIP_PACKAGE Win32_x86
 
 goto:eof
 
@@ -47,10 +30,29 @@ IF NOT EXIST "C:\Program Files\7-Zip\7z.exe" (
 )
 goto:eof
 
-:READARGUMENTS
-IF "%1"=="Win64_x64" SET TARGET_SYSTEM=Win64_x64
-IF "%1"=="Win32_x86" SET TARGET_SYSTEM=Win32_x86
-IF "%2"=="sign" SET "SIGN_BINARIES=true"
+:GENERATE_ZIP_PACKAGE
+
+SET TARGET_SYSTEM="%1"
+
+IF %TARGET_SYSTEM%=="Win64_x64" SET CAMERA_SUITE_ARCH=x64
+IF %TARGET_SYSTEM%=="Win32_x86" SET CAMERA_SUITE_ARCH=x86
+
+RD /S /Q FRAMOS_D400e_Software_Package
+MKDIR FRAMOS_D400e_Software_Package
+CD FRAMOS_D400e_Software_Package
+COPY "%CAMERA_SUITE_PACKAGE_PATH%\*_%CAMERA_SUITE_ARCH%.exe" .
+COPY ..\build\%TARGET_SYSTEM%\*.exe . > nul
+COPY ..\FRAMOS_D400e_Software_Package_Changelog.txt . > nul
+COPY ..\FRAMOS_LibRealSense_Changelog.txt . > nul
+SET CAMERA_SUITE_CHANGELOG=%CAMERA_SUITE_CHANGELOG:/=\%
+COPY "%CAMERA_SUITE_CHANGELOG%" FRAMOS_CameraSuite_Changelog.txt > nul
+COPY ..\ReadMe_Windows.txt ReadMe.txt > nul
+SET /p VERSION_AND_DATE=< FRAMOS_D400e_Software_Package_Changelog.txt
+FOR /F %%a in ("%VERSION_AND_DATE%") do SET VERSION=%%a
+SET VERSION=%VERSION:.=-%
+CD ..
+"C:\Program Files\7-Zip\7z" a FRAMOS_D400e_Software_Package_%VERSION%_%TARGET_SYSTEM%.zip FRAMOS_D400e_Software_Package\
+
 goto:eof
 
 :ERROR
