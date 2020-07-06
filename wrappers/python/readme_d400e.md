@@ -10,6 +10,8 @@ Linux ARM64 - Jetson TX2, Jetson Xavier, L4T 32.3.1
 
 Windows x86_64
 
+Windows x86
+
 ## Prerequisites
 
 FRAMOS CameraSuite version 4.1.2.0 or higher

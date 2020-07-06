@@ -10,6 +10,7 @@ Components:
 Supported platforms:
 --------------------
 - Windows x86_64
+- Windows x86
 
 Prerequisites:
 --------------
