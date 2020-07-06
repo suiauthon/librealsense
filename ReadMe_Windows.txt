@@ -80,7 +80,9 @@ Using Dynamic Calibration Tool:
 -------------------------------
 Dynamic Calibration Tool is located in 
 	"C:\Program Files\FRAMOS\librealsense2\bin\DynamicCalibrator"
-	
+
+NOTE: 32bit Dynamic Calibration Tool is not supported.
+
 Calibration of RGB imager is currently not supported.
 
 Calibrating multiple cameras in a row is currently not supported.
