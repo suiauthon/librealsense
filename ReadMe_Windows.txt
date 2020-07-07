@@ -64,7 +64,7 @@ with features applicable only to the D400e cameras. List of all API additions is
 Python wrapper:
 ---------------
 Instructions on how to use the Python wrapper are located in
-    C:\Program Files\FRAMOS\librealsense2\src\wrappers\python\d400e_readme.md
+    C:\Program Files\FRAMOS\librealsense2\src\wrappers\python\readme_400e.md
 
 Multicam example:
 -----------------
