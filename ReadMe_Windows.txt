@@ -50,7 +50,7 @@ Launch the CMake GUI tool.
 Set "Where is the source code" to the location of the copied src folder.
 Set "Where to build the binaries" to the location of the copied src folder with the "/build" suffix.
 Press the "Configure" button to update CMake values. 
-Make sure to select the "Visual Studio 14 2015" generator and "x64" optional platform when prompted.
+Make sure to select the "Visual Studio 14 2015" generator and "x64" optional platformon x86_64 when prompted.
 Press the "Generate" button to generate the Visual Studio Solution.
 Press the "Open Project" button to open the generated Visual Studio Solution.
 Inside the solution, set the build type to "Release" and build it by selecting "Build" -> "Build Solution".
