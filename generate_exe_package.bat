@@ -13,7 +13,16 @@ CALL:INIT
 MKDIR build\%TARGET_SYSTEM% 2> nul
 CD build\%TARGET_SYSTEM%
 
-cmake -G "Visual Studio 14 2015 Win64" -DINSTALL_DYNAMIC_CALIBRATOR=ON -DCMAKE_BUILD_TYPE=Release -DCPACK_SYSTEM_NAME=Win64_x64 ../../
+IF "%TARGET_SYSTEM%" == "Win64_x64" (
+    SET GENERATOR="Visual Studio 14 2015 Win64"
+    SET INSTALL_DYNAMIC_CALIBRATOR=ON
+) ELSE IF "%TARGET_SYSTEM%" == "Win32_x86" (
+    SET GENERATOR="Visual Studio 14 2015"
+    SET INSTALL_DYNAMIC_CALIBRATOR=OFF
+    SET CAMERA_SUITE_TARGET_SYSTEM=%TARGET_SYSTEM%
+)
+
+cmake -G %GENERATOR% -DINSTALL_DYNAMIC_CALIBRATOR=%INSTALL_DYNAMIC_CALIBRATOR% -DCMAKE_BUILD_TYPE=Release -DCPACK_SYSTEM_NAME=%TARGET_SYSTEM% ../../
 if ERRORLEVEL 1 goto ERROR
 
 CALL "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86
@@ -23,7 +32,7 @@ if ERRORLEVEL 1 goto ERROR
 
 rem TODO sing the binaries inside the package
 if defined SIGN_BINARIES (
-    signtool.exe sign /q /ac "%ROOT_CA_PATH%" /f "%CODESIGN_CERT_PATH%\GlobalSign_FRAMOS_eToken.cer" /csp "eToken Base Cryptographic Provider" /kc "[{{%FRAMOS_TOKEN_PASSWORD%}}]=te-ee307152-4ddb-460e-bbc9-c87e75365a17" /tr http://rfc3161timestamp.globalsign.com/advanced /sha1 634217D4B35321AD8863A38BFF93C24594FA7C60 /td SHA256 FRAMOS-librealsense2-*-Win64_x64.exe
+    signtool.exe sign /q /ac "%ROOT_CA_PATH%" /f "%CODESIGN_CERT_PATH%\GlobalSign_FRAMOS_eToken.cer" /csp "eToken Base Cryptographic Provider" /kc "[{{%FRAMOS_TOKEN_PASSWORD%}}]=te-ee307152-4ddb-460e-bbc9-c87e75365a17" /tr http://rfc3161timestamp.globalsign.com/advanced /sha1 634217D4B35321AD8863A38BFF93C24594FA7C60 /td SHA256 FRAMOS-librealsense2-*-%TARGET_SYSTEM%.exe
 )
 
 goto:eof

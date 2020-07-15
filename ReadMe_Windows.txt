@@ -1,5 +1,5 @@
 FRAMOS D400e Depth Camera Software Package for Windows
-v1.9.0 (2020-06-30)
+v1.9.1 (2020-07-10)
 ======================================================
 
 Components:
@@ -10,6 +10,7 @@ Components:
 Supported platforms:
 --------------------
 - Windows x86_64
+- Windows x86
 
 Prerequisites:
 --------------
@@ -49,7 +50,7 @@ Launch the CMake GUI tool.
 Set "Where is the source code" to the location of the copied src folder.
 Set "Where to build the binaries" to the location of the copied src folder with the "/build" suffix.
 Press the "Configure" button to update CMake values. 
-Make sure to select the "Visual Studio 14 2015" generator and "x64" optional platform when prompted.
+Make sure to select the "Visual Studio 14 2015" generator and "x64" optional platform on x86_64 when prompted.
 Press the "Generate" button to generate the Visual Studio Solution.
 Press the "Open Project" button to open the generated Visual Studio Solution.
 Inside the solution, set the build type to "Release" and build it by selecting "Build" -> "Build Solution".
@@ -79,7 +80,9 @@ Using Dynamic Calibration Tool:
 -------------------------------
 Dynamic Calibration Tool is located in 
 	"C:\Program Files\FRAMOS\librealsense2\bin\DynamicCalibrator"
-	
+
+NOTE: 32bit Dynamic Calibration Tool is not supported.
+
 Calibration of RGB imager is currently not supported.
 
 Calibrating multiple cameras in a row is currently not supported.
