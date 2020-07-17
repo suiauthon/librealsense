@@ -1,5 +1,5 @@
 FRAMOS D400e Depth Camera Software Package for Windows
-v1.9.1 (2020-07-10)
+v1.9.1 (2020-07-17)
 ======================================================
 
 Components:
