@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 ARG docker_user_uid=0
 ARG docker_user_gid=0
@@ -28,6 +28,8 @@ RUN groupadd \
 	dkms \
 	shim-signed \
 	openssl \
+    libgl1-mesa-dev \
+    libglu1-mesa-dev \
 	sudo && \
 	echo 'docker_user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 	
