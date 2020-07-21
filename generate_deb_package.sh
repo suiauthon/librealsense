@@ -27,6 +27,14 @@ set_build_environment() {
     fi
 }
 
+build_dynamic_calibrator() {
+    mkdir -p "$DYNAMIC_CALIBRATOR_PATH/build"
+    pushd "$DYNAMIC_CALIBRATOR_PATH/build"
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    make -j$(nproc)
+    popd
+}
+
 build_platform () {
     mkdir -p build/$PLATFORM
     pushd build/$PLATFORM
@@ -34,7 +42,8 @@ build_platform () {
         export CAMERA_SUITE_TARGET_SYSTEM="$PLATFORM"
         TOOLCHAIN="Linux64_ARM_HF_Toolchain.cmake"
         CMAKE_FLAGS="-DINSTALL_ROS_WRAPPER=ON -DCPACK_DEBIAN_PACKAGE_ARCHITECTURE=arm64"
-    else 
+    else
+        build_dynamic_calibrator
 		CMAKE_FLAGS="-DINSTALL_DYNAMIC_CALIBRATOR=ON -DINSTALL_ROS_WRAPPER=ON"
 	fi
     cmake ../../ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCPACK_SYSTEM_NAME=$PLATFORM $CMAKE_FLAGS
