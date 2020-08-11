@@ -63,7 +63,7 @@ namespace librealsense {
                      const platform::backend_device_group& group,
                      bool register_device_notifications);
 
-        std::shared_ptr<matcher> create_matcher(const frame_holder& frame) const override;
+        std::shared_ptr<matcher> create_matcher(const frame_holder& frame, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT) const;
 
         std::vector<tagged_profile> get_profiles_tags() const override;
 

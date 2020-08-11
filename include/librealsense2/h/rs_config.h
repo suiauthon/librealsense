@@ -68,6 +68,16 @@ extern "C" {
         rs2_format format,
         int framerate,
         rs2_error** error);
+    /**
+    * Enable a device stream explicitly, with selected stream parameters.
+    *
+    * \param[in] config         A pointer to an instance of a config
+    * \param[in] pipe_config    Stream type to be enabled
+    * \param[out] error  if non-null, receives any error that occurs during this call, otherwise, errors are ignored
+    */
+    void rs2_config_set_pipe_config(rs2_config* config,
+        rs2_pipe_config pipe_config,
+        rs2_error** error);
 
     /**
     * Enable all device streams explicitly.

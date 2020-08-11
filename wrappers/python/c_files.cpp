@@ -33,6 +33,7 @@ void init_c_files(py::module &m) {
     // rs2_sr300_visual_preset
     // rs2_rs400_visual_preset
     BIND_ENUM(m, rs2_playback_status, RS2_PLAYBACK_STATUS_COUNT, "") // No docstring in C++
+    BIND_ENUM(m, rs2_pipe_config, RS2_PIPE_COUNT, "Specifies advanced pipeline (capabilities) objects may implement.")
 
     /** rs_types.h **/
     py::class_<rs2_intrinsics> intrinsics(m, "intrinsics", "Video stream intrinsics.");

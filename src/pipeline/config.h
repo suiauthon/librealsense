@@ -30,6 +30,9 @@ namespace librealsense
             bool can_resolve(std::shared_ptr<pipeline> pipe);
             bool get_repeat_playback();
 
+            void set_pipe_config(rs2_pipe_config pipe_config) { _pipe_config = pipe_config; };
+            rs2_pipe_config get_pipe_oper_mode() { return _pipe_config; };
+
             //Non top level API
             std::shared_ptr<profile> get_cached_resolved_profile();
 
@@ -41,6 +44,7 @@ namespace librealsense
                 _stream_requests = other._stream_requests;
                 _resolved_profile = nullptr;
                 _playback_loop = other._playback_loop;
+                _pipe_config = other._pipe_config;
             }
         private:
             struct device_request
@@ -60,6 +64,7 @@ namespace librealsense
             bool _enable_all_streams = false;
             std::shared_ptr<profile> _resolved_profile;
             bool _playback_loop;
+            rs2_pipe_config _pipe_config = RS2_PIPE_DEFAULT;
         };
     }
 }

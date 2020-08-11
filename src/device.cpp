@@ -8,7 +8,7 @@
 
 using namespace librealsense;
 
-std::shared_ptr<matcher> matcher_factory::create(rs2_matchers matcher, std::vector<stream_interface*> profiles)
+std::shared_ptr<matcher> matcher_factory::create(rs2_matchers matcher, std::vector<stream_interface*> profiles, rs2_pipe_config pipe_config)
 {
     switch (matcher)
     {
@@ -22,7 +22,7 @@ std::shared_ptr<matcher> matcher_factory::create(rs2_matchers matcher, std::vect
         return create_DLR_matcher(profiles);
     case RS2_MATCHER_DEFAULT:default:
         LOG_DEBUG("Created default matcher");
-        return create_timestamp_matcher(profiles);
+        return create_timestamp_matcher(profiles, pipe_config);
         break;
     }
 }
@@ -74,7 +74,7 @@ std::shared_ptr<matcher> matcher_factory::create_DLR_matcher(std::vector<stream_
     if (!depth || !left || !right)
     {
         LOG_DEBUG("Created default matcher");
-        return create_timestamp_matcher(profiles);
+        return create_timestamp_matcher(profiles, RS2_PIPE_DEFAULT);
     }
     return create_frame_number_matcher({ depth , left , right });
 }
@@ -100,13 +100,13 @@ std::shared_ptr<matcher> matcher_factory::create_frame_number_matcher(std::vecto
 
     return create_frame_number_composite_matcher(matchers);
 }
-std::shared_ptr<matcher> matcher_factory::create_timestamp_matcher(std::vector<stream_interface*> profiles)
+std::shared_ptr<matcher> matcher_factory::create_timestamp_matcher(std::vector<stream_interface*> profiles, rs2_pipe_config pipe_config)
 {
     std::vector<std::shared_ptr<matcher>> matchers;
     for (auto& p : profiles)
         matchers.push_back(std::make_shared<identity_matcher>(p->get_unique_id(), p->get_stream_type()));
 
-    return create_timestamp_composite_matcher(matchers);
+    return create_timestamp_composite_matcher(matchers, pipe_config);
 }
 
 std::shared_ptr<matcher> matcher_factory::create_identity_matcher(stream_interface *profile)
@@ -118,9 +118,9 @@ std::shared_ptr<matcher> matcher_factory::create_frame_number_composite_matcher(
 {
     return std::make_shared<frame_number_composite_matcher>(matchers);
 }
-std::shared_ptr<matcher> matcher_factory::create_timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers)
+std::shared_ptr<matcher> matcher_factory::create_timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config)
 {
-    return std::make_shared<timestamp_composite_matcher>(matchers);
+    return std::make_shared<timestamp_composite_matcher>(matchers, pipe_config);
 }
 
 device::device(std::shared_ptr<context> ctx,

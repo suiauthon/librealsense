@@ -112,7 +112,7 @@ namespace librealsense
     class composite_matcher : public matcher
     {
     public:
-        composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name);
+        composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
 
 
         virtual bool are_equivalent(frame_holder& a, frame_holder& b) = 0;
@@ -127,19 +127,21 @@ namespace librealsense
         std::shared_ptr<matcher> find_matcher(const frame_holder& f);
 
     protected:
-        virtual void update_next_expected(const frame_holder& f) = 0;
+        virtual void update_next_expected(const frame_holder& f, matcher* m) = 0;
 
         std::map<matcher*, single_consumer_frame_queue<frame_holder>> _frames_queue;
         std::map<stream_id, std::shared_ptr<matcher>> _matchers;
         std::map<matcher*, double> _next_expected;
         std::map<matcher*, rs2_timestamp_domain> _next_expected_domain;
+        rs2_pipe_config _pipe_config;
+        int _streams_to_sync = 0;
     };
 
     // composite matcher that does not synchronize between any frames, and instead just passes them on to callback
     class composite_identity_matcher : public composite_matcher
     {
     public:
-        composite_identity_matcher(std::vector<std::shared_ptr<matcher>> matchers);
+        composite_identity_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
 
         void sync(frame_holder f, syncronization_environment env) override;
         virtual bool are_equivalent(frame_holder& a, frame_holder& b) { return false; }
@@ -149,19 +151,19 @@ namespace librealsense
         virtual void update_last_arrived(frame_holder& f, matcher* m) {}
 
     protected:
-        virtual void update_next_expected(const frame_holder& f) {}
+        virtual void update_next_expected(const frame_holder& f, matcher* m) {}
     };
 
     class frame_number_composite_matcher : public composite_matcher
     {
     public:
-        frame_number_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers);
+        frame_number_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
         virtual void update_last_arrived(frame_holder& f, matcher* m) override;
         bool are_equivalent(frame_holder& a, frame_holder& b) override;
         bool is_smaller_than(frame_holder& a, frame_holder& b) override;
         bool skip_missing_stream(std::vector<matcher*> synced, matcher* missing) override;
         void clean_inactive_streams(frame_holder& f) override;
-        void update_next_expected(const frame_holder& f) override;
+        void update_next_expected(const frame_holder& f, matcher* m) override;
 
     private:
          std::map<matcher*,unsigned long long> _last_arrived;
@@ -170,17 +172,17 @@ namespace librealsense
     class timestamp_composite_matcher : public composite_matcher
     {
     public:
-        timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers);
+        timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT, std::map<int, rs2_stream> streams_to_sync = { {} });
         bool are_equivalent(frame_holder& a, frame_holder& b) override;
         bool is_smaller_than(frame_holder& a, frame_holder& b) override;
         virtual void update_last_arrived(frame_holder& f, matcher* m) override;
         void clean_inactive_streams(frame_holder& f) override;
         bool skip_missing_stream(std::vector<matcher*> synced, matcher* missing) override;
-        void update_next_expected(const frame_holder & f) override;
+        void update_next_expected(const frame_holder& f, matcher* m) override;
 
     private:
         unsigned int get_fps(const frame_holder & f);
-        bool are_equivalent(double a, double b, int fps);
+        bool are_equivalent(double a, double b, int fps, bool source, rs2_pipe_config pipe_config);
         std::map<matcher*, double> _last_arrived;
         std::map<matcher*, unsigned int> _fps;
 

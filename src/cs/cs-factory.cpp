@@ -123,10 +123,10 @@ namespace librealsense {
         cs_advanced_mode_init(cs_depth::_hw_monitor, &get_depth_sensor());
     }
 
-    std::shared_ptr<matcher> d400e_camera::create_matcher(const frame_holder& frame) const
+    std::shared_ptr<matcher> d400e_camera::create_matcher(const frame_holder& frame, rs2_pipe_config pipe_config) const
     {
-        std::vector<stream_interface*> streams = {_depth_stream.get(), _left_ir_stream.get() , _right_ir_stream.get(), _color_stream.get()};
-        return matcher_factory::create(RS2_MATCHER_DEFAULT, streams);
+        std::vector<stream_interface*> streams = { _depth_stream.get(), _left_ir_stream.get() , _right_ir_stream.get(), _color_stream.get() };
+        return matcher_factory::create(RS2_MATCHER_DEFAULT, streams, pipe_config);
     }
 
     std::vector<tagged_profile> d400e_camera::get_profiles_tags() const

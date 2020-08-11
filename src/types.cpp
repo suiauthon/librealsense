@@ -496,10 +496,24 @@ namespace librealsense
         switch (value)
         {
             CASE(DI)
-            CASE(DI_C)
-            CASE(DLR_C)
-            CASE(DLR)
+                CASE(DI_C)
+                CASE(DLR_C)
+                CASE(DLR)
+                CASE(DEFAULT)
+        default: assert(!is_valid(value)); return UNKNOWN_VALUE;
+        }
+
+#undef CASE
+    }
+
+    const char* get_string(rs2_pipe_config value)
+    {
+#define CASE(X) STRCASE(PIPE, X)
+        switch (value)
+        {
             CASE(DEFAULT)
+                CASE(WAIT_FRAMESET)
+                CASE(RETURN_FRAME)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 

@@ -24,7 +24,7 @@ namespace librealsense
     class matcher_factory
     {
     public:
-        static std::shared_ptr<matcher> create(rs2_matchers matcher, std::vector<stream_interface*> profiles);
+        static std::shared_ptr<matcher> create(rs2_matchers matcher, std::vector<stream_interface*> profiles, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
 
     private:
         static std::shared_ptr<matcher> create_DLR_C_matcher(std::vector<stream_interface*> profiles);
@@ -34,9 +34,9 @@ namespace librealsense
 
         static std::shared_ptr<matcher> create_identity_matcher(stream_interface* profiles);
         static std::shared_ptr<matcher> create_frame_number_matcher(std::vector<stream_interface*> profiles);
-        static std::shared_ptr<matcher> create_timestamp_matcher(std::vector<stream_interface*> profiles);
+        static std::shared_ptr<matcher> create_timestamp_matcher(std::vector<stream_interface*> profiles, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
 
-        static std::shared_ptr<matcher> create_timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers);
+        static std::shared_ptr<matcher> create_timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
         static std::shared_ptr<matcher> create_frame_number_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers);
     };
 

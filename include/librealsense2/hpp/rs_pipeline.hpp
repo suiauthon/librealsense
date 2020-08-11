@@ -210,6 +210,14 @@ namespace rs2
             enable_stream(stream_type, stream_index, 0, 0, format, framerate);
         }
 
+
+        void set_pipe_config(rs2_pipe_config pipe_config)
+        {
+            rs2_error* e = nullptr;
+            rs2_config_set_pipe_config(_config.get(), pipe_config, &e);
+            error::handle(e);
+        }
+
         /**
         * Enable all device streams explicitly.
         * The conditions and behavior of this method are similar to those of \c enable_stream().

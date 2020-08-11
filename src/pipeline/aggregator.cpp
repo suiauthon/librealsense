@@ -9,12 +9,13 @@ namespace librealsense
 {
     namespace pipeline
     {
-        aggregator::aggregator(const std::vector<int>& streams_to_aggregate, const std::vector<int>& streams_to_sync) :
+        aggregator::aggregator(const std::vector<int>& streams_to_aggregate, const std::vector<int>& streams_to_sync, rs2_pipe_config pipe_config) :
             processing_block("aggregator"),
             _queue(new single_consumer_frame_queue<frame_holder>(1)),
             _streams_to_aggregate_ids(streams_to_aggregate),
             _streams_to_sync_ids(streams_to_sync),
-            _accepting(true)
+            _accepting(true),
+            _pipe_config(pipe_config)
         {
             auto processing_callback = [&](frame_holder frame, synthetic_source_interface* source)
             {
@@ -104,12 +105,38 @@ namespace librealsense
 
         bool aggregator::dequeue(frame_holder* item, unsigned int timeout_ms)
         {
-            return _queue->dequeue(item, timeout_ms);
+            auto value = _queue->dequeue(item, timeout_ms);
+
+            if (value) {
+                if (_pipe_config) {
+                    if (_pipe_config == RS2_PIPE_DEFAULT || _pipe_config == RS2_PIPE_RETURN_FRAME) {
+                        return value;
+                    }
+                    else if (_pipe_config == RS2_PIPE_WAIT_FRAMESET) {
+                        for (int s : _streams_to_aggregate_ids)
+                        {
+                            //std::cout << "aggregated" << std::endl;
+                            //if (_last_set[s])
+                                //_last_set.erase(s);
+                        }
+                    }
+                }
+            }
+
+            return value;
         }
 
         bool aggregator::try_dequeue(frame_holder* item)
         {
-            return _queue->try_dequeue(item);
+            auto value = _queue->try_dequeue(item);
+
+            for (int s : _streams_to_aggregate_ids)
+            {
+                //if (_last_set[s] && value)
+                    //_last_set.erase(s);
+            }
+
+            return value;
         }
 
         void aggregator::start()
