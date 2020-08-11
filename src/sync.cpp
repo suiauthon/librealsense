@@ -114,7 +114,7 @@ namespace librealsense
         return s.str();
     }
 
-    composite_matcher::composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name)
+    composite_matcher::composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name, rs2_pipe_config pipe_config) : _pipe_config(pipe_config)
     {
         for (auto&& matcher : matchers)
         {
