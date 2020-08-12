@@ -366,7 +366,7 @@ namespace librealsense
 
             if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
             {
-                std::cout << "synced_frames size : " << synced_frames.size() << std::endl;
+                std::cout << "synced_frames size : " << synced_frames.size() << " _streams_to_sync : " << _streams_to_sync << std::endl;
                 if (synced_frames.size() && synced_frames.size() >= _streams_to_sync)
                 {
 

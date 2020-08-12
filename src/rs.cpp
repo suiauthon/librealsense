@@ -1914,9 +1914,10 @@ int rs2_processing_block_register_simple_option(rs2_processing_block* block, rs2
 }
 HANDLE_EXCEPTIONS_AND_RETURN(false, block, option_id, min, max, step, def)
 
-rs2_processing_block* rs2_create_sync_processing_block(rs2_error** error) BEGIN_API_CALL
+rs2_processing_block* rs2_create_sync_processing_block(rs2_pipe_config pipe_config, rs2_error** error) BEGIN_API_CALL
 {
-    auto block = std::make_shared<librealsense::syncer_process_unit>();
+
+    auto block = std::make_shared<librealsense::syncer_process_unit>(nullptr, pipe_config);
 
     return new rs2_processing_block{ block };
 }

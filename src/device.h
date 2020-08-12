@@ -27,10 +27,10 @@ namespace librealsense
         static std::shared_ptr<matcher> create(rs2_matchers matcher, std::vector<stream_interface*> profiles, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
 
     private:
-        static std::shared_ptr<matcher> create_DLR_C_matcher(std::vector<stream_interface*> profiles);
-        static std::shared_ptr<matcher> create_DLR_matcher(std::vector<stream_interface*> profiles);
-        static std::shared_ptr<matcher> create_DI_C_matcher(std::vector<stream_interface*> profiles);
-        static std::shared_ptr<matcher> create_DI_matcher(std::vector<stream_interface*> profiles);
+        static std::shared_ptr<matcher> create_DLR_C_matcher(std::vector<stream_interface*> profiles, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
+        static std::shared_ptr<matcher> create_DLR_matcher(std::vector<stream_interface*> profiles, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
+        static std::shared_ptr<matcher> create_DI_C_matcher(std::vector<stream_interface*> profiles, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
+        static std::shared_ptr<matcher> create_DI_matcher(std::vector<stream_interface*> profiles, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
 
         static std::shared_ptr<matcher> create_identity_matcher(stream_interface* profiles);
         static std::shared_ptr<matcher> create_frame_number_matcher(std::vector<stream_interface*> profiles);

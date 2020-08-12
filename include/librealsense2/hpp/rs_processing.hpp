@@ -579,14 +579,14 @@ namespace rs2
         /**
         * Real asynchronous syncer within syncer class
         */
-        asynchronous_syncer() : processing_block(init()) {}
+        asynchronous_syncer(rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT) : processing_block(init(pipe_config)) {}
 
     private:
-        std::shared_ptr<rs2_processing_block> init()
+        std::shared_ptr<rs2_processing_block> init(rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT)
         {
             rs2_error* e = nullptr;
             auto block = std::shared_ptr<rs2_processing_block>(
-                rs2_create_sync_processing_block(&e),
+                rs2_create_sync_processing_block(pipe_config, &e),
                 rs2_delete_processing_block);
 
             error::handle(e);
@@ -600,8 +600,8 @@ namespace rs2
         /**
         * Sync instance to align frames from different streams
         */
-        syncer(int queue_size = 1)
-            :_results(queue_size)
+        syncer(int queue_size = 1, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT)
+            :_results(queue_size), _sync(pipe_config)
         {
             _sync.start(_results);
         }
@@ -656,6 +656,7 @@ namespace rs2
     private:
         asynchronous_syncer _sync;
         frame_queue _results;
+        rs2_pipe_config _pipe_config;
     };
 
     /**
