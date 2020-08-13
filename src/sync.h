@@ -112,7 +112,7 @@ namespace librealsense
     class composite_matcher : public matcher
     {
     public:
-        composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
+        composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT, std::map<int, rs2_stream> streams_to_sync = { {} });
 
 
         virtual bool are_equivalent(frame_holder& a, frame_holder& b) = 0;

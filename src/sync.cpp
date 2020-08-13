@@ -114,8 +114,15 @@ namespace librealsense
         return s.str();
     }
 
-    composite_matcher::composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name, rs2_pipe_config pipe_config) : _pipe_config(pipe_config)
+    composite_matcher::composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name, rs2_pipe_config pipe_config, std::map<int, rs2_stream> streams_to_sync) : _pipe_config(pipe_config)
     {
+        auto matcher_size = matchers.size();
+        auto pipe_size = streams_to_sync.size();
+        if (matcher_size > pipe_size)
+            _streams_to_sync = matcher_size;
+        else
+            _streams_to_sync = pipe_size;
+
         for (auto&& matcher : matchers)
         {
             for (auto&& stream : matcher->get_streams())
@@ -366,7 +373,7 @@ namespace librealsense
 
             if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
             {
-                std::cout << "synced_frames size : " << synced_frames.size() << " _streams_to_sync : " << _streams_to_sync << std::endl;
+                //std::cout << "synced_frames size : " << synced_frames.size() << " _streams_to_sync : " << _streams_to_sync << std::endl;
                 if (synced_frames.size() && synced_frames.size() >= _streams_to_sync)
                 {
 
@@ -404,7 +411,7 @@ namespace librealsense
                         s << "SYNCED " << _name << "--> " << frame_to_string(composite);
 
 
-                        std::cout << s.str() << std::endl;
+                        //std::cout << s.str() << std::endl;
 
                         auto cb = begin_callback();
                         _callback(std::move(composite), env);
@@ -558,14 +565,8 @@ namespace librealsense
     }
 
     timestamp_composite_matcher::timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config, std::map<int, rs2_stream> streams_to_sync)
-        : composite_matcher(matchers, "TS: ", pipe_config)
+        : composite_matcher(matchers, "TS: ", pipe_config, streams_to_sync)
     {
-        for (auto&& matcher : matchers)
-        {
-            //_frames_queue[matcher.get()];
-            //std::cout << "insert empty matchers " << " : " << matcher.get()->get_name() << std::endl;
-        }
-        _streams_to_sync = streams_to_sync.size();
     }
 
     bool timestamp_composite_matcher::are_equivalent(frame_holder& a, frame_holder& b)
