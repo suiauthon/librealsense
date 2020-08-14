@@ -29,3 +29,4 @@ generate_tar_package() {
 check_params
 generate_tar_package Linux64_x64
 generate_tar_package Linux64_ARM
+generate_tar_package Linux32_ARM

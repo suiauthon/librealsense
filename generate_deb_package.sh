@@ -2,7 +2,7 @@
 
 set_platform() {
     case "$1" in
-    "Linux64_x64" | "Linux64_ARM")
+    "Linux64_x64" | "Linux64_ARM" | "Linux32_ARM")
         PLATFORM="$1"
         ;;
     "")
@@ -34,6 +34,10 @@ build_platform () {
         export CAMERA_SUITE_TARGET_SYSTEM="$PLATFORM"
         TOOLCHAIN="Linux64_ARM_HF_Toolchain.cmake"
         CMAKE_FLAGS="-DINSTALL_ROS_WRAPPER=ON -DCPACK_DEBIAN_PACKAGE_ARCHITECTURE=arm64"
+    elif [[ "$PLATFORM" = "Linux32_ARM" ]]; then
+        export CAMERA_SUITE_TARGET_SYSTEM="$PLATFORM"
+        TOOLCHAIN="Linux32_ARM_HF_Toolchain.cmake"
+        CMAKE_FLAGS="-DINSTALL_ROS_WRAPPER=ON -DCPACK_DEBIAN_PACKAGE_ARCHITECTURE=armhf"
     else 
 		CMAKE_FLAGS="-DINSTALL_DYNAMIC_CALIBRATOR=ON -DINSTALL_ROS_WRAPPER=ON"
 	fi
