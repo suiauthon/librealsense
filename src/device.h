@@ -38,6 +38,8 @@ namespace librealsense
 
         static std::shared_ptr<matcher> create_timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
         static std::shared_ptr<matcher> create_frame_number_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers);
+    private: 
+        rs2_pipe_config _pipe_config;
     };
 
     class device : public virtual device_interface, public info_container

@@ -65,6 +65,8 @@ namespace librealsense {
 
         std::shared_ptr<matcher> create_matcher(const frame_holder& frame) const override;
 
+        void update_matcher_configuration(const rs2_pipe_config pipe_config) const override { _pipe_config = pipe_config; };
+
         std::vector<tagged_profile> get_profiles_tags() const override;
 
         void hardware_reset() override
@@ -86,6 +88,7 @@ namespace librealsense {
 
     private:
         std::string get_equivalent_pid(std::string id) const;
+        mutable rs2_pipe_config _pipe_config = RS2_PIPE_DEFAULT;
     };
 }
 

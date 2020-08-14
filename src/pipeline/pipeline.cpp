@@ -188,8 +188,9 @@ namespace librealsense
                 matchers.push_back(std::make_shared<identity_matcher>(s->first, _streams_to_sync[s->first]));
             }
 
-            _syncer = std::unique_ptr<syncer_process_unit>(new syncer_process_unit({}, _pipe_config, _streams_to_sync, matchers));
-            _aggregator = std::unique_ptr<aggregator>(new aggregator(_streams_to_aggregate_ids, _streams_to_sync_ids, _pipe_config));
+             _syncer = std::unique_ptr<syncer_process_unit>(new syncer_process_unit({}, _pipe_config));
+             _aggregator = std::unique_ptr<aggregator>(new aggregator(_streams_to_aggregate_ids, _streams_to_sync_ids, _pipe_config));
+            
 
             if (_streams_callback)
                 _aggregator->set_output_callback(_streams_callback);

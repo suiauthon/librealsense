@@ -183,6 +183,7 @@ namespace librealsense
                 matcher = _matchers[stream_id];
                 if (!matcher)
                 {
+                    dev->update_matcher_configuration(_pipe_config);
                     matcher = dev->create_matcher(frame);
 
 
@@ -264,13 +265,14 @@ namespace librealsense
         s <<"SYNC "<<_name<<"--> "<< frame_to_string(f)<<"\n";
         LOG_DEBUG(s.str());
 
+        std::vector<librealsense::matcher*> missing_streams_before_enqueue;
+
         //std::cout << "sync start : " << s.str() << std::endl;
 
         for (auto s = _frames_queue.begin(); s != _frames_queue.end(); s++) {
+            missing_streams_before_enqueue.push_back(s->first);
             frame_holder* f;
             if (s->second.peek(&f)) {
-                auto frm = f->frame;
-                auto bla = f->frame->get_frame_data();
                 //std::cout << "START _frames_queue : " << std::fixed << (f->frame->get_frame_timestamp()) << " : " << f->frame->get_stream()->get_stream_type() << std::endl;
             }
             else {
@@ -341,146 +343,105 @@ namespace librealsense
                 }
             }
 
+            //std::cout << "missing stream size : " << missing_streams_before_enqueue.size() << std::endl;
+            //std::cout << "matchers size : " << _matchers.size() << std::endl;
+
             if (!old_frames)
             {
-                for (auto i : missing_streams)
+                if (missing_streams_before_enqueue.size() < _matchers.size() && _pipe_config == RS2_PIPE_WAIT_FRAMESET)
                 {
-                    if (!skip_missing_stream(synced_frames, i))
-                    {
-                        s <<  _name<<" "<<frames_to_string(synced_frames )<<" Wait for missing stream: ";
-
-                        for (auto&& stream : i->get_streams())
-                            s << stream<<" next expected "<<std::fixed<< _next_expected[i];
-                        synced_frames.clear();
-                        LOG_DEBUG(s.str());
-                        break;
-                    }
-                    else
-                    {
-                        std::stringstream s;
-                        s << _name << " " << frames_to_string(synced_frames) << " Skipped missing stream: ";
-                        for (auto&& stream : i->get_streams())
-                            s << stream << " next expected " << std::fixed << _next_expected[i]<<" ";
-                        LOG_DEBUG(s.str());
-                    }
-
+                    std::stringstream s;
+                    s << _name << " " << frames_to_string(synced_frames) << " Skipped missing stream: already synced ";
+                    //std::cout << s.str() << std::endl;
+                    LOG_DEBUG(s.str());
                 }
+                else
+                {
+                    for (auto i : missing_streams)
+                    {
+
+                        if (!skip_missing_stream(synced_frames, i))
+                        {
+                            s << _name << " " << frames_to_string(synced_frames) << " Wait for missing stream: ";
+
+                            for (auto&& stream : i->get_streams())
+                                s << stream << " next expected " << std::fixed << _next_expected[i];
+                            synced_frames.clear();
+                            LOG_DEBUG(s.str());
+                            //std::cout << s.str() << std::endl;
+                            break;
+                        }
+                        else
+                        {
+                            std::stringstream s;
+                            s << _name << " " << frames_to_string(synced_frames) << " Skipped missing stream: ";
+                            for (auto&& stream : i->get_streams())
+                                s << stream << " next expected " << std::fixed << _next_expected[i] << " ";
+                            //std::cout << s.str() << std::endl;
+                            LOG_DEBUG(s.str());
+                        }
+
+                    }
+                }
+
             }
             else
             {
                 s << _name << " old frames: ";
             }
 
-            if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+            if (synced_frames.size())
             {
-                //std::cout << "synced_frames size : " << synced_frames.size() << " _streams_to_sync : " << _streams_to_sync << std::endl;
-                if (synced_frames.size() && synced_frames.size() >= _streams_to_sync)
+
+                std::vector<frame_holder> match;
+                match.reserve(synced_frames.size());
+
+                for (auto index : synced_frames)
                 {
 
-                    std::vector<frame_holder> match;
-                    match.reserve(synced_frames.size());
+                    frame_holder frame;
+                    int timeout_ms = 5000;
+                    _frames_queue[index].dequeue(&frame, timeout_ms);
 
-                    for (auto index : synced_frames)
-                    {
-
-                        frame_holder frame;
-                        int timeout_ms = 5000;
-                        _frames_queue[index].dequeue(&frame, timeout_ms);
-                        //std::cout << "DEQUEUE _frames_queue: " << std::fixed << (frame.frame->get_frame_timestamp()) << " : " << index->get_name() << std::endl;
-                        if (old_frames)
-                        {
-                            s << "--> " << frame_to_string(frame) << "\n";
-                        }
-                        match.push_back(std::move(frame));
-                    }
-
+                    //std::cout << "DEQUEUE _frames_queue: " << std::fixed << (frame.frame->get_frame_timestamp()) << " : " << index->get_name() << std::endl;
                     if (old_frames)
                     {
-                        LOG_DEBUG(s.str());
+                        s << "--> " << frame_to_string(frame) << "\n";
                     }
+                    match.push_back(std::move(frame));
+                }
 
-                    std::sort(match.begin(), match.end(), [](const frame_holder& f1, const frame_holder& f2)
-                        {
-                            return ((frame_interface*)f1)->get_stream()->get_unique_id() > ((frame_interface*)f2)->get_stream()->get_unique_id();
-                        });
+                if (old_frames)
+                {
+                    LOG_DEBUG(s.str());
+                }
 
-
-                    frame_holder composite = env.source->allocate_composite_frame(std::move(match));
-                    if (composite.frame)
+                std::sort(match.begin(), match.end(), [](const frame_holder& f1, const frame_holder& f2)
                     {
-                        s << "SYNCED " << _name << "--> " << frame_to_string(composite);
+                        return ((frame_interface*)f1)->get_stream()->get_unique_id() > ((frame_interface*)f2)->get_stream()->get_unique_id();
+                    });
 
 
-                        //std::cout << s.str() << std::endl;
+                frame_holder composite = env.source->allocate_composite_frame(std::move(match));
+                if (composite.frame)
+                {
+                    s << "SYNCED " << _name << "--> " << frame_to_string(composite);
 
-                        auto cb = begin_callback();
-                        _callback(std::move(composite), env);
+
+                    std::cout << s.str() << std::endl;
+
+                    auto cb = begin_callback();
+                    _callback(std::move(composite), env);
 
 
-                    }
-                    else {
-                        //std::cout << "sync 444 no composite frame" << std::endl;
-                    }
                 }
                 else {
-                    synced_frames.clear();
-                    //std::cout << "sync 448 no synced frames" << std::endl;
+                    //std::cout << "sync 444 no composite frame" << std::endl;
                 }
             }
-            else 
-            {
-                if (synced_frames.size())
-                {
-
-                    std::vector<frame_holder> match;
-                    match.reserve(synced_frames.size());
-
-                    for (auto index : synced_frames)
-                    {
-
-                        frame_holder frame;
-                        int timeout_ms = 5000;
-                        _frames_queue[index].dequeue(&frame, timeout_ms);
-                        //std::cout << "DEQUEUE _frames_queue: " << std::fixed << (frame.frame->get_frame_timestamp()) << " : " << index->get_name() << std::endl;
-                        if (old_frames)
-                        {
-                            s << "--> " << frame_to_string(frame) << "\n";
-                        }
-                        match.push_back(std::move(frame));
-                    }
-
-                    if (old_frames)
-                    {
-                        LOG_DEBUG(s.str());
-                    }
-
-                    std::sort(match.begin(), match.end(), [](const frame_holder& f1, const frame_holder& f2)
-                        {
-                            return ((frame_interface*)f1)->get_stream()->get_unique_id() > ((frame_interface*)f2)->get_stream()->get_unique_id();
-                        });
-
-
-                    frame_holder composite = env.source->allocate_composite_frame(std::move(match));
-                    if (composite.frame)
-                    {
-                        s << "SYNCED " << _name << "--> " << frame_to_string(composite);
-
-
-                        std::cout << s.str() << std::endl;
-
-                        auto cb = begin_callback();
-                        _callback(std::move(composite), env);
-
-
-                    }
-                    else {
-                        //std::cout << "sync 444 no composite frame" << std::endl;
-                    }
-                }
-                else {
-                    synced_frames.clear();
-                    //std::cout << "sync 448 no synced frames" << std::endl;
-                }
+            else {
+                synced_frames.clear();
+                //std::cout << "sync 448 no synced frames" << std::endl;
             }
 
         } while (synced_frames.size() > 0);
@@ -619,7 +580,11 @@ namespace librealsense
     {
         auto fps = get_fps(f);
         auto gap = 1000.f / (float)fps;
-        _next_expected[m] = f.frame->get_frame_timestamp() + gap;
+        if (_pipe_config != RS2_PIPE_WAIT_FRAMESET)  //there is no next expected with external event
+            _next_expected[m] = f.frame->get_frame_timestamp() + gap;
+        else
+            _next_expected[m] = f.frame->get_frame_timestamp();
+
         //std::cout << "NEXT_EXPECTED : " << m->get_name() << " : " << _next_expected[m] << std::endl;
         _next_expected_domain[m] = f.frame->get_frame_timestamp_domain();
         LOG_DEBUG(_name << frame_to_string(const_cast<frame_holder&>(f)) << "fps " << fps << " gap " << gap << " next_expected: " << _next_expected[m]);
@@ -646,14 +611,22 @@ namespace librealsense
                 LOG_DEBUG(s.str());
 
                 dead_matchers.push_back(m.first);
-                m.second->set_active(false);
+                if (_pipe_config != RS2_PIPE_WAIT_FRAMESET) // matchers are active all the time with external trigger
+                {
+                    m.second->set_active(false);
+                }
+                
             }
         }
 
         for(auto id: dead_matchers)
         {
-            _frames_queue[_matchers[id].get()].clear();
-            _frames_queue.erase(_matchers[id].get());
+            if (_pipe_config != RS2_PIPE_WAIT_FRAMESET) // there is no dead matchers when external trigger event
+            {
+                _frames_queue[_matchers[id].get()].clear();
+                _frames_queue.erase(_matchers[id].get());
+            }
+
         }
     }
 
@@ -677,13 +650,16 @@ namespace librealsense
             }
         }
         auto gap = 1000.f/ (float)get_fps(*synced_frame);
+
+        if (next_expected < (*synced_frame)->get_frame_timestamp() - gap) //this is external event fix
+            return false;
+
         //next expected of the missing stream didn't updated yet
         if((*synced_frame)->get_frame_timestamp() > next_expected && abs((*synced_frame)->get_frame_timestamp()- next_expected)<gap*10)
         {
             LOG_DEBUG("next expected of the missing stream didn't updated yet");
             return false;
         }
-
 
 
         return !are_equivalent((*synced_frame)->get_frame_timestamp(), next_expected, get_fps(*synced_frame), false, _pipe_config);
