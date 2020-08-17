@@ -27,6 +27,7 @@ RUN groupadd \
 	--assume-yes \
     gcc-aarch64-linux-gnu \
 	g++-aarch64-linux-gnu \
+    clang \
 	cmake \
     libglfw3-dev:arm64 \
 	libgtk-3-dev:arm64 \
