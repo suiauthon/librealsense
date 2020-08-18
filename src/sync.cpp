@@ -539,6 +539,9 @@ namespace librealsense
 
         auto ts = extract_timestamps(a, b);
 
+        if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+            return false;
+
         return ts.first < ts.second;
     }
 
@@ -663,9 +666,16 @@ namespace librealsense
 
         if (source && pipe_config == RS2_PIPE_WAIT_FRAMESET)
         {
-            //std::cout << "frames are equivalent : " << are_eq << std::endl;
             return source;
         }
+
+        if (!source && pipe_config == RS2_PIPE_WAIT_FRAMESET)
+        {
+            auto gap_ee = 1000.f / (float)fps;
+            auto are_eq_ee = abs(a - b) < ((float)gap);
+            return are_eq_ee;
+        }
+
 
         return are_eq;
     }
