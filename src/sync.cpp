@@ -267,21 +267,26 @@ namespace librealsense
 
         std::vector<librealsense::matcher*> missing_streams_before_enqueue;
 
-        //std::cout << "sync start : " << s.str() << std::endl;
-
-        for (auto s = _frames_queue.begin(); s != _frames_queue.end(); s++) {
-            missing_streams_before_enqueue.push_back(s->first);
-            frame_holder* f;
-            if (s->second.peek(&f)) {
-                //std::cout << "START _frames_queue : " << std::fixed << (f->frame->get_frame_timestamp()) << " : " << f->frame->get_stream()->get_stream_type() << std::endl;
-            }
-            else {
-                //std::cout << "START _frames_queue: " << s->first->get_name() << " EMPTY" << std::endl;
+        if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+        {
+            for (auto s = _frames_queue.begin(); s != _frames_queue.end(); s++) {
+                missing_streams_before_enqueue.push_back(s->first);
+                frame_holder* fold;
+                if (s->second.peek(&fold)) {
+                    if (!are_equivalent(*fold, f))
+                    {
+                        auto matcher = find_matcher(*fold);
+                        frame_holder frame;
+                        int timeout_ms = 5000;
+                        _frames_queue[matcher.get()].dequeue(&frame, timeout_ms);
+                    }
+                }
             }
         }
 
+
+        update_next_expected(f);
         auto matcher = find_matcher(f);
-        update_next_expected(f, matcher.get());
         _frames_queue[matcher.get()].enqueue(std::move(f));
 
         std::vector<frame_holder*> frames_arrived;
@@ -343,23 +348,18 @@ namespace librealsense
                 }
             }
 
-            //std::cout << "missing stream size : " << missing_streams_before_enqueue.size() << std::endl;
-            //std::cout << "matchers size : " << _matchers.size() << std::endl;
-
             if (!old_frames)
             {
                 if (missing_streams_before_enqueue.size() < _matchers.size() && _pipe_config == RS2_PIPE_WAIT_FRAMESET)
                 {
                     std::stringstream s;
                     s << _name << " " << frames_to_string(synced_frames) << " Skipped missing stream: already synced ";
-                    //std::cout << s.str() << std::endl;
                     LOG_DEBUG(s.str());
                 }
                 else
                 {
                     for (auto i : missing_streams)
                     {
-
                         if (!skip_missing_stream(synced_frames, i))
                         {
                             s << _name << " " << frames_to_string(synced_frames) << " Wait for missing stream: ";
@@ -368,7 +368,6 @@ namespace librealsense
                                 s << stream << " next expected " << std::fixed << _next_expected[i];
                             synced_frames.clear();
                             LOG_DEBUG(s.str());
-                            //std::cout << s.str() << std::endl;
                             break;
                         }
                         else
@@ -377,33 +376,30 @@ namespace librealsense
                             s << _name << " " << frames_to_string(synced_frames) << " Skipped missing stream: ";
                             for (auto&& stream : i->get_streams())
                                 s << stream << " next expected " << std::fixed << _next_expected[i] << " ";
-                            //std::cout << s.str() << std::endl;
                             LOG_DEBUG(s.str());
                         }
-
                     }
                 }
-
             }
             else
             {
+                if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+                {
+                    synced_frames.clear();
+                }
                 s << _name << " old frames: ";
             }
 
             if (synced_frames.size())
             {
-
                 std::vector<frame_holder> match;
                 match.reserve(synced_frames.size());
 
                 for (auto index : synced_frames)
                 {
-
                     frame_holder frame;
                     int timeout_ms = 5000;
                     _frames_queue[index].dequeue(&frame, timeout_ms);
-
-                    //std::cout << "DEQUEUE _frames_queue: " << std::fixed << (frame.frame->get_frame_timestamp()) << " : " << index->get_name() << std::endl;
                     if (old_frames)
                     {
                         s << "--> " << frame_to_string(frame) << "\n";
@@ -417,33 +413,20 @@ namespace librealsense
                 }
 
                 std::sort(match.begin(), match.end(), [](const frame_holder& f1, const frame_holder& f2)
-                    {
-                        return ((frame_interface*)f1)->get_stream()->get_unique_id() > ((frame_interface*)f2)->get_stream()->get_unique_id();
-                    });
-
+                {
+                    return ((frame_interface*)f1)->get_stream()->get_unique_id() > ((frame_interface*)f2)->get_stream()->get_unique_id();
+                });
 
                 frame_holder composite = env.source->allocate_composite_frame(std::move(match));
                 if (composite.frame)
                 {
                     s << "SYNCED " << _name << "--> " << frame_to_string(composite);
-
-
                     std::cout << s.str() << std::endl;
 
                     auto cb = begin_callback();
                     _callback(std::move(composite), env);
-
-
-                }
-                else {
-                    //std::cout << "sync 444 no composite frame" << std::endl;
-                }
+                } 
             }
-            else {
-                synced_frames.clear();
-                //std::cout << "sync 448 no synced frames" << std::endl;
-            }
-
         } while (synced_frames.size() > 0);
     }
 
@@ -509,9 +492,10 @@ namespace librealsense
         return false;
     }
 
-    void frame_number_composite_matcher::update_next_expected(const frame_holder& f, matcher* m)
+    void frame_number_composite_matcher::update_next_expected(const frame_holder& f)
     {
-        _next_expected[m] = f.frame->get_frame_number() + 1.;
+        auto matcher = find_matcher(f);
+        _next_expected[matcher.get()] = f.frame->get_frame_number() + 1.;
     }
 
     std::pair<double, double> extract_timestamps(frame_holder & a, frame_holder & b)
@@ -538,8 +522,12 @@ namespace librealsense
         auto min_fps = std::min(a_fps, b_fps);
 
         auto ts = extract_timestamps(a, b);
+        auto ts_diff = std::abs(ts.first - ts.second);
 
-        return  are_equivalent(ts.first, ts.second, min_fps, true, composite_matcher::_pipe_config);
+        if (ts_diff > ((1000/ a_fps) * 2))
+            return false;
+
+        return  are_equivalent(ts.first, ts.second, min_fps, false, composite_matcher::_pipe_config);
     }
 
     bool timestamp_composite_matcher::is_smaller_than(frame_holder & a, frame_holder & b)
@@ -576,18 +564,21 @@ namespace librealsense
         return fps?fps:f.frame->get_stream()->get_framerate();
     }
 
-    void timestamp_composite_matcher::update_next_expected(const frame_holder& f, matcher* m)
+    void timestamp_composite_matcher::update_next_expected(const frame_holder& f)
     {
         auto fps = get_fps(f);
         auto gap = 1000.f / (float)fps;
+
+        auto matcher = find_matcher(f);
+
         if (_pipe_config != RS2_PIPE_WAIT_FRAMESET)  //there is no next expected with external event
-            _next_expected[m] = f.frame->get_frame_timestamp() + gap;
+            _next_expected[matcher.get()] = f.frame->get_frame_timestamp() + gap;
         else
-            _next_expected[m] = f.frame->get_frame_timestamp();
+            _next_expected[matcher.get()] = f.frame->get_frame_timestamp();
 
         //std::cout << "NEXT_EXPECTED : " << m->get_name() << " : " << _next_expected[m] << std::endl;
-        _next_expected_domain[m] = f.frame->get_frame_timestamp_domain();
-        LOG_DEBUG(_name << frame_to_string(const_cast<frame_holder&>(f)) << "fps " << fps << " gap " << gap << " next_expected: " << _next_expected[m]);
+        _next_expected_domain[matcher.get()] = f.frame->get_frame_timestamp_domain();
+        LOG_DEBUG(_name << frame_to_string(const_cast<frame_holder&>(f)) << "fps " << fps << " gap " << gap << " next_expected: " << _next_expected[matcher.get()]);
     }
 
     void timestamp_composite_matcher::clean_inactive_streams(frame_holder& f)

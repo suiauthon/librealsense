@@ -127,7 +127,7 @@ namespace librealsense
         std::shared_ptr<matcher> find_matcher(const frame_holder& f);
 
     protected:
-        virtual void update_next_expected(const frame_holder& f, matcher* m) = 0;
+        virtual void update_next_expected(const frame_holder& f) = 0;
 
         std::map<matcher*, single_consumer_frame_queue<frame_holder>> _frames_queue;
         std::map<stream_id, std::shared_ptr<matcher>> _matchers;
@@ -151,7 +151,7 @@ namespace librealsense
         virtual void update_last_arrived(frame_holder& f, matcher* m) {}
 
     protected:
-        virtual void update_next_expected(const frame_holder& f, matcher* m) {}
+        virtual void update_next_expected(const frame_holder& f) {}
     };
 
     class frame_number_composite_matcher : public composite_matcher
@@ -163,7 +163,7 @@ namespace librealsense
         bool is_smaller_than(frame_holder& a, frame_holder& b) override;
         bool skip_missing_stream(std::vector<matcher*> synced, matcher* missing) override;
         void clean_inactive_streams(frame_holder& f) override;
-        void update_next_expected(const frame_holder& f, matcher* m) override;
+        void update_next_expected(const frame_holder& f) override;
 
     private:
          std::map<matcher*,unsigned long long> _last_arrived;
@@ -178,7 +178,7 @@ namespace librealsense
         virtual void update_last_arrived(frame_holder& f, matcher* m) override;
         void clean_inactive_streams(frame_holder& f) override;
         bool skip_missing_stream(std::vector<matcher*> synced, matcher* missing) override;
-        void update_next_expected(const frame_holder& f, matcher* m) override;
+        void update_next_expected(const frame_holder& f) override;
 
     private:
         unsigned int get_fps(const frame_holder & f);
