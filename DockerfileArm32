@@ -27,7 +27,6 @@ RUN groupadd \
 	--assume-yes \
     gcc-arm-linux-gnueabihf \
 	g++-arm-linux-gnueabihf \
-    clang \
 	cmake \
     libglfw3-dev:armhf \
 	libgtk-3-dev:armhf \

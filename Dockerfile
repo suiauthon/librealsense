@@ -19,7 +19,6 @@ RUN groupadd \
 	--assume-yes \
     gcc \
 	g++ \
-    clang \
 	cmake \
 	libglfw3-dev \
 	libgtk-3-dev \
