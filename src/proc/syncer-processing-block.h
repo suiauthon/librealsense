@@ -19,7 +19,7 @@ namespace librealsense
     class syncer_process_unit : public processing_block
     {
     public:
-        syncer_process_unit(std::shared_ptr<bool_option> is_enabled_opt = nullptr, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT, std::map<int, rs2_stream> streams_to_sync = { {} }, std::vector<std::shared_ptr<matcher>> matchers = {});
+        syncer_process_unit(std::shared_ptr<bool_option> is_enabled_opt = nullptr, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT, std::vector<std::shared_ptr<matcher>> matchers = {});
 
         ~syncer_process_unit()
         {

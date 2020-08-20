@@ -112,7 +112,7 @@ namespace librealsense
     class composite_matcher : public matcher
     {
     public:
-        composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT, std::map<int, rs2_stream> streams_to_sync = { {} });
+        composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
 
 
         virtual bool are_equivalent(frame_holder& a, frame_holder& b) = 0;
@@ -134,7 +134,6 @@ namespace librealsense
         std::map<matcher*, double> _next_expected;
         std::map<matcher*, rs2_timestamp_domain> _next_expected_domain;
         rs2_pipe_config _pipe_config;
-        int _streams_to_sync = 0;
     };
 
     // composite matcher that does not synchronize between any frames, and instead just passes them on to callback
@@ -172,7 +171,7 @@ namespace librealsense
     class timestamp_composite_matcher : public composite_matcher
     {
     public:
-        timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT, std::map<int, rs2_stream> streams_to_sync = { {} });
+        timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config = RS2_PIPE_DEFAULT);
         bool are_equivalent(frame_holder& a, frame_holder& b) override;
         bool is_smaller_than(frame_holder& a, frame_holder& b) override;
         virtual void update_last_arrived(frame_holder& f, matcher* m) override;

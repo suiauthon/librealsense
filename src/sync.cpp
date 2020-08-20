@@ -114,15 +114,8 @@ namespace librealsense
         return s.str();
     }
 
-    composite_matcher::composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name, rs2_pipe_config pipe_config, std::map<int, rs2_stream> streams_to_sync) : _pipe_config(pipe_config)
+    composite_matcher::composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name, rs2_pipe_config pipe_config) : _pipe_config(pipe_config)
     {
-        auto matcher_size = matchers.size();
-        auto pipe_size = streams_to_sync.size();
-        if (matcher_size > pipe_size)
-            _streams_to_sync = matcher_size;
-        else
-            _streams_to_sync = pipe_size;
-
         for (auto&& matcher : matchers)
         {
             for (auto&& stream : matcher->get_streams())
@@ -509,8 +502,8 @@ namespace librealsense
         }
     }
 
-    timestamp_composite_matcher::timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config, std::map<int, rs2_stream> streams_to_sync)
-        : composite_matcher(matchers, "TS: ", pipe_config, streams_to_sync)
+    timestamp_composite_matcher::timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config)
+        : composite_matcher(matchers, "TS: ", pipe_config)
     {
     }
 
