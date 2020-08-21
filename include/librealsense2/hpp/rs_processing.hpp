@@ -656,7 +656,7 @@ namespace rs2
     private:
         asynchronous_syncer _sync;
         frame_queue _results;
-        rs2_pipe_config _pipe_config;
+        rs2_pipe_config _pipe_config = RS2_PIPE_DEFAULT;
     };
 
     /**

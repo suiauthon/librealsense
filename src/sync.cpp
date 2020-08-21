@@ -176,7 +176,8 @@ namespace librealsense
                 matcher = _matchers[stream_id];
                 if (!matcher)
                 {
-                    dev->update_matcher_configuration(_pipe_config);
+                    if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+                        dev->update_matcher_configuration(_pipe_config);
                     matcher = dev->create_matcher(frame);
 
 
@@ -414,7 +415,7 @@ namespace librealsense
                 if (composite.frame)
                 {
                     s << "SYNCED " << _name << "--> " << frame_to_string(composite);
-                    std::cout << s.str() << std::endl;
+                    //std::cout << s.str() << std::endl;
 
                     auto cb = begin_callback();
                     _callback(std::move(composite), env);
@@ -515,12 +516,16 @@ namespace librealsense
         auto min_fps = std::min(a_fps, b_fps);
 
         auto ts = extract_timestamps(a, b);
-        auto ts_diff = std::abs(ts.first - ts.second);
 
-        if (ts_diff > ((1000/ a_fps) * 2))
-            return false;
+        if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+        {
+            auto ts_diff = std::abs(ts.first - ts.second);
+            if (ts_diff > ((1000 / a_fps) * 2))
+                return false;
 
-        return  are_equivalent(ts.first, ts.second, min_fps, false, composite_matcher::_pipe_config);
+        }
+
+        return  are_equivalent(ts.first, ts.second, min_fps);
     }
 
     bool timestamp_composite_matcher::is_smaller_than(frame_holder & a, frame_holder & b)
@@ -649,28 +654,21 @@ namespace librealsense
         }
 
 
-        return !are_equivalent((*synced_frame)->get_frame_timestamp(), next_expected, get_fps(*synced_frame), false, _pipe_config);
+        return !are_equivalent((*synced_frame)->get_frame_timestamp(), next_expected, get_fps(*synced_frame));
     }
 
-    bool timestamp_composite_matcher::are_equivalent(double a, double b, int fps, bool source, rs2_pipe_config pipe_config)
+    bool timestamp_composite_matcher::are_equivalent(double a, double b, int fps)
     {
         auto gap = 1000.f / (float)fps;
-        auto are_eq = abs(a - b) < ((float)gap / (float)2);
 
-        if (source && pipe_config == RS2_PIPE_WAIT_FRAMESET)
-        {
-            return source;
-        }
-
-        if (!source && pipe_config == RS2_PIPE_WAIT_FRAMESET)
+        if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
         {
             auto gap_ee = 1000.f / (float)fps;
             auto are_eq_ee = abs(a - b) < ((float)gap);
             return are_eq_ee;
         }
 
-
-        return are_eq;
+        return abs(a - b) < ((float)gap / (float)2);
     }
 
     composite_identity_matcher::composite_identity_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config) :composite_matcher(matchers, "CI: ", pipe_config)
