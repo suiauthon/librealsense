@@ -39,7 +39,7 @@ Installation:
 4. Reboot the system
 
 5. Install Intel® RealSense™ SDK with support for D400e cameras
-    - please uninstall other verions of Intel® RealSense™ SDK before proceeding 
+    - please uninstall other versions of Intel® RealSense™ SDK before proceeding 
         with installation
     sudo apt install ./FRAMOS-librealsense2*.deb
 
