@@ -6,7 +6,6 @@
 #include "global_timestamp_reader.h"
 #include "stream.h"
 #include "device.h"
-#include <regex>
 
 #include <array>
 #include <set>
@@ -14,28 +13,6 @@
 #include <iomanip>
 
 namespace librealsense {
-
-    cs_firmware_version::cs_firmware_version(smcs::IDevice &device)
-        : _major(0), _minor(0), _patch(0), _build(0)
-    {
-        auto device_version = device->GetDeviceVersion();
-        std::smatch match;
-        if (std::regex_search(device_version, match, std::regex("FW:([0-9])\\.([0-9])\\.([0-9])\\.([0-9])")))
-        {
-            try
-            {
-                _major = std::stoi(match[1]);
-                _minor = std::stoi(match[2]);
-                _patch = std::stoi(match[3]);
-                _build = std::stoi(match[4]);
-            }
-            catch (...)
-            {
-
-            }
-        }
-
-    }
 
     cs_sensor::cs_sensor(std::string name,
                          std::shared_ptr<platform::cs_device> cs_device,
@@ -461,7 +438,6 @@ namespace librealsense {
                         _callbacks = std::vector<frame_callback>(_number_of_streams);
                         _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
                         _profiles = std::vector<stream_profile>(_number_of_streams);
-                        _cs_firmware_version = cs_firmware_version(_connected_device);
 
                         constexpr double S_TO_MS_FACTOR = 1000;
                         INT64 frequency;

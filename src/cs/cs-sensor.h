@@ -49,71 +49,6 @@ namespace librealsense {
         CS_USER_OUTPUT_LEVEL_MAX
     } cs_user_output_level;
 
-    class cs_firmware_version
-    {
-    public:
-        explicit cs_firmware_version(UINT32 major = 0, UINT32 minor = 0, UINT32 patch = 0, UINT32 build = 0)
-            : _major(major)
-            , _minor(minor)
-            , _patch(patch)
-            , _build(build)
-        {}
-
-        explicit cs_firmware_version(smcs::IDevice &device);
-
-        bool operator > (const cs_firmware_version &other)
-        {
-            if (_major > other._major)
-                return true;
-            else if (_major < other._major)
-                return false;
-
-            if (_minor > other._minor)
-                return true;
-            else if (_minor < other._minor)
-                return false;
-
-            if (_patch > other._patch)
-                return true;
-            else if (_patch < other._patch)
-                return false;
-
-            if (_build > other._build)
-                return true;
-            else if (_build < other._build)
-                return false;
-
-            return false;
-        }
-
-        bool operator < (const cs_firmware_version &other)
-        {
-            return !(*this >= other);
-        }
-
-        bool operator == (const cs_firmware_version &other)
-        {
-            return
-                (_major == other._major) &&
-                (_minor == other._minor) &&
-                (_patch == other._patch) &&
-                (_build == other._build);
-        }
-
-        bool operator >= (const cs_firmware_version &other)
-        {
-            return (*this > other) || (*this == other);
-        }
-
-        bool operator <= (const cs_firmware_version &other)
-        {
-            return (*this < other) || (*this == other);
-        }
-
-    private:
-        UINT32 _major, _minor, _patch, _build;
-    };
-
     namespace platform {
         class cs_device {
         public:
@@ -244,7 +179,6 @@ namespace librealsense {
             smcs::IDevice _connected_device;
             std::unordered_map<cs_stream, UINT32, std::hash<int>> _stream_channels;
             std::vector<frame_callback> _callbacks;
-            cs_firmware_version _cs_firmware_version;
             metadata_framos_basic _md;
             enum rs2_format _rgb_pixel_format;
             bool _infrared_supported;
