@@ -520,7 +520,7 @@ namespace librealsense
         if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
         {
             auto ts_diff = std::abs(ts.first - ts.second);
-            if (ts_diff > ((1000 / a_fps) * 2))
+            if (ts_diff > ((1000 / min_fps) * 3))
                 return false;
 
         }
