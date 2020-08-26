@@ -63,6 +63,8 @@ int main(int argc, char * argv[]) try
 
         cfg.enable_device(dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
 
+        cfg.set_pipe_config(RS2_PIPE_WAIT_FRAMESET);
+
         pipe.start(cfg);
         pipelines.emplace_back(pipe);
         // Map from each device's serial number to a different colorizer

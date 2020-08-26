@@ -572,9 +572,9 @@ namespace librealsense
 
         auto matcher = find_matcher(f);
 
-        if (_pipe_config != RS2_PIPE_WAIT_FRAMESET)  //there is no next expected with external event
-            _next_expected[matcher.get()] = f.frame->get_frame_timestamp() + gap;
-        else
+        _next_expected[matcher.get()] = f.frame->get_frame_timestamp() + gap;
+
+        if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)  //there is no next expected with external event
             _next_expected[matcher.get()] = f.frame->get_frame_timestamp();
 
         //std::cout << "NEXT_EXPECTED : " << m->get_name() << " : " << _next_expected[m] << std::endl;
@@ -643,8 +643,11 @@ namespace librealsense
         }
         auto gap = 1000.f/ (float)get_fps(*synced_frame);
 
-        if (next_expected < (*synced_frame)->get_frame_timestamp() - gap) //this is external event fix
-            return false;
+        if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+        {
+            if (next_expected < (*synced_frame)->get_frame_timestamp() - gap) //this is external event fix
+                return false;
+        }
 
         //next expected of the missing stream didn't updated yet
         if((*synced_frame)->get_frame_timestamp() > next_expected && abs((*synced_frame)->get_frame_timestamp()- next_expected)<gap*10)
