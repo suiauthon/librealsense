@@ -59,7 +59,7 @@ namespace librealsense
 
             frame_callback_ptr _streams_callback;
             std::vector<rs2_stream> _synced_streams;
-            rs2_pipe_config _pipe_config = RS2_PIPE_DEFAULT;
+            rs2_syncer_mode _syncer_mode = RS2_SYNCER_MODE_DEFAULT;
         };
     }
 }

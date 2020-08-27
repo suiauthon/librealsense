@@ -83,7 +83,7 @@ namespace librealsense
             assert(profile);
             assert(profile->_multistream.get_profiles().size() > 0);
 
-            _pipe_config = conf->get_pipe_oper_mode();
+            _syncer_mode = conf->get_syncer_mode();
             auto synced_streams_ids = on_start(profile);
 
             frame_callback_ptr callbacks = get_callback(synced_streams_ids);
@@ -188,10 +188,10 @@ namespace librealsense
                 matchers.push_back(std::make_shared<identity_matcher>(s->first, _streams_to_sync[s->first]));
             }
 
-            if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+            if (_syncer_mode == RS2_SYNCER_MODE_WAIT_FRAMESET)
             {
-                _syncer = std::unique_ptr<syncer_process_unit>(new syncer_process_unit({}, _pipe_config, matchers));
-                _aggregator = std::unique_ptr<aggregator>(new aggregator(_streams_to_aggregate_ids, _streams_to_sync_ids, _pipe_config));
+                _syncer = std::unique_ptr<syncer_process_unit>(new syncer_process_unit({}, _syncer_mode, matchers));
+                _aggregator = std::unique_ptr<aggregator>(new aggregator(_streams_to_aggregate_ids, _streams_to_sync_ids, _syncer_mode));
             }
             else
             {

@@ -506,14 +506,13 @@ namespace librealsense
 #undef CASE
     }
 
-    const char* get_string(rs2_pipe_config value)
+    const char* get_string(rs2_syncer_mode value)
     {
-#define CASE(X) STRCASE(PIPE, X)
+#define CASE(X) STRCASE(SYNCER_MODE, X)
         switch (value)
         {
             CASE(DEFAULT)
-                CASE(WAIT_FRAMESET)
-                CASE(RETURN_FRAME)
+            CASE(WAIT_FRAMESET)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 

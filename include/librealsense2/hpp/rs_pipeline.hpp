@@ -210,11 +210,15 @@ namespace rs2
             enable_stream(stream_type, stream_index, 0, 0, format, framerate);
         }
 
-
-        void set_pipe_config(rs2_pipe_config pipe_config)
+        /**
+        * Configure syncer mode.
+        *
+        * \param[in] syncer_mode    Syncer mode to be configured
+        */
+        void set_syncer_mode(rs2_syncer_mode syncer_mode)
         {
             rs2_error* e = nullptr;
-            rs2_config_set_pipe_config(_config.get(), pipe_config, &e);
+            rs2_config_set_syncer_mode(_config.get(), syncer_mode, &e);
             error::handle(e);
         }
 

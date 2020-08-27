@@ -212,15 +212,14 @@ typedef enum rs2_matchers
    RS2_MATCHER_COUNT
 }rs2_matchers;
 
-    /** \brief Specifies types of different matchers */
-    typedef enum rs2_pipe_config
-    {
-        RS2_PIPE_DEFAULT,   //compare depth and ir based on frame number
-        RS2_PIPE_WAIT_FRAMESET,      //compare depth and ir based on frame number,
-        RS2_PIPE_RETURN_FRAME,    //compare depth, left and right ir based on frame number,
-        RS2_PIPE_COUNT
-    }rs2_pipe_config;
-    const char* rs2_pipe_config_to_string(rs2_pipe_config pipe_config);
+/** \brief Specifies types of syncer configurations */
+typedef enum rs2_syncer_mode
+{
+    RS2_SYNCER_MODE_DEFAULT,           //default syncer configuration
+    RS2_SYNCER_MODE_WAIT_FRAMESET,     //syncer waits for full frameset (otherwise returns timeout)
+    RS2_SYNCER_MODE_COUNT
+}rs2_syncer_mode;
+const char* rs2_syncer_mode_to_string(rs2_syncer_mode syncer_mode);
 
     typedef struct rs2_device_info rs2_device_info;
     typedef struct rs2_device rs2_device;

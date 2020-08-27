@@ -114,7 +114,7 @@ namespace librealsense
         return s.str();
     }
 
-    composite_matcher::composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name, rs2_pipe_config pipe_config) : _pipe_config(pipe_config)
+    composite_matcher::composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, std::string name, rs2_syncer_mode syncer_mode) : _syncer_mode(syncer_mode)
     {
         for (auto&& matcher : matchers)
         {
@@ -176,8 +176,8 @@ namespace librealsense
                 matcher = _matchers[stream_id];
                 if (!matcher)
                 {
-                    if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
-                        dev->update_matcher_configuration(_pipe_config);
+                    if (_syncer_mode == RS2_SYNCER_MODE_WAIT_FRAMESET)
+                        dev->update_matcher_configuration(_syncer_mode);
                     matcher = dev->create_matcher(frame);
 
 
@@ -261,7 +261,7 @@ namespace librealsense
 
         std::vector<librealsense::matcher*> missing_streams_before_enqueue;
 
-        if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+        if (_syncer_mode == RS2_SYNCER_MODE_WAIT_FRAMESET)
         {
             for (auto s = _frames_queue.begin(); s != _frames_queue.end(); s++) {
                 missing_streams_before_enqueue.push_back(s->first);
@@ -344,7 +344,7 @@ namespace librealsense
 
             if (!old_frames)
             {
-                if (missing_streams_before_enqueue.size() < _matchers.size() && _pipe_config == RS2_PIPE_WAIT_FRAMESET)
+                if (missing_streams_before_enqueue.size() < _matchers.size() && _syncer_mode == RS2_SYNCER_MODE_WAIT_FRAMESET)
                 {
                     std::stringstream s;
                     s << _name << " " << frames_to_string(synced_frames) << " Skipped missing stream: already synced ";
@@ -377,7 +377,7 @@ namespace librealsense
             }
             else
             {
-                if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+                if (_syncer_mode == RS2_SYNCER_MODE_WAIT_FRAMESET)
                 {
                     synced_frames.clear();
                 }
@@ -424,8 +424,8 @@ namespace librealsense
         } while (synced_frames.size() > 0);
     }
 
-    frame_number_composite_matcher::frame_number_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config)
-        :composite_matcher(matchers, "FN: ", pipe_config)
+    frame_number_composite_matcher::frame_number_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_syncer_mode syncer_mode)
+        :composite_matcher(matchers, "FN: ", syncer_mode)
     {
     }
 
@@ -503,8 +503,8 @@ namespace librealsense
         }
     }
 
-    timestamp_composite_matcher::timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config)
-        : composite_matcher(matchers, "TS: ", pipe_config)
+    timestamp_composite_matcher::timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_syncer_mode syncer_mode)
+        : composite_matcher(matchers, "TS: ", syncer_mode)
     {
     }
 
@@ -517,7 +517,7 @@ namespace librealsense
 
         auto ts = extract_timestamps(a, b);
 
-        if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+        if (_syncer_mode == RS2_SYNCER_MODE_WAIT_FRAMESET)
         {
             auto ts_diff = std::abs(ts.first - ts.second);
             if (ts_diff > ((1000 / min_fps) * 2))
@@ -537,7 +537,7 @@ namespace librealsense
 
         auto ts = extract_timestamps(a, b);
 
-        if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+        if (_syncer_mode == RS2_SYNCER_MODE_WAIT_FRAMESET)
             return false;
 
         return ts.first < ts.second;
@@ -574,7 +574,7 @@ namespace librealsense
 
         _next_expected[matcher.get()] = f.frame->get_frame_timestamp() + gap;
 
-        if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)  //there is no next expected with external event
+        if (_syncer_mode == RS2_SYNCER_MODE_WAIT_FRAMESET)  //there is no next expected with external event
             _next_expected[matcher.get()] = f.frame->get_frame_timestamp();
 
         //std::cout << "NEXT_EXPECTED : " << m->get_name() << " : " << _next_expected[m] << std::endl;
@@ -603,7 +603,7 @@ namespace librealsense
                 LOG_DEBUG(s.str());
 
                 dead_matchers.push_back(m.first);
-                if (_pipe_config != RS2_PIPE_WAIT_FRAMESET) // matchers are active all the time with external trigger
+                if (_syncer_mode != RS2_SYNCER_MODE_WAIT_FRAMESET) // matchers are active all the time with external trigger
                 {
                     m.second->set_active(false);
                 }
@@ -613,7 +613,7 @@ namespace librealsense
 
         for(auto id: dead_matchers)
         {
-            if (_pipe_config != RS2_PIPE_WAIT_FRAMESET) // there is no dead matchers when external trigger event
+            if (_syncer_mode != RS2_SYNCER_MODE_WAIT_FRAMESET) // there is no dead matchers when external trigger event
             {
                 _frames_queue[_matchers[id].get()].clear();
                 _frames_queue.erase(_matchers[id].get());
@@ -643,7 +643,7 @@ namespace librealsense
         }
         auto gap = 1000.f/ (float)get_fps(*synced_frame);
 
-        if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+        if (_syncer_mode == RS2_SYNCER_MODE_WAIT_FRAMESET)
         {
             if (next_expected < (*synced_frame)->get_frame_timestamp() - gap) //this is external event fix
                 return false;
@@ -664,7 +664,7 @@ namespace librealsense
     {
         auto gap = 1000.f / (float)fps;
 
-        if (_pipe_config == RS2_PIPE_WAIT_FRAMESET)
+        if (_syncer_mode == RS2_SYNCER_MODE_WAIT_FRAMESET)
         {
             auto gap_ee = 1000.f / (float)fps;
             auto are_eq_ee = abs(a - b) < ((float)gap);
@@ -674,7 +674,7 @@ namespace librealsense
         return abs(a - b) < ((float)gap / (float)2);
     }
 
-    composite_identity_matcher::composite_identity_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_pipe_config pipe_config) :composite_matcher(matchers, "CI: ", pipe_config)
+    composite_identity_matcher::composite_identity_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_syncer_mode syncer_mode) :composite_matcher(matchers, "CI: ", syncer_mode)
     {}
 
     void composite_identity_matcher::sync(frame_holder f, syncronization_environment env)

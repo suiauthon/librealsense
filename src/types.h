@@ -532,7 +532,7 @@ namespace librealsense
     RS2_ENUM_HELPERS(rs2_matchers, MATCHER)
     RS2_ENUM_HELPERS(rs2_sensor_mode, SENSOR_MODE)
     RS2_ENUM_HELPERS(rs2_l500_visual_preset, L500_VISUAL_PRESET)
-    RS2_ENUM_HELPERS(rs2_pipe_config, PIPE)
+    RS2_ENUM_HELPERS(rs2_syncer_mode, SYNCER_MODE)
     RS2_ENUM_HELPERS_CUSTOMIZED(rs2_ambient_light, AMBIENT_LIGHT, RS2_AMBIENT_LIGHT_NO_AMBIENT, RS2_AMBIENT_LIGHT_LOW_AMBIENT)
 
     ////////////////////////////////////////////
