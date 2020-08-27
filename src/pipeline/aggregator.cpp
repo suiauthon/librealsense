@@ -105,38 +105,12 @@ namespace librealsense
 
         bool aggregator::dequeue(frame_holder* item, unsigned int timeout_ms)
         {
-            auto value = _queue->dequeue(item, timeout_ms);
-
-            if (value) {
-                if (_pipe_config) {
-                    if (_pipe_config == RS2_PIPE_DEFAULT || _pipe_config == RS2_PIPE_RETURN_FRAME) {
-                        return value;
-                    }
-                    else if (_pipe_config == RS2_PIPE_WAIT_FRAMESET) {
-                        for (int s : _streams_to_aggregate_ids)
-                        {
-                            //std::cout << "aggregated" << std::endl;
-                            //if (_last_set[s])
-                                //_last_set.erase(s);
-                        }
-                    }
-                }
-            }
-
-            return value;
+            return _queue->dequeue(item, timeout_ms);
         }
 
         bool aggregator::try_dequeue(frame_holder* item)
         {
-            auto value = _queue->try_dequeue(item);
-
-            for (int s : _streams_to_aggregate_ids)
-            {
-                //if (_last_set[s] && value)
-                    //_last_set.erase(s);
-            }
-
-            return value;
+            return _queue->try_dequeue(item);
         }
 
         void aggregator::start()
