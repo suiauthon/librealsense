@@ -801,6 +801,10 @@ namespace librealsense {
                     if (value == CS_USER_OUTPUT_LEVEL_LOW) return _connected_device->SetBooleanNodeValue("UserOutputValue", false);
                     else if (value == CS_USER_OUTPUT_LEVEL_HIGH) return _connected_device->SetBooleanNodeValue("UserOutputValue", true);
                 }
+                case RS2_OPTION_LINE_DEBOUNCER_TIME:
+                {
+                    // TODO 
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -867,6 +871,7 @@ namespace librealsense {
                 case RS2_OPTION_ASIC_TEMPERATURE: return std::string("IntelASIC");
                 case RS2_OPTION_PROJECTOR_TEMPERATURE: return std::string("DepthModule");
                 case RS2_OPTION_OUTPUT_TRIGGER_ENABLED: return std::string("LineSource");
+                case RS2_OPTION_LINE_DEBOUNCER_TIME: return std::string("LineDebouncerTime");
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -912,6 +917,10 @@ namespace librealsense {
                     status = _connected_device->GetEnumNodeValuesList(get_cs_param_name(option, stream), node_value_list);
                     value = 0;
                     return status;
+                case RS2_OPTION_LINE_DEBOUNCER_TIME: 
+                {
+                    // TODO
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -957,6 +966,10 @@ namespace librealsense {
                     status = _connected_device->GetEnumNodeValuesList(get_cs_param_name(option, stream), node_value_list);
                     value = 1;
                     return status;
+                case RS2_OPTION_LINE_DEBOUNCER_TIME:
+                {
+                    // TODO
+                }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
         }
@@ -1003,6 +1016,10 @@ namespace librealsense {
                 {
                     step = 1;
                     return true;
+                }
+                case RS2_OPTION_LINE_DEBOUNCER_TIME:
+                {
+                    // TODO
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
@@ -1129,6 +1146,10 @@ namespace librealsense {
                     else value = CS_USER_OUTPUT_LEVEL_HIGH;
 
                     return status;
+                }
+                case RS2_OPTION_LINE_DEBOUNCER_TIME:
+                {
+                    // TODO
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
