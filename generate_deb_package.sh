@@ -1,10 +1,5 @@
 #!/bin/bash -e 
 
-enter_script_folder() {
-    BASEDIR=$(dirname "$0")
-    cd "$BASEDIR"
-}
-
 set_platform() {
     case "$1" in
     "Linux64_x64" | "Linux64_ARM")
@@ -35,7 +30,7 @@ set_build_environment() {
 build_dynamic_calibrator() {
     mkdir -p "$DYNAMIC_CALIBRATOR_PATH/build"
     pushd "$DYNAMIC_CALIBRATOR_PATH/build"
-    cmake -DLIBRS_INCLUDE_DIR="$BASEDIR/include" -DLIBRS_LIBRARY_DIR="$BASEDIR/build/$PLATFORM" -DCMAKE_BUILD_TYPE=Release ..
+    cmake -DCMAKE_BUILD_TYPE=Release ..
     make -j$(nproc)
     popd
 }
@@ -57,7 +52,6 @@ build_platform () {
     popd
 }
 
-enter_script_folder
 set_platform "$1"
 set_build_environment
 build_platform
