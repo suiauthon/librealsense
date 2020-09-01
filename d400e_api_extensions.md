@@ -192,11 +192,11 @@ sensor.Options[Option.InterPacketDelay].Value = 65;
 
 ## Syncer Options
 
-Available syncer options in the librealsense2 API are listed in the `rs2_syncer_mode` enumeration available in the `librealsense2/h/rs_types.h` header file. This enumeration was extended to provide options specific to D400e cameras.
+D400e cameras have a possibility to synchronize streams to an external event (using external event operating mode). As this is non-continuous working mode syncer module is extended to handle non-continuous events. Available syncer options in the librealsense2 API are listed in the `rs2_syncer_mode` enumeration available in the `librealsense2/h/rs_types.h` header file.
 
-The `RS2_SYNCER_MODE_DEFAULT` enumerator represents the default syncer configuration (original librealsense2 syncer implementation).
+The `RS2_SYNCER_MODE_DEFAULT` enumerator represents the default syncer module (original librealsense2 syncer implementation).
 
-The `RS2_SYNCER_MODE_WAIT_FRAMESET` enumerator represents the modified syncer configuration with support specific to D400e cameras. With this configuration syncer waits for frames from all enabled streams and returns only the latest synchronized frameset. If there is a missing frame within current frameset, syncer does not return frameset and pipeline call wait_for_frames returns with timeout.
+The `RS2_SYNCER_MODE_WAIT_FRAMESET` enumerator represents the modified syncer module with support for external events specific to D400e cameras. Syncer returns synchronized frameset when frames from all enabled streams have arrived. If there is a missing frame within specific external event, syncer will not return frameset and pipeline call wait_for_frames will return timeout for this specific external event.
 
 C++
 
