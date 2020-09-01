@@ -758,6 +758,9 @@ namespace librealsense {
                     if (!select_source(stream))
                         return false;
 
+                    if (!_connected_device->SetStringNodeValue("LineSelector", "Line1"))
+                        return false;
+
                     if (value == 1) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "VSync");
                     else if (value == 0) return _connected_device->SetStringNodeValue(get_cs_param_name(option, stream), "UserOutput1");
                 }                
@@ -788,7 +791,7 @@ namespace librealsense {
                     _connected_device->GetStringNodeValue("TriggerMode", trigger_mode);
                     if (trigger_mode == "Off") 
                         return false;
-                    
+
                     if (value == 1) return _connected_device->SetStringNodeValue("TriggerSource", "Line1");
                     else if (value == 2) return _connected_device->SetStringNodeValue("TriggerSource", "Software");
 
@@ -803,7 +806,14 @@ namespace librealsense {
                 }
                 case RS2_OPTION_LINE_DEBOUNCER_TIME:
                 {
-                    // TODO 
+                    // TODO
+                    if (!select_source(stream))
+                        return false;
+                    
+                    if (!_connected_device->SetStringNodeValue("LineSelector", "Line2"))
+                        return false;
+
+                    return _connected_device->SetFloatNodeValue(get_cs_param_name(option, stream), (double)value);
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
@@ -880,6 +890,7 @@ namespace librealsense {
         {
             smcs::StringList node_value_list;
             INT64 int_value;
+            double float_value;
             bool status;
 
             switch(option)
@@ -920,6 +931,9 @@ namespace librealsense {
                 case RS2_OPTION_LINE_DEBOUNCER_TIME: 
                 {
                     // TODO
+                    status = _connected_device->GetFloatNodeMin(get_cs_param_name(option, stream), float_value);
+                    value = static_cast<int32_t>(float_value);
+                    return status;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
@@ -929,6 +943,7 @@ namespace librealsense {
         {
             smcs::StringList node_value_list;
             INT64 int_value;
+            double float_value;
             bool status;
 
             switch(option)
@@ -969,6 +984,9 @@ namespace librealsense {
                 case RS2_OPTION_LINE_DEBOUNCER_TIME:
                 {
                     // TODO
+                    status = _connected_device->GetFloatNodeMax(get_cs_param_name(option, stream), float_value);
+                    value = static_cast<int32_t>(float_value);
+                    return status;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
@@ -977,6 +995,7 @@ namespace librealsense {
         bool cs_device::get_cs_param_step(rs2_option option, int32_t& step, cs_stream stream)
         {
             INT64 int_value;
+            double float_value; 
 
             switch(option)
             {
@@ -1020,6 +1039,9 @@ namespace librealsense {
                 case RS2_OPTION_LINE_DEBOUNCER_TIME:
                 {
                     // TODO
+                    auto result = _connected_device->GetFloatNodeIncrement(get_cs_param_name(option, stream), float_value);
+                    step = static_cast<int32_t>(float_value);
+                    return result;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
@@ -1086,6 +1108,9 @@ namespace librealsense {
                 {
                     if (!select_source(stream))
                         return false;
+                        
+                    if (!_connected_device->SetStringNodeValue("LineSelector", "Line1"))
+                        return false;
 
                     status = _connected_device->GetStringNodeValue(get_cs_param_name(option, stream), string_value);
                     if (string_value == "VSync") value = 1;
@@ -1150,6 +1175,16 @@ namespace librealsense {
                 case RS2_OPTION_LINE_DEBOUNCER_TIME:
                 {
                     // TODO
+                    if (!select_source(stream))
+                        return false;
+                    
+                    if (!_connected_device->SetStringNodeValue("LineSelector", "Line2"))
+                        return false;
+
+                    double line_debouncer_time;
+                    status = _connected_device->GetFloatNodeValue(get_cs_param_name(option, stream), line_debouncer_time);
+                    value = static_cast<int32_t>(line_debouncer_time);
+                    return status;
                 }
                 default: throw linux_backend_exception(to_string() << "no CS cid for option " << option);
             }
