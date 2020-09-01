@@ -62,7 +62,6 @@ CD build
 cmake -G %GENERATOR% -DLIBRS_INCLUDE_DIR=%PWD%\include -DLIBRS_LIBRARY_DIR=%PWD%\build\%TARGET_SYSTEM%\Release ..
 if ERRORLEVEL 1 goto ERROR
 msbuild examples\DynamicCalibrator\DynamicCalibrator.vcxproj /t:Build /p:Configuration=Release
-msbuild examples\CalibrationTables\CalibrationTables.vcxproj /t:Build /p:Configuration=Release
 if ERRORLEVEL 1 goto ERROR
 cd %PWD%
 goto:eof

@@ -5,7 +5,6 @@ endif()
 if (UNIX)
     install(PROGRAMS
         $ENV{DYNAMIC_CALIBRATOR_PATH}/build/DynamicCalibrator
-        $ENV{DYNAMIC_CALIBRATOR_PATH}/build/CalibrationTables
         DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
     install(FILES
@@ -16,7 +15,6 @@ elseif (WIN32)
 	string (REPLACE "\\" "/" DYNAMIC_CALIBRATOR_DIR "$ENV{DYNAMIC_CALIBRATOR_PATH}")
 	install(FILES 
 		${DYNAMIC_CALIBRATOR_DIR}/build/Release/DynamicCalibrator.exe
-        ${DYNAMIC_CALIBRATOR_DIR}/build/Release/CalibrationTables.exe
 		${DYNAMIC_CALIBRATOR_DIR}/lib/DSDynamicCalibrationAPI.dll
         ${DYNAMIC_CALIBRATOR_DIR}/3rdparty/glut/lib/freeglut.dll
 		DESTINATION ${CMAKE_INSTALL_BINDIR}
