@@ -1,5 +1,5 @@
 FRAMOS D400e Depth Camera Software Package for Linux
-v1.9.0 (2020-06-30)
+v1.9.2 (2020-09-01)
 ====================================================
 
 Components:
