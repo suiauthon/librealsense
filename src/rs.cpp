@@ -1107,6 +1107,7 @@ const char* rs2_frame_metadata_value_to_string(rs2_frame_metadata_value metadata
 const char* rs2_l500_visual_preset_to_string(rs2_l500_visual_preset preset)               { return get_string(preset); }
 const char* rs2_sensor_mode_to_string(rs2_sensor_mode mode)                               { return get_string(mode); }
 const char* rs2_ambient_light_to_string(rs2_ambient_light ambient)                        { return get_string(ambient); }
+const char* rs2_syncer_mode_to_string(rs2_syncer_mode syncer_mode)                        { return librealsense::get_string(syncer_mode); }
 
 void rs2_log_to_console(rs2_log_severity min_severity, rs2_error** error) BEGIN_API_CALL
 {
@@ -1791,7 +1792,16 @@ void rs2_config_enable_all_stream(rs2_config* config, rs2_error ** error) BEGIN_
 }
 HANDLE_EXCEPTIONS_AND_RETURN(, config)
 
-void rs2_config_enable_device(rs2_config* config, const char* serial, rs2_error ** error) BEGIN_API_CALL
+void rs2_config_set_syncer_mode(rs2_config* config,
+    rs2_syncer_mode syncer_mode,
+    rs2_error** error) BEGIN_API_CALL
+{
+    VALIDATE_NOT_NULL(config);
+    config->config->set_syncer_mode(syncer_mode);
+}
+HANDLE_EXCEPTIONS_AND_RETURN(, config, syncer_mode)
+
+void rs2_config_enable_device(rs2_config* config, const char* serial, rs2_error** error) BEGIN_API_CALL
 {
     VALIDATE_NOT_NULL(config);
     VALIDATE_NOT_NULL(serial);
@@ -1904,9 +1914,10 @@ int rs2_processing_block_register_simple_option(rs2_processing_block* block, rs2
 }
 HANDLE_EXCEPTIONS_AND_RETURN(false, block, option_id, min, max, step, def)
 
-rs2_processing_block* rs2_create_sync_processing_block(rs2_error** error) BEGIN_API_CALL
+rs2_processing_block* rs2_create_sync_processing_block(rs2_syncer_mode syncer_mode, rs2_error** error) BEGIN_API_CALL
 {
-    auto block = std::make_shared<librealsense::syncer_process_unit>();
+
+    auto block = std::make_shared<librealsense::syncer_process_unit>(nullptr, syncer_mode);
 
     return new rs2_processing_block{ block };
 }

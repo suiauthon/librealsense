@@ -1,5 +1,5 @@
 FRAMOS D400e Depth Camera Software Package for Windows
-v1.9.1 (2020-07-10)
+v1.9.2 (2020-09-01)
 ======================================================
 
 Components:
@@ -64,7 +64,7 @@ with features applicable only to the D400e cameras. List of all API additions is
 Python wrapper:
 ---------------
 Instructions on how to use the Python wrapper are located in
-    C:\Program Files\FRAMOS\librealsense2\src\wrappers\python\d400e_readme.md
+    C:\Program Files\FRAMOS\librealsense2\src\wrappers\python\readme_400e.md
 
 Multicam example:
 -----------------

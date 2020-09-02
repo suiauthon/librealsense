@@ -1,4 +1,8 @@
-v2.33.10 (2020-07-10)
+v2.33.12 (2020-09-01)
+=====================
+    - added - syncer mode that waits for full frameset
+
+v2.33.11 (2020-07-17)
 =====================
     - added - [WIN] 32bit support
 

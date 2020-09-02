@@ -87,6 +87,7 @@ Following tools are required for building the Intel® RealSense™ library:
 
 - Visual Studio 2015
 - CMake
+- Git
 - Python
 
 Sources for Intel® RealSense™ library, tools and examples are located in

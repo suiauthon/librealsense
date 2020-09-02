@@ -1,5 +1,5 @@
 FRAMOS D400e Depth Camera Software Package for Linux
-v1.9.0 (2020-06-30)
+v1.9.2 (2020-09-01)
 ====================================================
 
 Components:
@@ -87,12 +87,12 @@ with features applicable only to the D400e cameras. List of all API additions is
 Python wrapper:
 ---------------
 Instructions on how to use the Python wrapper are located in
-    /usr/src/librealsense2/wrappers/python/d400e_readme.md
+    /usr/src/librealsense2/wrappers/python/readme_d400e.md
 
 ROS wrapper:
 ------------
 Instructions on how to use the ROS wrapper are located in
-    /usr/src/librealsense2/wrappers/ros/d400e_readme.md
+    /usr/src/librealsense2/wrappers/ros/readme_d400e.md
 
 Multicam example:
 -----------------
