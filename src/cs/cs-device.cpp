@@ -494,8 +494,10 @@ namespace librealsense
         }
 
         // TODO - finish
-        auto line_debouncer_time_option = std::make_shared<cs_pu_option>(raw_depth_sensor, RS2_OPTION_LINE_DEBOUNCER_TIME, CS_STREAM_DEPTH);
-        depth_sensor.register_option(RS2_OPTION_LINE_DEBOUNCER_TIME, line_debouncer_time_option);
+        if (_cs_device->is_line_debouncer_time_supported()) {
+            auto line_debouncer_time_option = std::make_shared<cs_pu_option>(raw_depth_sensor, RS2_OPTION_LINE_DEBOUNCER_TIME, CS_STREAM_DEPTH);
+            depth_sensor.register_option(RS2_OPTION_LINE_DEBOUNCER_TIME, line_debouncer_time_option);
+        }
 
         enable_time_diff_keeper(true);
     }

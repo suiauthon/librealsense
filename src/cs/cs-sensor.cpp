@@ -6,6 +6,7 @@
 #include "global_timestamp_reader.h"
 #include "stream.h"
 #include "device.h"
+//#include <regex>
 
 #include <array>
 #include <set>
@@ -13,6 +14,39 @@
 #include <iomanip>
 
 namespace librealsense {
+
+    cs_firmware_version::cs_firmware_version(smcs::IDevice &device)
+        : _major(0), _minor(0), _patch(0), _build(0)
+    {
+        auto device_version = device->GetDeviceVersion();        
+        // we only use fw version
+        std::string delimiter = "FW:";
+        device_version.erase(0, device_version.find(delimiter) + delimiter.length());
+
+        // extract fw version numbers
+        std::vector<std::string> match;
+        delimiter = ".";
+        size_t pos = 0;
+        while ((pos = device_version.find(delimiter)) != std::string::npos) {
+            match.push_back(device_version.substr(0, pos));
+            device_version.erase(0, pos + delimiter.length());
+        }
+        match.push_back(device_version);
+        {
+            try
+            {
+                _major = std::stoi(match[0]);
+                _minor = std::stoi(match[1]);
+                _patch = std::stoi(match[2]);
+                _build = std::stoi(match[3]);
+            }
+            catch (...)
+            {
+
+            }
+        }
+
+    }
 
     cs_sensor::cs_sensor(std::string name,
                          std::shared_ptr<platform::cs_device> cs_device,
@@ -394,6 +428,8 @@ namespace librealsense {
                     _temperature_supported(false),
                     _software_trigger_supported_checked(false),
                     _software_trigger_supported(false),
+                    _line_debouncer_time_supported_chacked(false),
+                    _line_debouncer_time_supported(false),
                     _selected_source(0),
                     _selected_source_initialized(false) {
             _smcs_api = smcs::GetCameraAPI();
@@ -438,6 +474,8 @@ namespace librealsense {
                         _callbacks = std::vector<frame_callback>(_number_of_streams);
                         _error_handler = std::vector<std::function<void(const notification &n)>>(_number_of_streams);
                         _profiles = std::vector<stream_profile>(_number_of_streams);
+                        _cs_firmware_version = cs_firmware_version(_connected_device);
+
 
                         constexpr double S_TO_MS_FACTOR = 1000;
                         INT64 frequency;
@@ -457,6 +495,8 @@ namespace librealsense {
 
                         // increment device counter for device with current SN
                         inc_device_count_sn(_device_info.serial);
+
+						
                     }
                     // found device with SN
                     break;
@@ -1621,6 +1661,18 @@ namespace librealsense {
             }
 
             return _software_trigger_supported;
+        }
+
+        bool cs_device::is_line_debouncer_time_supported()
+        {
+            // TODO
+            if (!_line_debouncer_time_supported_chacked) {
+                _line_debouncer_time_supported =
+                (_cs_firmware_version >= cs_firmware_version(1, 8, 0, 2) && (_device_info.id == CS_CAMERA_MODEL_D435e) ||
+                (_cs_firmware_version >= cs_firmware_version(1, 3, 0, 1) && (_device_info.id == CS_CAMERA_MODEL_D415e)));
+                _line_debouncer_time_supported_chacked = true;
+            }
+            return _line_debouncer_time_supported;
         }
 
         void cs_device::capture_loop(cs_stream stream, UINT32 channel)
