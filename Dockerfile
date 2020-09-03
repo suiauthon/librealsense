@@ -28,6 +28,7 @@ RUN groupadd \
 	dkms \
 	shim-signed \
 	openssl \
+    freeglut3-dev \
 	sudo && \
 	echo 'docker_user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 	

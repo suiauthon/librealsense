@@ -1,5 +1,10 @@
 #!/bin/bash -e 
 
+enter_script_folder() {
+    cd $(dirname "$BASH_SOURCE[0]")
+    BASEDIR=$(pwd)
+}
+
 set_platform() {
     case "$1" in
     "Linux64_x64" | "Linux64_ARM")
@@ -27,15 +32,7 @@ set_build_environment() {
     fi
 }
 
-build_dynamic_calibrator() {
-    mkdir -p "$DYNAMIC_CALIBRATOR_PATH/build"
-    pushd "$DYNAMIC_CALIBRATOR_PATH/build"
-    cmake -DCMAKE_BUILD_TYPE=Release ..
-    make -j$(nproc)
-    popd
-}
-
-build_platform () {
+build_realsense2 () {
     mkdir -p build/$PLATFORM
     pushd build/$PLATFORM
     if [[ "$PLATFORM" = "Linux64_ARM" ]]; then
@@ -43,15 +40,32 @@ build_platform () {
         TOOLCHAIN="Linux64_ARM_HF_Toolchain.cmake"
         CMAKE_FLAGS="-DINSTALL_ROS_WRAPPER=ON -DCPACK_DEBIAN_PACKAGE_ARCHITECTURE=arm64"
     else
-        build_dynamic_calibrator
 		CMAKE_FLAGS="-DINSTALL_DYNAMIC_CALIBRATOR=ON -DINSTALL_ROS_WRAPPER=ON"
 	fi
     cmake ../../ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCPACK_SYSTEM_NAME=$PLATFORM $CMAKE_FLAGS
     make -j$(nproc)
+    popd
+}
+
+build_dynamic_calibrator() {
+    if [[ "$PLATFORM" = "Linux64_x64" ]]; then
+        mkdir -p "$DYNAMIC_CALIBRATOR_PATH/build"
+        pushd "$DYNAMIC_CALIBRATOR_PATH/build"
+        cmake -DLIBRS_INCLUDE_DIR="$BASEDIR/include" -DLIBRS_LIBRARY_DIR="$BASEDIR/build/$PLATFORM" -DCMAKE_BUILD_TYPE=Release ..
+        make -j$(nproc)
+        popd
+    fi
+}
+
+pack() {
+    pushd build/$PLATFORM
     cpack -G DEB
     popd
 }
 
+enter_script_folder
 set_platform "$1"
 set_build_environment
-build_platform
+build_realsense2
+build_dynamic_calibrator
+pack
