@@ -6,7 +6,6 @@
 #include "global_timestamp_reader.h"
 #include "stream.h"
 #include "device.h"
-//#include <regex>
 
 #include <array>
 #include <set>
@@ -846,7 +845,6 @@ namespace librealsense {
                 }
                 case RS2_OPTION_LINE_DEBOUNCER_TIME:
                 {
-                    // TODO
                     if (!select_source(stream))
                         return false;
                     
@@ -970,7 +968,6 @@ namespace librealsense {
                     return status;
                 case RS2_OPTION_LINE_DEBOUNCER_TIME: 
                 {
-                    // TODO
                     status = _connected_device->GetFloatNodeMin(get_cs_param_name(option, stream), float_value);
                     value = static_cast<int32_t>(float_value);
                     return status;
@@ -1023,7 +1020,6 @@ namespace librealsense {
                     return status;
                 case RS2_OPTION_LINE_DEBOUNCER_TIME:
                 {
-                    // TODO
                     status = _connected_device->GetFloatNodeMax(get_cs_param_name(option, stream), float_value);
                     value = static_cast<int32_t>(float_value);
                     return status;
@@ -1078,7 +1074,6 @@ namespace librealsense {
                 }
                 case RS2_OPTION_LINE_DEBOUNCER_TIME:
                 {
-                    // TODO
                     auto result = _connected_device->GetFloatNodeIncrement(get_cs_param_name(option, stream), float_value);
                     step = static_cast<int32_t>(float_value);
                     return result;
@@ -1214,7 +1209,6 @@ namespace librealsense {
                 }
                 case RS2_OPTION_LINE_DEBOUNCER_TIME:
                 {
-                    // TODO
                     if (!select_source(stream))
                         return false;
                     
@@ -1665,7 +1659,6 @@ namespace librealsense {
 
         bool cs_device::is_line_debouncer_time_supported()
         {
-            // TODO
             if (!_line_debouncer_time_supported_chacked) {
                 _line_debouncer_time_supported =
                 (_cs_firmware_version >= cs_firmware_version(1, 8, 0, 2) && (_device_info.id == CS_CAMERA_MODEL_D435e) ||
