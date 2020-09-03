@@ -1662,7 +1662,7 @@ namespace librealsense {
             if (!_line_debouncer_time_supported_chacked) {
                 _line_debouncer_time_supported =
                 (_cs_firmware_version >= cs_firmware_version(1, 8, 0, 2) && (_device_info.id == CS_CAMERA_MODEL_D435e) ||
-                (_cs_firmware_version >= cs_firmware_version(1, 3, 0, 1) && (_device_info.id == CS_CAMERA_MODEL_D415e)));
+                (_cs_firmware_version >= cs_firmware_version(1, 3, 0, 2) && (_device_info.id == CS_CAMERA_MODEL_D415e)));
                 _line_debouncer_time_supported_chacked = true;
             }
             return _line_debouncer_time_supported;
