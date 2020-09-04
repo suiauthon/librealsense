@@ -253,7 +253,7 @@ namespace librealsense {
             bool _temperature_supported;
             bool _software_trigger_supported_checked;
             bool _software_trigger_supported;
-            bool _line_debouncer_time_supported_chacked;
+            bool _line_debouncer_time_supported_checked;
             bool _line_debouncer_time_supported;
             INT64 _selected_source;
             bool _selected_source_initialized;
