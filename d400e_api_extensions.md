@@ -154,7 +154,7 @@ The `RS2_OPTION_SOFTWARE_TRIGGER` enumerator executes software trigger when set 
 
 The `RS2_OPTION_SOFTWARE_TRIGGER_ALL_SENSORS` enumerator selects which sensors receive the software trigger signal. When set to 1, both stereo and color sensor receive software trigger signal. When set to 0, only the stereo sensor receives the software trigger signal. See `Framos_D435e_External_Event_Camera_Synchronization_AppNote` for details.
 
-The `RS2_OPTION_LINE_DEBOUNCER_TIME` enumerator represents the line debouncer time in microseconds. See `FRAMOS_D400e_UserManual` for details.
+The `RS2_OPTION_LINE_DEBOUNCER_TIME` enumerator represents the line debouncer time in microseconds. This option affects the signal applied on M8 pin2 (opto-isolated IN). See `FRAMOS_D400e_UserManual` for details.
 
 Same API calls are used to set both normal and extended options.
 
