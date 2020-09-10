@@ -28,5 +28,11 @@ namespace Intel.RealSense
             object err;
             NativeMethods.rs2_d400e_set_buffer_count(bufferCount, out err);
         }
+
+        public static int ToggleDeviceDiagnostics(Device dev, int toggle)
+        {
+            object err;
+            return NativeMethods.rs2_d400e_toggle_device_diagnostics(dev.Handle, toggle, out err);
+        }
     }
 }

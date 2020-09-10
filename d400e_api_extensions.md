@@ -43,7 +43,7 @@ namespace Intel.Realsense
 ```
 
 ```c#
-double heartbeatTimeS = D400e.GetHearbeatTime();
+double heartbeatTimeS = D400e.GetHeartbeatTime();
 D400e.SetHeartbeatTime(3);
 ```
 
