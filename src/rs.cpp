@@ -1399,6 +1399,14 @@ int rs2_d400e_get_buffer_count(rs2_error** error) BEGIN_API_CALL
 }
 NOARGS_HANDLE_EXCEPTIONS_AND_RETURN(0)
 
+int rs2_d400e_toggle_device_diagnostics(const rs2_device* device, int toggle, rs2_error** error) BEGIN_API_CALL
+{
+    VALIDATE_NOT_NULL(device);
+    VALIDATE_RANGE(toggle, 0, 1);
+    return librealsense::d400e::device_diagnostics::get_instance().set(device, toggle);
+}
+HANDLE_EXCEPTIONS_AND_RETURN(1, device, toggle)
+
 const char* rs2_playback_device_get_file_path(const rs2_device* device, rs2_error** error) BEGIN_API_CALL
 {
     VALIDATE_NOT_NULL(device);

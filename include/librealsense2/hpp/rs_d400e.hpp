@@ -57,6 +57,21 @@ namespace rs2
 
             return buffer_count;
         }
+
+        /**
+        * enable or disable diagnostics feature for d400e devices
+        * \param[in] device     A device on which diagnostic feature have to be toggled
+        * \param[in] toggle     1 - to enable device diagnostics feature, 0 - to disable device diagnostics feature
+        * \return               0 on success, 1 on failure
+        */
+        inline int toggle_device_diagnostics(const rs2_device* device, int toggle)
+        {
+            rs2_error* e = nullptr;
+            int status = rs2_d400e_toggle_device_diagnostics(device, toggle, &e);
+            rs2::error::handle(e);
+
+            return status;
+        }
     }
 }
 #endif // LIBREALSENSE_RS2_D400E_HPP
