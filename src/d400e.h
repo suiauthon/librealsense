@@ -28,7 +28,7 @@ namespace librealsense
         {
         public:
             static device_diagnostics& get_instance();
-            int set(const rs2_device* device, int toggle);
+            int set(const char* dev_serial, int toggle);
             device_diagnostics(device_diagnostics const&) = delete;
             void operator=(device_diagnostics const&) = delete;
             

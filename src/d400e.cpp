@@ -46,42 +46,43 @@ namespace librealsense
             return instance;
         }
 
-        int device_diagnostics::set(const rs2_device* device, int toggle)
+        int device_diagnostics::set(const char* dev_serial, int toggle)
         {
+            uint64_t dev_serial_u = 0;
             int r_status = dev_diag_status_NOK;
 
-            if (device != nullptr) {
+            if (dev_serial == nullptr) {
+                return r_status;
+            }
 
-                uint64_t dev_serial_u = 0;
-                const std::string& dev_serial = device->device->get_info(RS2_CAMERA_INFO_SERIAL_NUMBER);
+            if ((toggle != dev_diag_toggle_ON) && (toggle != dev_diag_toggle_OFF)) {
+                return r_status;
+            }
 
-                try {
-                    dev_serial_u = std::stoll(dev_serial, 0, 16);
-                }
-                catch (...) {
-                    dev_serial_u = 0;
-                }
+            try {
+                const std::string& dev_serial_str = {dev_serial};
+                dev_serial_u = std::stoll(dev_serial_str, 0, 16);
+            }
+            catch (...) {
+                return r_status;
+            }
 
-                if (dev_serial_u != 0) {
+            smcs::IDevice cs_device = smcs::GetCameraAPI()->GetDeviceByMac(dev_serial_u);
+            if (cs_device.IsValid()) {
 
-                    smcs::IDevice cs_device = smcs::GetCameraAPI()->GetDeviceByMac(dev_serial_u);
-                    if (cs_device.IsValid()) {
+                if (cs_device->IsConnected()) {
 
-                        if (cs_device->IsConnected()) {
+                    bool b_status = false;
 
-                            bool b_status = false;
+                    if (toggle == (int)dev_diag_toggle_ON) {
+                        b_status = cs_device->SetStringNodeValue("DebugInformation", "On");
+                    }
+                    else if (toggle == (int)dev_diag_toggle_OFF) {
+                        b_status = cs_device->SetStringNodeValue("DebugInformation", "Off");
+                    }
 
-                            if (toggle == (int)dev_diag_toggle_ON) {
-                                b_status = cs_device->SetStringNodeValue("DebugInformation", "On");
-                            }
-                            else if (toggle == (int)dev_diag_toggle_OFF) {
-                                b_status = cs_device->SetStringNodeValue("DebugInformation", "Off");
-                            }
-
-                            if (b_status) {
-                                r_status = dev_diag_status_OK;
-                            }
-                        }
+                    if (b_status) {
+                        r_status = dev_diag_status_OK;
                     }
                 }
             }
