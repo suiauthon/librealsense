@@ -25,8 +25,8 @@ C
 ```
 ```c
 rs2_error* e = 0;
-float heartbeat_time_s = rs2_d400e_get_heartbeat_time(e);
-rs2_d400e_set_heartbeat_time(3.f, e);
+float heartbeat_time_s = rs2_d400e_get_heartbeat_time(&e);
+rs2_d400e_set_heartbeat_time(3.f, &e);
 ```
 
 Python
@@ -70,8 +70,8 @@ C
 ```
 ```c
 rs2_error* e = 0;
-int buffer_count = rs2_d400e_get_buffer_count(e);
-rs2_d400e_set_buffer_count(10, e);
+int buffer_count = rs2_d400e_get_buffer_count(&e);
+rs2_d400e_set_buffer_count(10, &e);
 ```
 
 Python
@@ -90,6 +90,46 @@ namespace Intel.Realsense
 ```c#
 double bufferCount = D400e.GetBufferCount();
 D400e.SetBufferCount(10);
+```
+
+## Device diagnostics
+
+Enable or disable diagnostic packets sent by D400e series devices.
+
+C++
+
+```cpp
+#include <librealsense2/rs.hpp>
+```
+```cpp
+int status = rs2::d400e::toggle_device_diagnostics("6CD146030D29", 1);
+```
+
+C
+
+```c
+#include <librealsense2/rs.h>
+```
+```c
+rs2_error* e = 0;
+int status;
+status = rs2_d400e_toggle_device_diagnostics("6CD146030D29", 1, &e);
+```
+
+Python
+
+```python
+status = rs.d400e.toggle_device_diagnostics("6CD146030D29", 1);
+```
+
+C#
+
+```c#
+namespace Intel.Realsense
+```
+
+```c#
+int status = D400e.ToggleDeviceDiagnostics("6CD146030D29", 1);
 ```
 
 ## Camera information
@@ -117,7 +157,7 @@ C
 rs2_device* dev; //obtain rs2_device* using rs2_create_device()
 rs2_error* e = 0;
 const char* ip_address;
-ip_address = rs2_get_device_info(device, RS2_CAMERA_INFO_IP_ADDRESS, e);
+ip_address = rs2_get_device_info(device, RS2_CAMERA_INFO_IP_ADDRESS, &e);
 ```
 
 Python
@@ -170,7 +210,7 @@ C
 ```c
 rs2_sensor* sensor; //obtain rs2_sensor* using rs2_create_sensor()
 rs2_error* e = 0;
-rs2_set_option(sensor, RS2_OPTION_INTER_PACKET_DELAY, 65.f, e);
+rs2_set_option(sensor, RS2_OPTION_INTER_PACKET_DELAY, 65.f, &e);
 ```
 
 Python
