@@ -16,6 +16,8 @@ EXPORTS
     rs2_d400e_set_heartbeat_time
     rs2_d400e_get_heartbeat_time
 
+    rs2_d400e_toggle_device_diagnostics
+
     rs2_query_devices
     rs2_query_devices_ex
     rs2_get_device_count
