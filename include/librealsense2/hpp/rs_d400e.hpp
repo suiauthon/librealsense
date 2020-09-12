@@ -5,7 +5,6 @@
 #define LIBREALSENSE_RS2_D400E_HPP
 
 #include "rs_types.hpp"
-#include "api.h"
 
 namespace rs2
 {
