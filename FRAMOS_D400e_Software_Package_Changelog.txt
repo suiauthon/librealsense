@@ -1,6 +1,6 @@
-v1.9.2 (2020-08-31)
+v1.9.3 (2020-09-21)
 =====================
-    - changed - FRAMOS librealsense to v2.33.12
+    - changed - FRAMOS librealsense to v2.33.13
     - changed - FRAMOS CameraSuite to v4.2.3.0
 
 v1.9.1 (2020-07-17)
