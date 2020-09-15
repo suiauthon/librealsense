@@ -1834,11 +1834,6 @@ namespace librealsense {
             }
         }
 
-        int cs_device::get_optimal_inter_packet_delay(int packet_size)
-        {
-            double eth_packet_size = packet_size + 38;  // 38 bytes overhead
-            float ns_per_byte = 8.0;  // for 1Gbps
-
         INT64 cs_device::get_optimal_inter_packet_delay(INT64 packet_size_bytes, INT64 link_speed_mbitps)
         {
             constexpr int eth_packet_overhead = 38;
