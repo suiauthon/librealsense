@@ -12,8 +12,8 @@ namespace librealsense
 
         heartbeat_time::heartbeat_time()
         {
-            constexpr seconds DEFAULT_HEARTBEAT_TIME = 3;
-            set(DEFAULT_HEARTBEAT_TIME);
+            constexpr seconds default_heartbeat_time = 3;
+            set(default_heartbeat_time);
         }
 
         heartbeat_time& heartbeat_time::get_instance()

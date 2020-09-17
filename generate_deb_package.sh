@@ -7,7 +7,7 @@ enter_script_folder() {
 
 set_platform() {
     case "$1" in
-    "Linux64_x64" | "Linux64_ARM")
+    "Linux64_x64" | "Linux64_ARM" | "Linux32_ARM")
         PLATFORM="$1"
         ;;
     "")
@@ -39,7 +39,11 @@ build_realsense2 () {
         export CAMERA_SUITE_TARGET_SYSTEM="$PLATFORM"
         TOOLCHAIN="Linux64_ARM_HF_Toolchain.cmake"
         CMAKE_FLAGS="-DINSTALL_ROS_WRAPPER=ON -DCPACK_DEBIAN_PACKAGE_ARCHITECTURE=arm64"
-    else
+    elif [[ "$PLATFORM" = "Linux32_ARM" ]]; then
+        export CAMERA_SUITE_TARGET_SYSTEM="$PLATFORM"
+        TOOLCHAIN="Linux32_ARM_HF_Toolchain.cmake"
+        CMAKE_FLAGS="-DINSTALL_ROS_WRAPPER=ON -DCPACK_DEBIAN_PACKAGE_ARCHITECTURE=armhf"
+    else 
 		CMAKE_FLAGS="-DINSTALL_DYNAMIC_CALIBRATOR=ON -DINSTALL_ROS_WRAPPER=ON"
 	fi
     cmake ../../ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCPACK_SYSTEM_NAME=$PLATFORM $CMAKE_FLAGS
@@ -65,7 +69,6 @@ pack() {
 
 enter_script_folder
 set_platform "$1"
-set_build_environment
-build_realsense2
+set_build_environmentbuild_realsense2
 build_dynamic_calibrator
 pack

@@ -222,7 +222,7 @@ namespace librealsense {
 
             std::string ip_address_to_string(uint32_t ip_address);
 
-            int get_optimal_inter_packet_delay(int packetSize);
+            INT64 get_optimal_inter_packet_delay(INT64 packet_size_bytes, INT64 link_speed_mbitps);
 
             static bool inc_device_count_sn(std::string serialNum);
             static bool dec_device_count_sn(std::string serialNum);
