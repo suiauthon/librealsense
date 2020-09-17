@@ -1,3 +1,8 @@
+v2.33.13 (2020-09-16)
+=====================
+    - added - [LINUX] ARM32 support
+    - added - inter packet delay calculation takes link speed into account
+
 v2.33.12 (2020-09-01)
 =====================
     - added - syncer mode that waits for full frameset

@@ -438,17 +438,17 @@ namespace librealsense {
                             else {
                                 // initialize this part (inter-packet delay) only once
                                 if (get_device_init_flag_sn(_device_info.serial) == false) { 
-                                    INT64 numOfCameraStream;
-                                    _connected_device->GetIntegerNodeValue("GevStreamChannelCount", numOfCameraStream);
-                                    for (int i = 0; i < numOfCameraStream; i++)
+                                    INT64 stream_count, link_speed_mbitps;
+                                    _connected_device->GetIntegerNodeValue("GevStreamChannelCount", stream_count);
+                                    _connected_device->GetIntegerNodeValue("GevLinkSpeed", link_speed_mbitps);
+                                    for (int i = 0; i < stream_count; i++)
                                     {
-                                        INT64 packetSize;
+                                        INT64 packet_size_bytes;
                                         select_channel((cs_stream)i);
 
-                                        // set optimal inter-packet delay
-                                        _connected_device->GetIntegerNodeValue("GevSCPSPacketSize", packetSize);
-                                        int interPacketDelay = get_optimal_inter_packet_delay(packetSize);
-                                        _connected_device->SetIntegerNodeValue("GevSCPD", interPacketDelay);
+                                        _connected_device->GetIntegerNodeValue("GevSCPSPacketSize", packet_size_bytes);
+                                        INT64 inter_packet_delay_us = get_optimal_inter_packet_delay(packet_size_bytes, link_speed_mbitps);
+                                        _connected_device->SetIntegerNodeValue("GevSCPD", inter_packet_delay_us);
                                     }
                                     set_device_init_flag_sn(_device_info.serial, true);
                                 }
@@ -463,11 +463,11 @@ namespace librealsense {
                         _profiles = std::vector<stream_profile>(_number_of_streams);
                         _cs_firmware_version = cs_firmware_version(_connected_device);
 
-                        constexpr double S_TO_MS_FACTOR = 1000;
+                        constexpr double s_to_ms_factor = 1000;
                         INT64 frequency;
                         if (!_connected_device->GetIntegerNodeValue("GevTimestampTickFrequency", frequency))
                             throw io_exception("Unable to read GevTimestampTickFrequency");
-                        _timestamp_to_ms_factor = S_TO_MS_FACTOR / frequency;
+                        _timestamp_to_ms_factor = s_to_ms_factor / frequency;
 
                         for (int i = 0; i < _number_of_streams; i++)
                         {
@@ -1834,15 +1834,17 @@ namespace librealsense {
             }
         }
 
-        int cs_device::get_optimal_inter_packet_delay(int packet_size)
+        INT64 cs_device::get_optimal_inter_packet_delay(INT64 packet_size_bytes, INT64 link_speed_mbitps)
         {
-            double eth_packet_size = packet_size + 38;  // 38 bytes overhead
-            float ns_per_byte = 8.0;  // for 1Gbps
+            constexpr int eth_packet_overhead = 38;
+            double eth_packet_size = packet_size_bytes + eth_packet_overhead;
+            constexpr float mbitps_to_nspbyte_factor = 0.008;
+            float ns_per_byte = link_speed_mbitps * mbitps_to_nspbyte_factor;
+            constexpr float ns_to_ms_factor = 0.001;
+            double time_to_transfer_packet_us = eth_packet_size * ns_per_byte * ns_to_ms_factor;
+            time_to_transfer_packet_us = ceil(time_to_transfer_packet_us + 0.5);
 
-            double time_to_transfer_packet = (eth_packet_size * ns_per_byte) / 1000.0;  // time in us
-            time_to_transfer_packet = ceil(time_to_transfer_packet + 0.5);            // round up
-
-            return static_cast<int>(time_to_transfer_packet);
+            return static_cast<INT64>(time_to_transfer_packet_us);
         }
 
         bool cs_device::inc_device_count_sn(std::string serial_num)
