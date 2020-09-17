@@ -69,6 +69,7 @@ pack() {
 
 enter_script_folder
 set_platform "$1"
-set_build_environmentbuild_realsense2
+set_build_environment
+build_realsense2
 build_dynamic_calibrator
 pack
