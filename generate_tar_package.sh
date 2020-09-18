@@ -40,6 +40,7 @@ generate_tar_package() {
     pushd build/$PLATFORM
     tar czf FRAMOS_D400e_Software_Package_${package_version}_$PLATFORM.tar.gz FRAMOS_D400e_Software_Package --owner=0 --group=0
     popd
+    cp build/$PLATFORM/*.tar.gz .
 }
 
 check_params
