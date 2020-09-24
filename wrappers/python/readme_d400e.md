@@ -6,7 +6,7 @@ This readme file provides instructions on how to use the D400e camera series wit
 
 Linux x86_64 - Ubuntu 16 LTS, Ubuntu 18 LTS, Ubuntu 20 LTS
 
-Linux ARM64 - Jetson TX2, Jetson Xavier, L4T 32.3.1
+Linux ARM64 - Jetson TX2, Jetson Xavier, L4T 32.4.3
 
 Windows x86_64
 

@@ -10,6 +10,7 @@ v2.33.14 (2020-09-30)
     - fixed - unable to select arbitrary camera from list in Realsense Viewer
     - fixed - [LINUX] segmentation fault when building example with clang
     - changed - base DynamicCalibrator tool version 2.11.0.0
+    - changed - [LINUX] supported L4T version 32.4.3
 
 v2.33.13 (2020-09-16)
 =====================
