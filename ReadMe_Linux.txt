@@ -121,7 +121,7 @@ Calibration of RGB imager is currently not supported.
 Calibrating multiple cameras in a row is currently not supported.
 Dynamic Calibration Tool needs to be restarted after each calibration.
 
-Dynamic Calibration Tool requires additional libraries on Ubuntu 18.
+Dynamic Calibration Tool requires additional libraries on Ubuntu 18 and Ubuntu 20.
 Install the required libraries:
     wget http://security.ubuntu.com/ubuntu/pool/main/libp/libpng/libpng12-0_1.2.54-1ubuntu1.1_amd64.deb
     sudo apt install ./libpng12-0_1.2.54-1ubuntu1.1_amd64.deb
