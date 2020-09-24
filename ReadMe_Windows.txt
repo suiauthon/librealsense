@@ -1,5 +1,5 @@
 FRAMOS D400e Depth Camera Software Package for Windows
-v1.9.2 (2020-09-01)
+v2.0.0 (2020-09-30)
 ======================================================
 
 Components:
@@ -82,8 +82,6 @@ Dynamic Calibration Tool is located in
 	"C:\Program Files\FRAMOS\librealsense2\bin\DynamicCalibrator"
 
 NOTE: 32bit Dynamic Calibration Tool is not supported.
-
-Calibration of RGB imager is currently not supported.
 
 Calibrating multiple cameras in a row is currently not supported.
 Dynamic Calibration Tool needs to be restarted after each calibration.

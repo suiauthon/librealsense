@@ -4,7 +4,7 @@ This readme file provides instructions on how to use the D400e camera series wit
 
 ## Supported platforms
 
-Linux x86_64 - Ubuntu 16 LTS, Ubuntu 18 LTS
+Linux x86_64 - Ubuntu 16 LTS, Ubuntu 18 LTS, Ubuntu 20 LTS
 
 Linux ARM64 - Jetson TX2, Jetson Xavier, L4T 32.3.1
 
@@ -33,7 +33,7 @@ Install required packages:
 sudo apt install gcc g++ cmake libglfw3-dev libgtk-3-dev git libssl-dev libusb-1.0-0-dev pkg-config python3 python3-dev python3-pip
 ```
 
-Additional packages are required on Ubuntu 18:
+Additional packages are required on Ubuntu 18 and Ubuntu 20:
 ```
 sudo apt install libgl1-mesa-dev libglu1-mesa-dev
 ```

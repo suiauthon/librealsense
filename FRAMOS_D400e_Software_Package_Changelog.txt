@@ -1,3 +1,10 @@
+v2.0.0 (2020-09-30)
+=====================
+    - added - support for FRAMOS D435e Firmware 1.9.0.0
+    - added - support for FRAMOS D415e Firmware 1.4.0.0
+    - changed - FRAMOS librealsense to v2.33.14
+    - changed - FRAMOS CameraSuite to v4.3.0.0
+
 v1.9.3 (2020-09-16)
 =====================
     - changed - FRAMOS librealsense to v2.33.13

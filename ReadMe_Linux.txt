@@ -1,5 +1,5 @@
 FRAMOS D400e Depth Camera Software Package for Linux
-v1.9.3 (2020-09-16)
+v2.0.0 (2020-09-30)
 ====================================================
 
 Components:
@@ -9,7 +9,7 @@ Components:
 
 Supported platforms:
 --------------------
-- Linux x86_64 - Ubuntu 16 LTS, Ubuntu 18 LTS
+- Linux x86_64 - Ubuntu 16 LTS, Ubuntu 18 LTS, Ubuntu 20 LTS
 - Linux ARM64 - Jetson TX2, Jetson Xavier, L4T 32.3.1
 
 Prerequisites:
