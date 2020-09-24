@@ -94,6 +94,11 @@ ROS wrapper:
 Instructions on how to use the ROS wrapper are located in
     /usr/src/librealsense2/wrappers/ros/readme_d400e.md
 
+ROS2 wrapper:
+-------------
+Instruction on how to use the ROS2 wrapper are located in
+    /usr/src/librealsense2/wrappers/ros2/readme_d400e.md
+
 Multicam example:
 -----------------
 Notes on configuring a multi camera setup are located in
