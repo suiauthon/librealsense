@@ -138,3 +138,8 @@ Install Python3 OpenCV package, required by some examples
 pip3 install --user opencv-python
 ```
 
+Install Python3 Pyglet package, required by Pyglet-PointCloud-Viewer example
+
+```
+pip3 install --user pyglet==1.4.11
+```
