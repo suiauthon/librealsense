@@ -116,15 +116,8 @@ Launch the Dynamic Calibration Tool from terminal:
 
 NOTE: Dynamic Calibration Tool is not supported on Jetson platforms.
 
-Calibration of RGB imager is currently not supported.
-
 Calibrating multiple cameras in a row is currently not supported.
 Dynamic Calibration Tool needs to be restarted after each calibration.
-
-Dynamic Calibration Tool requires additional libraries on Ubuntu 18 and Ubuntu 20.
-Install the required libraries:
-    wget http://security.ubuntu.com/ubuntu/pool/main/libp/libpng/libpng12-0_1.2.54-1ubuntu1.1_amd64.deb
-    sudo apt install ./libpng12-0_1.2.54-1ubuntu1.1_amd64.deb
 
 Dynamic Calibration Tool depends on the freeglut3. If the universe repository is not enabled in apt, 
 it will not be installed automatically during installation. Enable the repository and install freeglut3 manually:
