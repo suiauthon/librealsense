@@ -54,7 +54,7 @@ Building Intel® RealSense™ library, examples and tools:
 Install required packages:
     sudo apt install gcc g++ cmake libglfw3-dev libgtk-3-dev git libssl-dev libusb-1.0-0-dev pkg-config
 
-Additional packages are required on Ubuntu 18:
+Additional packages are required on Ubuntu 18 and Ubuntu 20:
     sudo apt install libgl1-mesa-dev libglu1-mesa-dev
 
 Sources for Intel® RealSense™ library, examples and tools are located in
