@@ -107,9 +107,9 @@ copy it to a location owned by the user.
 Launch the CMake GUI tool.
 Set ```Where is the source code``` to the location of the copied ```src``` folder.
 Set ```Where to build the binaries``` to the location of the copied ```src``` folder with the ```/build``` suffix.
-Select the option ```BUILD_PYTHON_BINDINGS```.
 Press the ```Configure``` button to update CMake values. 
 Make sure to select the ```Visual Studio 14 2015``` generator and ```x64``` optional platform when prompted.
+Select the option ```BUILD_PYTHON_BINDINGS```.
 Press the ```Generate``` button to generate the Visual Studio Solution.
 Press the ```Open Project``` button to open the generated Visual Studio Solution.
 Inside the solution, set the build type to ```Release``` and build the wrapper by right clicking on the ```pyrealsense2``` projects and selecting ```Build```.
@@ -143,3 +143,8 @@ Install Python3 OpenCV package, required by some examples
 pip3 install --user opencv-python
 ```
 
+Install Python3 Pyglet package, required by Pyglet-PointCloud-Viewer example
+
+```
+pip3 install --user pyglet==1.4.11
+```

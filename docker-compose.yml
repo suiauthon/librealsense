@@ -11,11 +11,13 @@ services:
             CAMERA_SUITE_PACKAGE_PATH: /camerasuite_package
             DYNAMIC_CALIBRATOR_PATH: /dynamic_calibrator
             ROS_WRAPPER_PATH: /ros_wrapper
+            ROS2_WRAPPER_PATH: /ros2_wrapper
         volumes:
         - .:/realsense
         - ${CAMERA_SUITE_PACKAGE_PATH}:/camerasuite_package
         - ${DYNAMIC_CALIBRATOR_PATH}:/dynamic_calibrator
         - ${ROS_WRAPPER_PATH}:/ros_wrapper
+        - ${ROS2_WRAPPER_PATH}:/ros2_wrapper
     realsense_arm64:
         build:
             context: .
@@ -27,10 +29,12 @@ services:
             DOCKER_BUILD: "true"
             CAMERA_SUITE_PACKAGE_PATH: /camerasuite_package
             ROS_WRAPPER_PATH: /ros_wrapper
+            ROS2_WRAPPER_PATH: /ros2_wrapper
         volumes:
         - .:/realsense
         - ${CAMERA_SUITE_PACKAGE_PATH}:/camerasuite_package
         - ${ROS_WRAPPER_PATH}:/ros_wrapper
+        - ${ROS2_WRAPPER_PATH}:/ros2_wrapper
     realsense_arm32hf:
         build:
             context: .
@@ -42,7 +46,9 @@ services:
             DOCKER_BUILD: "true"
             CAMERA_SUITE_PACKAGE_PATH: /camerasuite_package
             ROS_WRAPPER_PATH: /ros_wrapper
+            ROS2_WRAPPER_PATH: /ros2_wrapper
         volumes:
         - .:/realsense
         - ${CAMERA_SUITE_PACKAGE_PATH}:/camerasuite_package
         - ${ROS_WRAPPER_PATH}:/ros_wrapper
+        - ${ROS2_WRAPPER_PATH}:/ros2_wrapper
