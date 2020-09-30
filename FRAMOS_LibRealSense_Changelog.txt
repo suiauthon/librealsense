@@ -1,3 +1,17 @@
+v2.33.14 (2020-09-30)
+=====================
+    - added - Line Debouncer control
+    - added - CalibrationTables tool
+    - added - RGB calibration in DynamicCalibrator
+    - added - toggling diagnostic messages for D400e cameras
+    - added - [LINUX] Ubuntu 20 LTS support
+    - added - [LINUX] ROS2 wrapper
+    - fixed - RGB image flickering in DynamicCalibrator
+    - fixed - unable to select arbitrary camera from list in Realsense Viewer
+    - fixed - [LINUX] segmentation fault when building example with clang
+    - changed - base DynamicCalibrator tool version 2.11.0.0
+    - changed - [LINUX] supported L4T version 32.4.3
+
 v2.33.13 (2020-09-16)
 =====================
     - added - [LINUX] ARM32 support

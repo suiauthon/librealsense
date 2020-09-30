@@ -152,6 +152,7 @@ namespace librealsense {
             bool is_infrared_supported();
             bool is_option_supported(rs2_option opt, cs_stream stream);
             bool is_software_trigger_supported();
+            bool is_line_debouncer_time_supported();
             double get_device_timestamp_ms();
 
             void set_trigger_mode(float mode, cs_stream stream);
@@ -252,6 +253,8 @@ namespace librealsense {
             bool _temperature_supported;
             bool _software_trigger_supported_checked;
             bool _software_trigger_supported;
+            bool _line_debouncer_time_supported_checked;
+            bool _line_debouncer_time_supported;
             INT64 _selected_source;
             bool _selected_source_initialized;
             static std::map<std::string, int> _cs_device_num_objects_sn; // serial_number, number of objects per SN (device creation)

@@ -333,6 +333,7 @@ namespace librealsense
             CASE(EXT_TRIGGER_SOURCE)
             CASE(SOFTWARE_TRIGGER_ALL_SENSORS)
             CASE(USER_OUTPUT_LEVEL)
+            CASE(LINE_DEBOUNCER_TIME)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 #undef CASE

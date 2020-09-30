@@ -1,5 +1,5 @@
 FRAMOS D400e Depth Camera Software Package for Linux
-v1.9.3 (2020-09-16)
+v2.0.0 (2020-09-30)
 ====================================================
 
 Components:
@@ -9,8 +9,8 @@ Components:
 
 Supported platforms:
 --------------------
-- Linux x86_64 - Ubuntu 16 LTS, Ubuntu 18 LTS
-- Linux ARM64 - Jetson TX2, Jetson Xavier, L4T 32.3.1
+- Linux x86_64 - Ubuntu 16 LTS, Ubuntu 18 LTS, Ubuntu 20 LTS
+- Linux ARM64 - Jetson TX2, Jetson Xavier, L4T 32.4.3
 
 Prerequisites:
 --------------
@@ -54,7 +54,7 @@ Building Intel® RealSense™ library, examples and tools:
 Install required packages:
     sudo apt install gcc g++ cmake libglfw3-dev libgtk-3-dev git libssl-dev libusb-1.0-0-dev pkg-config
 
-Additional packages are required on Ubuntu 18:
+Additional packages are required on Ubuntu 18 and Ubuntu 20:
     sudo apt install libgl1-mesa-dev libglu1-mesa-dev
 
 Sources for Intel® RealSense™ library, examples and tools are located in
@@ -94,6 +94,11 @@ ROS wrapper:
 Instructions on how to use the ROS wrapper are located in
     /usr/src/librealsense2/wrappers/ros/readme_d400e.md
 
+ROS2 wrapper:
+-------------
+Instruction on how to use the ROS2 wrapper are located in
+    /usr/src/librealsense2/wrappers/ros2/readme_d400e.md
+
 Multicam example:
 -----------------
 Notes on configuring a multi camera setup are located in
@@ -111,15 +116,8 @@ Launch the Dynamic Calibration Tool from terminal:
 
 NOTE: Dynamic Calibration Tool is not supported on Jetson platforms.
 
-Calibration of RGB imager is currently not supported.
-
 Calibrating multiple cameras in a row is currently not supported.
 Dynamic Calibration Tool needs to be restarted after each calibration.
-
-Dynamic Calibration Tool requires additional libraries on Ubuntu 18.
-Install the required libraries:
-    wget http://security.ubuntu.com/ubuntu/pool/main/libp/libpng/libpng12-0_1.2.54-1ubuntu1.1_amd64.deb
-    sudo apt install ./libpng12-0_1.2.54-1ubuntu1.1_amd64.deb
 
 Dynamic Calibration Tool depends on the freeglut3. If the universe repository is not enabled in apt, 
 it will not be installed automatically during installation. Enable the repository and install freeglut3 manually:
