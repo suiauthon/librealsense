@@ -153,12 +153,15 @@ namespace librealsense {
             bool is_option_supported(rs2_option opt, cs_stream stream);
             bool is_software_trigger_supported();
             bool is_line_debouncer_time_supported();
+            bool is_rgb_raw16_supported();
             double get_device_timestamp_ms();
 
             void set_trigger_mode(float mode, cs_stream stream);
             float get_trigger_mode(cs_stream stream);
             bool get_intercam_mode(cs_stream stream);
             void update_external_trigger_mode_flag(cs_stream stream, float value);
+
+            void toggle_raw16_flag(bool toggle) { _is_raw16 = toggle; };
 
         protected:
             void capture_loop(cs_stream stream, UINT32 channel);
@@ -255,6 +258,8 @@ namespace librealsense {
             bool _software_trigger_supported;
             bool _line_debouncer_time_supported_checked;
             bool _line_debouncer_time_supported;
+            bool _rgb_raw16_supported_checked;
+            bool _rgb_raw16_supported;
             INT64 _selected_source;
             bool _selected_source_initialized;
             static std::map<std::string, int> _cs_device_num_objects_sn; // serial_number, number of objects per SN (device creation)
@@ -262,6 +267,8 @@ namespace librealsense {
             static std::map<std::string, bool> _cs_device_option_sw_trigger_all_flag_sn; // serial_number, is device with SN initialized
 
             double _timestamp_to_ms_factor;
+
+            bool _is_raw16;
         };
     }
 

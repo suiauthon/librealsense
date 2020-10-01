@@ -77,6 +77,17 @@ namespace librealsense {
     void cs_sensor::open(const stream_profiles& requests)
     {
         std::lock_guard<std::mutex> lock(_configure_lock);
+
+        _device->toggle_raw16_flag(false);
+        for (auto&& r_profile : requests) {
+            if (r_profile->get_stream_type() == RS2_STREAM_COLOR) {
+                if (r_profile->get_format() == RS2_FORMAT_RAW16) {
+                    _device->toggle_raw16_flag(true);
+                    break;
+                }
+            }
+        }
+
         if (_is_streaming)
             throw wrong_api_call_sequence_exception("open(...) failed. CS device is streaming!");
         else if (_is_opened)
@@ -425,8 +436,11 @@ namespace librealsense {
                     _software_trigger_supported(false),
                     _line_debouncer_time_supported_checked(false),
                     _line_debouncer_time_supported(false),
+                    _rgb_raw16_supported_checked(false),
+                    _rgb_raw16_supported(false),
                     _selected_source(0),
-                    _selected_source_initialized(false) {
+                    _selected_source_initialized(false),
+                    _is_raw16(false){
             _smcs_api = smcs::GetCameraAPI();
             auto devices = _smcs_api->GetAllDevices();
 
@@ -598,6 +612,23 @@ namespace librealsense {
 
             set_region(stream, false);
 
+            // rgb raw16
+            if ((stream == CS_STREAM_COLOR) && 
+                (is_rgb_raw16_supported())) {
+                    profile.width = 1920;
+                    profile.height = 1080;
+                    profile.format = rs_fourcc('B', 'Y', 'R', '2');
+                    /**/
+                    profile.fps = 30;
+                    all_stream_profiles.push_back(profile);
+                    /**/
+                    profile.fps = 15;
+                    all_stream_profiles.push_back(profile);
+                    /**/
+                    profile.fps = 6;
+                    all_stream_profiles.push_back(profile);
+            }
+
             return all_stream_profiles;
         }
 
@@ -669,7 +700,7 @@ namespace librealsense {
 
         uint32_t cs_device::native_pixel_format_to_cs_pixel_format(uint32_t native_format)
         {
-            if (native_format == rs_fourcc('Y', '8', 'I', ' ') || native_format == rs_fourcc('Z', '1', '6', ' '))
+            if (native_format == rs_fourcc('Y', '8', 'I', ' ') || native_format == rs_fourcc('Z', '1', '6', ' ') || native_format == rs_fourcc('B', 'Y', 'R', '2'))
                 return GVSP_PIX_MONO16;
             else if (native_format == rs_fourcc('G', 'R', 'E', 'Y'))
                 return GVSP_PIX_MONO8;
@@ -1318,8 +1349,15 @@ namespace librealsense {
         {
             switch (stream) {
             case CS_STREAM_DEPTH:
-            case CS_STREAM_COLOR:
                 return 0;
+            case CS_STREAM_COLOR:
+                // In Color stream, single Region can be active at the same time, so this should be ok
+                if (_is_raw16) {
+                    return 2;
+                }
+                else {
+                    return 0;
+                }
             case CS_STREAM_IR_LEFT:
                 return 3;
             case CS_STREAM_IR_RIGHT:
@@ -1659,6 +1697,17 @@ namespace librealsense {
                 _line_debouncer_time_supported_checked = true;
             }
             return _line_debouncer_time_supported;
+        }
+
+        bool cs_device::is_rgb_raw16_supported() 
+        {
+            if (!_rgb_raw16_supported_checked) {
+                _rgb_raw16_supported =
+                    (_cs_firmware_version > cs_firmware_version(1, 9, 0, 0) && (_device_info.id == CS_CAMERA_MODEL_D435e) ||
+                    (_cs_firmware_version > cs_firmware_version(1, 4, 0, 0) && (_device_info.id == CS_CAMERA_MODEL_D415e)));
+                _rgb_raw16_supported_checked = true;
+            }
+            return _rgb_raw16_supported;
         }
 
         void cs_device::capture_loop(cs_stream stream, UINT32 channel)
