@@ -43,6 +43,11 @@ Install Python packages required by some of the Python examples on x86_64:
 pip3 install --user opencv-python
 ```
 
+```
+pip3 install --user pyglet==1.4.11
+```
+
+
 Install Python packages required by some of the Python examples on the Jetson platforms:
 
 ```

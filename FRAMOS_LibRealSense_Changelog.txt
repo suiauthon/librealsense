@@ -1,3 +1,7 @@
+v2.33.15 (2020-10-14)
+=====================
+    - added - RAW16 stream support from RGB sensor
+
 v2.33.14 (2020-09-30)
 =====================
     - added - Line Debouncer control
@@ -5,7 +9,7 @@ v2.33.14 (2020-09-30)
     - added - RGB calibration in DynamicCalibrator
     - added - toggling diagnostic messages for D400e cameras
     - added - [LINUX] Ubuntu 20 LTS support
-    - added - [LINUX] ROS2 wrapper
+    - added - [LINUX] ROS2 wrapper support (Beta)
     - fixed - RGB image flickering in DynamicCalibrator
     - fixed - unable to select arbitrary camera from list in Realsense Viewer
     - fixed - [LINUX] segmentation fault when building example with clang
