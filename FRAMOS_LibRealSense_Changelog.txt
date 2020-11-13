@@ -1,7 +1,9 @@
 v2.33.16 (RELEASE_DATE)
 =====================
-    - added - D400e macro
-    - added - D400e in version debug logging
+    - added - recommended firmware info
+    - added - D400e macro in library headers
+    - added - D400e in version log
+    - fixed - C# FRAMOS option enum mapping
 
 v2.33.15 (2020-10-14)
 =====================

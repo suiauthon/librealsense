@@ -700,6 +700,12 @@ namespace librealsense
 
     rs2_intrinsics cs_color_sensor::get_intrinsics(const stream_profile& profile) const
     {
+        rs2_intrinsics result = get_intrinsic_by_resolution(
+                *_owner->_color_calib_table_raw,
+                ds::calibration_table_id::rgb_calibration_id,
+                profile.width, profile.height);
+        //std::cout << "###Color:-> width: "<<  result.width << ", height: " << result.height << ", focal x: " << result.fx << ", focal y: " << result.fy << std::endl;
+        //LOG_WARNING("###Color:-> width: "<<  result.width << ", height: " << result.height << ", focal x: " << result.fx << ", focal y: " << result.fy);
         return get_intrinsic_by_resolution(
                 *_owner->_color_calib_table_raw,
                 ds::calibration_table_id::rgb_calibration_id,
@@ -713,10 +719,18 @@ namespace librealsense
         if (ds::try_get_intrinsic_by_resolution_new(*_owner->_new_calib_table_raw,
                                                     profile.width, profile.height, &result))
         {
+            //std::cout << "###Depth:-> width: "<<  result.width << ", height: " << result.height << ", focal x: " << result.fx << ", focal y: " << result.fy << std::endl; 
+            //LOG_WARNING("###Depth:-> width: "<<  result.width << ", height: " << result.height << ", focal x: " << result.fx << ", focal y: " << result.fy);
             return result;
         }
         else
         {
+            result = get_intrinsic_by_resolution(
+                    *_owner->_depth_calib_table_raw,
+                    ds::calibration_table_id::coefficients_table_id,
+                    profile.width, profile.height);
+            //std::cout << "###Depth:-> width: "<<  result.width << ", height: " << result.height << ", focal x: " << result.fx << ", focal y: " << result.fy << std::endl; 
+            //LOG_WARNING("###Depth:-> width: "<<  result.width << ", height: " << result.height << ", focal x: " << result.fx << ", focal y: " << result.fy);
             return get_intrinsic_by_resolution(
                     *_owner->_depth_calib_table_raw,
                     ds::calibration_table_id::coefficients_table_id,
