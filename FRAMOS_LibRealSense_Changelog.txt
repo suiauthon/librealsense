@@ -1,9 +1,10 @@
-v2.33.16 (RELEASE_DATE)
+v2.33.16 (2020-11-24)
 =====================
-    - added - recommended firmware info
+    - added - recommended firmware information
     - added - D400e macro in library headers
     - added - D400e in version log
     - fixed - C# FRAMOS option enum mapping
+    - changed - [LINUX] supported L4T version 32.4.4
 
 v2.33.15 (2020-10-14)
 =====================
