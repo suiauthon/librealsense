@@ -1,4 +1,4 @@
-v2.33.16 (2020-11-24)
+v2.33.16 (2020-11-27)
 =====================
     - added - recommended firmware information
     - added - D400e macro in library headers
