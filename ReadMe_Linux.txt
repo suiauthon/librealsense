@@ -1,5 +1,5 @@
 FRAMOS D400e Depth Camera Software Package for Linux
-v2.0.1 (2020-10-14)
+v2.0.2 (2020-11-24)
 ====================================================
 
 Components:
@@ -10,7 +10,7 @@ Components:
 Supported platforms:
 --------------------
 - Linux x86_64 - Ubuntu 16 LTS, Ubuntu 18 LTS, Ubuntu 20 LTS
-- Linux ARM64 - Jetson TX2, Jetson Xavier, L4T 32.4.3
+- Linux ARM64 - Jetson TX2, Jetson Xavier, L4T 32.4.4
 
 Prerequisites:
 --------------
@@ -189,10 +189,3 @@ Solution:
 - Make sure that the user running the application is a member of video group:
     groups | grep video
 - Make sure that no other application that uses the GigE filter driver is running
-
-Issue: GenICam_3_0::RuntimeException when starting an application
-Cause: Environment variables not set properly
-Solution:
-- Make sure to reboot the system after installation to load the required environment variables.
-- Do not run the application with sudo. This will hide the user environment variables. 
-    - Alternatively, pass the -E flag to sudo command to preserve the environment variables.

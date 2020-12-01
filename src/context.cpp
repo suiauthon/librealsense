@@ -116,7 +116,7 @@ namespace librealsense
         if (!version_logged)
         {
             version_logged = true;
-            LOG_DEBUG("Librealsense " << std::string(std::begin(rs2_api_version),std::end(rs2_api_version)));
+            LOG_DEBUG("D400e Librealsense " << std::string(std::begin(rs2_api_version),std::end(rs2_api_version)));
         }
 
         if (_objects_count == 0) {

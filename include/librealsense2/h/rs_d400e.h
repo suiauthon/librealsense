@@ -16,6 +16,8 @@ extern "C" {
 
 #include "rs_types.h"
 
+#define RS2_API_D400E
+
 /**
 * Sets heartbeat time in seconds for D400e series devices.
 * Heartbeat time is used for device disconnect detection.

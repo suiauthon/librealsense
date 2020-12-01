@@ -176,14 +176,19 @@ namespace Intel.RealSense
         /// <summary>Packet size for eth cameras</summary>
         PacketSize = 72,
         
+        /// <summary>Set user output level</summary>
+        UserOutputLevel = 73,
+        
         /// <summary>Select external trigger type for eth cameras</summary>
-        ExtTriggerSource = 73,
+        ExtTriggerSource = 74,
 
         /// <summary>Execute software trigger for eth cameras</summary>
-        SoftwareTrigger = 74,
+        SoftwareTrigger = 75,
 
         /// <summary>Execute software trigger for eth cameras</summary>
-        SoftwareTriggerAllSensors = 75,
+        SoftwareTriggerAllSensors = 76,
 
+        /// <summary>Line debouncer time (microseconds) for eth cameras</summary>
+        LineDebouncerTime = 77
     }
 }
