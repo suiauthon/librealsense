@@ -376,6 +376,8 @@ namespace librealsense
             depth_sensor.register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Z16H, RS2_STREAM_DEPTH));
         }
 
+        //TODO
+        //Maknuti if statement
         if (advanced_mode)
         {
             depth_sensor.register_processing_block(

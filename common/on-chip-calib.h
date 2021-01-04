@@ -26,6 +26,8 @@ namespace rs2
             : process_manager("On-Chip Calibration"), _model(model),
              _dev(dev), _sub(sub), _viewer(viewer)
         {
+                auto dev_name = dev.get_info(RS2_CAMERA_INFO_NAME);
+                if (!strcmp(dev_name, "Intel RealSense D415")) { speed = 4; }
         }
 
         bool allow_calib_keep() const { return true; }
@@ -47,7 +49,7 @@ namespace rs2
 
         void update_last_used();
 
-        uint32_t ground_truth = 2500;
+        float ground_truth = 2500;
         int average_step_count = 20;
         int step_count = 20;
         int accuracy = 2;

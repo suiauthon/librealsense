@@ -48,10 +48,7 @@ namespace librealsense {
         if (frame->get_stream()->get_format() == RS2_FORMAT_Z16)
             pin_index = 1;
 
-        if(!_has_metadata[pin_index])
-        {
-            _has_metadata[pin_index] = has_metadata(frame);
-        }
+        _has_metadata[pin_index] = has_metadata(frame);
 
         auto md = (librealsense::metadata_framos_basic*)(f->additional_data.metadata_blob.data());
         if(_has_metadata[pin_index] && md)

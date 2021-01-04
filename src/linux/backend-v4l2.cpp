@@ -38,7 +38,6 @@
 #include <linux/usb/video.h>
 #include <linux/uvcvideo.h>
 #include <linux/videodev2.h>
-#include <fts.h>
 #include <regex>
 #include <list>
 #ifndef SKIP_CS_SUPPORT
@@ -116,11 +115,23 @@ namespace librealsense
 {
     namespace platform
     {
+        std::recursive_mutex named_mutex::_init_mutex;
+        std::map<std::string, std::recursive_mutex> named_mutex::_dev_mutex;
+        std::map<std::string, int> named_mutex::_dev_mutex_cnt;
+
         named_mutex::named_mutex(const std::string& device_path, unsigned timeout)
             : _device_path(device_path),
               _timeout(timeout), // TODO: try to lock with timeout
-              _fildes(-1)
+              _fildes(-1),
+              _object_lock_counter(0)
         {
+            _init_mutex.lock();
+            _dev_mutex[_device_path];   // insert a mutex for _device_path
+            if (_dev_mutex_cnt.find(_device_path) == _dev_mutex_cnt.end())
+            {
+                _dev_mutex_cnt[_device_path] = 0;
+            }
+            _init_mutex.unlock();
         }
 
         named_mutex::~named_mutex()
@@ -159,32 +170,65 @@ namespace librealsense
 
         void named_mutex::acquire()
         {
-            if (-1 == _fildes)
+            _dev_mutex[_device_path].lock();
+            _dev_mutex_cnt[_device_path] += 1;  //Advance counters even if throws because catch calls release()
+            _object_lock_counter += 1;
+            if (_dev_mutex_cnt[_device_path] == 1)
             {
-                _fildes = open(_device_path.c_str(), O_RDWR, 0); //TODO: check
-                if(0 > _fildes)
-                    throw linux_backend_exception(to_string() << "Cannot open '" << _device_path);
-            }
+                if (-1 == _fildes)
+                {
+                    _fildes = open(_device_path.c_str(), O_RDWR, 0); //TODO: check
+                    if(0 > _fildes)
+                    {
+                        release();
+                        throw linux_backend_exception(to_string() << __FUNCTION__ << ": Cannot open '" << _device_path);
+                    }
+                }
 
-            auto ret = lockf(_fildes, F_LOCK, 0);
-            if (0 != ret)
-                throw linux_backend_exception(to_string() << "Acquire failed");
+                auto ret = lockf(_fildes, F_LOCK, 0);
+                if (0 != ret)
+                {
+                    release();
+                    throw linux_backend_exception(to_string() <<  __FUNCTION__ << ": Acquire failed");
+                }
+            }
         }
 
         void named_mutex::release()
         {
-            if (-1 == _fildes)
+            _object_lock_counter -= 1;
+            if (_object_lock_counter < 0)
+            {
+                _object_lock_counter = 0;
                 return;
+            }
+            _dev_mutex_cnt[_device_path] -= 1;
+            std::string err_msg;
+            if (_dev_mutex_cnt[_device_path] < 0)
+            {
+                _dev_mutex_cnt[_device_path] = 0;
+                throw linux_backend_exception(to_string() << "Error: _dev_mutex_cnt[" << _device_path << "] < 0");
+            }
 
-            auto ret = lockf(_fildes, F_ULOCK, 0);
-            if (0 != ret)
-                throw linux_backend_exception(to_string() << "lockf(...) failed");
+            if ((_dev_mutex_cnt[_device_path] == 0) && (-1 != _fildes))
+            {
+                auto ret = lockf(_fildes, F_ULOCK, 0);
+                if (0 != ret)
+                    err_msg = to_string() << "lockf(...) failed";
+                else
+                {
+                    ret = close(_fildes);
+                    if (0 != ret)
+                        err_msg = to_string() << "close(...) failed";
+                    else
+                        _fildes = -1;
+                }
+            }
+            _dev_mutex[_device_path].unlock();
 
-            ret = close(_fildes);
-            if (0 != ret)
-                throw linux_backend_exception(to_string() << "close(...) failed");
-
-            _fildes = -1;
+            if (!err_msg.empty())
+                throw linux_backend_exception(err_msg);
+            
         }
 
         static int xioctl(int fh, unsigned long request, void *arg)
@@ -372,27 +416,6 @@ namespace librealsense
                     return false;
                 }
             return true;
-        }
-
-        static std::tuple<std::string,uint16_t>  get_usb_descriptors(libusb_device* usb_device)
-        {
-            auto usb_bus = std::to_string(libusb_get_bus_number(usb_device));
-
-            // As per the USB 3.0 specs, the current maximum limit for the depth is 7.
-            const auto max_usb_depth = 8;
-            uint8_t usb_ports[max_usb_depth] = {};
-            std::stringstream port_path;
-            auto port_count = libusb_get_port_numbers(usb_device, usb_ports, max_usb_depth);
-            auto usb_dev = std::to_string(libusb_get_device_address(usb_device));
-            libusb_device_descriptor dev_desc;
-            libusb_get_device_descriptor(usb_device,&dev_desc);
-
-            for (auto i = 0; i < port_count; ++i)
-            {
-                port_path << std::to_string(usb_ports[i]) << (((i+1) < port_count)?".":"");
-            }
-
-            return std::make_tuple(usb_bus + "-" + port_path.str() + "-" + usb_dev,dev_desc.bcdUSB);
         }
 
         // retrieve the USB specification attributed to a specific USB device.
@@ -879,7 +902,11 @@ namespace librealsense
 
             if(val < 0)
             {
-                stop_data_capture();
+                _is_capturing = false;
+                _is_started = false;
+
+                // Notify kernel
+                streamoff();
             }
             else
             {
@@ -903,8 +930,12 @@ namespace librealsense
                         bool md_extracted = false;
                         buffers_mgr buf_mgr(_use_memory_map);
                         // RAII to handle exceptions
-                        std::unique_ptr<int, std::function<void(int*)> > md_poller(nullptr,
-                            [this,&buf_mgr,&md_extracted,&fds](int* d){ if (!md_extracted) acquire_metadata(buf_mgr,fds);});
+                        std::unique_ptr<int, std::function<void(int*)> > md_poller(new int(0),
+                            [this,&buf_mgr,&md_extracted,&fds](int* d)
+                            {
+                                if (!md_extracted) acquire_metadata(buf_mgr,fds);
+                                delete d;
+                            });
 
                         if(FD_ISSET(_fd, &fds))
                         {
@@ -1701,7 +1732,7 @@ namespace librealsense
             // Give the device a chance to restart, if we don't catch
             // it, the watcher will find it later.
             if(tm_boot(device_infos)) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                std::this_thread::sleep_for(std::chrono::milliseconds(2000));
                 device_infos = usb_enumerator::query_devices_info();
             }
             return device_infos;

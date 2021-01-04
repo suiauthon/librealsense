@@ -23,7 +23,6 @@ namespace librealsense
 
             std::shared_ptr<hid_device> create_hid_device(hid_device_info info) const override;
             std::vector<hid_device_info> query_hid_devices() const override;
-
 #ifndef SKIP_CS_SUPPORT
             std::shared_ptr<cs_device> create_cs_device(cs_device_info info) const override;
 #endif

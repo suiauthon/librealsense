@@ -22,7 +22,7 @@ function require_package {
 
 #Based on the current kernel version select the branch name to fetch the kernel source code
 # The reference name are pulled here : http://kernel.ubuntu.com/git/ubuntu/ubuntu-xenial.git/
-# As of Jun 21, the status is 
+# As of Jun 19
 #	Branch		Commit message								Author							Age
 #	hwe			UBUNTU: Ubuntu-hwe-4.15.0-24.26~16.04.1		Andy Whitcroft					6 days
 #	hwe-edge	UBUNTU: Ubuntu-hwe-4.15.0-23.25~16.04.1		Kleber Sacilotto de Souza		4 weeks
@@ -30,19 +30,24 @@ function require_package {
 #	master		UBUNTU: Ubuntu-4.4.0-128.154				Stefan Bader					4 weeks
 #	master-next	UBUNTU: SAUCE: Redpine: fix soft-ap invisible issue	Sanjay Kumar Konduri	2 days
 
-# As of Jan  21, 2020
+# As of Jun  21, 2020
 #Ubuntu bionic repo : http://kernel.ubuntu.com/git/ubuntu/ubuntu-bionic.git/
-#	hwe	UBUNTU: Ubuntu-hwe-5.3.0-28.30~18.04.1	Sultan Alsawaf	6 days
-#	hwe-edge	UBUNTU: Ubuntu-hwe-edge-5.3.0-24.26~18.04.2	Kleber Sacilotto de Souza	8 weeks
-#	master	UBUNTU: Ubuntu-4.15.0-74.84	Khalid Elmously	5 weeks
+#   hwe	UBUNTU: Ubuntu-hwe-5.3.0-56.50~18.04.1	Kleber Sacilotto de Souza	3 weeks
+#   hwe-5.0	UBUNTU: Ubuntu-hwe-5.0-5.0.0-53.57~18.04.1	Sultan Alsawaf	7 days
+#   hwe-5.4	UBUNTU: Ubuntu-hwe-5.4-5.4.0-38.42~18.04.1	Stefan Bader	4 days
+#   hwe-edge	UBUNTU: Ubuntu-hwe-edge-5.3.0-24.26~18.04.2	Kleber Sacilotto de Souza	7 months
+#   master	UBUNTU: Ubuntu-4.15.0-106.107	Kleber Sacilotto de Souza	2 weeks
 #	master-current	UBUNTU: Ubuntu-4.15.0-66.75	Khalid Elmously	4 months
 
+#Ubuntu focal repo : https://kernel.ubuntu.com/git/ubuntu/ubuntu-focal.git/
+#	Branch		Commit message
+#	master		UBUNTU: Ubuntu-5.4.0-21.25
 function choose_kernel_branch {
 
 	# Split the kernel version string
 	IFS='.' read -a kernel_version <<< "$1"
 
-	if [ "$2" = "xenial" ];
+	if [ "$2" == "xenial" ];
 	then
 		case "${kernel_version[1]}" in
 		"4")									# Kernel 4.4. is managed on master branch
@@ -66,12 +71,8 @@ function choose_kernel_branch {
 			exit 1
 			;;
 		esac
-	else
-		if [ "$2" != "bionic" ];
-		then
-			echo -e "\e[31mUnsupported distribution $2 kernel version $1 . The patches are maintained for Ubuntu16/18 (Xenial/Bionic) with LTS kernels 4-[4,8,10,13,15,18]\e[0m" >&2
-			exit 1
-		fi
+	elif [ "$2" == "bionic" ];
+	then
 		case "${kernel_version[0]}.${kernel_version[1]}" in
 		"4.15")								 	# kernel 4.15 for Ubuntu 18/Bionic Beaver
 			echo master
@@ -80,14 +81,35 @@ function choose_kernel_branch {
 			echo Ubuntu-hwe-4.18.0-25.26_18.04.1
 			;;
 		"5.0")									# kernel 5.0 for Ubuntu 18/Bionic Beaver
-			echo 5
+			#echo hwe-5.0
+            echo 5
 			;;
 		"5.3")									# kernel 5.3
-			echo 5
+			#echo hwe
+            echo 5
+			;;
+		"5.4")									# kernel 5.4
+			echo hwe-5.4
 			;;
 		*)
 			#error message shall be redirected to stderr to be printed properly
-			echo -e "\e[31mUnsupported kernel version $1 . The Bionic patches are maintained for Ubuntu LTS with kernels 4.15, 4.18, 5.0 and 5.3\e[0m" >&2
+			echo -e "\e[31mUnsupported kernel version $1 . The Bionic patches are maintained for Bionic Beaver LTS kernels 4.1[5/8], 5.[0/3/4]\e[0m" >&2
+			exit 1
+			;;
+		esac
+	else
+		if [ "$2" != "focal" ]; 				# Ubuntu 20
+		then
+			echo -e "\e[31mUnsupported distribution $2, kernel version $1 . The patches are maintained for Ubuntu 16/18/20 LTS\e[0m" >&2
+			exit 1
+		fi
+		case "${kernel_version[0]}.${kernel_version[1]}" in
+		"5.4")									# kernel 5.4
+			echo master
+			;;
+		*)
+			#error message shall be redirected to stderr to be printed properly
+			echo -e "\e[31mUnsupported kernel version $1 . The Focal patches are maintained for Ubuntu LTS with kernel 5.4 only\e[0m" >&2
 			exit 1
 			;;
 		esac

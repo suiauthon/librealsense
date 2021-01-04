@@ -19,12 +19,17 @@
 #include <array>
 #include <unordered_map>
 
-#include "imgui-fonts-karla.hpp"
-#include "imgui-fonts-fontawesome.hpp"
 #include "../third-party/json.hpp"
+#include "objects-in-frame.h"
+#include "processing-block-model.h"
 
 #include "realsense-ui-advanced-mode.h"
 #include "fw-update-helper.h"
+#include "updates-model.h"
+#include "calibration-model.h"
+#include "cah-model.h"
+#include "../common/utilities/time/periodic_timer.h"
+#include "reflectivity/reflectivity.h"
 
 ImVec4 from_rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a, bool consistent_color = false);
 ImVec4 operator+(const ImVec4& c, float v);
@@ -56,45 +61,17 @@ static const ImVec4 yellowish = from_rgba(255, 253, 191, 255, true);
 static const ImVec4 green = from_rgba(0x20, 0xe0, 0x20, 0xff, true);
 static const ImVec4 dark_sensor_bg = from_rgba(0x1b, 0x21, 0x25, 170);
 static const ImVec4 red = from_rgba(233, 0, 0, 255, true);
-static const ImVec4 greenish = from_rgba(33, 104, 0, 255);
+static const ImVec4 greenish = from_rgba(67, 163, 97, 255);
+static const ImVec4 orange = from_rgba(255, 157, 0, 255, true);
 
-// Helper class that lets smoothly animate between its values
-template<class T>
-class animated
+inline ImVec4 operator*(const ImVec4& color, float t)
 {
-private:
-    T _old, _new;
-    std::chrono::system_clock::time_point _last_update;
-    std::chrono::system_clock::duration _duration;
-public:
-    animated(T def, std::chrono::system_clock::duration duration = std::chrono::milliseconds(200))
-        : _duration(duration)
-    {
-        _last_update = std::chrono::system_clock::now();
-    }
-    animated& operator=(const T& other)
-    {
-        if (other != _new)
-        {
-            _old = get();
-            _new = other;
-            _last_update = std::chrono::system_clock::now();
-        }
-        return *this;
-    }
-    T get() const
-    {
-        auto now = std::chrono::system_clock::now();
-        auto ms = std::chrono::duration_cast<std::chrono::microseconds>(now - _last_update).count();
-        auto duration_ms = std::chrono::duration_cast<std::chrono::microseconds>(_duration).count();
-        auto t = (float)ms / duration_ms;
-        t = std::max(0.f, std::min(rs2::smoothstep(t, 0.f, 1.f), 1.f));
-        return _old * (1.f - t) + _new * t;
-    }
-    operator T() const { return get(); }
-    T value() const { return _new; }
-};
-
+    return ImVec4(color.x * t, color.y * t, color.z * t, color.w * t);
+}
+inline ImVec4 operator+(const ImVec4& a, const ImVec4& b)
+{
+    return ImVec4(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
+}
 
 inline ImVec4 blend(const ImVec4& c, float a)
 {
@@ -103,9 +80,15 @@ inline ImVec4 blend(const ImVec4& c, float a)
 
 namespace rs2
 {
+    constexpr const char* server_versions_db_url = "http://realsense-hw-public.s3-eu-west-1.amazonaws.com/Releases/rs_versions_db.json";
+    
     void prepare_config_file();
 
-    bool frame_metadata_to_csv(const std::string& filename, rs2::frame frame);
+    bool frame_metadata_to_csv( const std::string & filename, rs2::frame frame );
+
+    bool motion_data_to_csv( const std::string & filename, rs2::frame frame );
+
+    bool pose_data_to_csv( const std::string & filename, rs2::frame frame );
 
     void open_issue(std::string body);
 
@@ -148,18 +131,28 @@ namespace rs2
         }
         namespace update
         {
-            static const char* allow_rc_firmware   { "update.allow_rc_firmware" };
-            static const char* recommend_updates   { "update.recommend_updates" };
-            static const char* recommend_calibration { "update.recommend_calibration" };
+            static const char* allow_rc_firmware            { "update.allow_rc_firmware" };
+            static const char* recommend_updates            { "update.recommend_updates" };
+            static const char* recommend_calibration        { "update.recommend_calibration" };
+            static const char* sw_updates_url               { "update.sw_update_url" };
+            static const char* sw_updates_official_server   { "update.sw_update_official_server" };
+        }
+        namespace calibration
+        {
+            static const char* enable_writing      { "calibration.enable_writing" };
         }
         namespace viewer
         {
             static const char* is_3d_view          { "viewer_model.is_3d_view" };
+            static const char* ground_truth_r      { "viewer_model.ground_truth_r" };
             static const char* continue_with_ui_not_aligned { "viewer_model.continue_with_ui_not_aligned" };
             static const char* continue_with_current_fw{ "viewer_model.continue_with_current_fw" };
             static const char* settings_tab        { "viewer_model.settings_tab" };
             static const char* sdk_version         { "viewer_model.sdk_version" };
             static const char* last_calib_notice   { "viewer_model.last_calib_notice" };
+            static const char* is_measuring        { "viewer_model.is_measuring" };
+            static const char* output_open         { "viewer_model.output_open" };
+            static const char* search_term         { "viewer_model.search_term" };
 
             static const char* log_to_console      { "viewer_model.log_to_console" };
             static const char* log_to_file         { "viewer_model.log_to_file" };
@@ -169,6 +162,11 @@ namespace rs2
             static const char* show_map_ruler      { "viewer_model.show_map_ruler" };
             static const char* show_stream_details { "viewer_model.show_stream_details" };
             static const char* metric_system       { "viewer_model.metric_system" };
+            static const char* shading_mode        { "viewer_model.shading_mode" };
+            static const char* commands_xml        { "viewer_model.commands_xml" };
+            static const char* hwlogger_xml        { "viewer_model.hwlogger_xml" };
+
+            static const char* last_ip             { "viewer_model.last_ip" };
         }
         namespace window
         {
@@ -190,6 +188,8 @@ namespace rs2
             static const char* show_fps            { "performance.show_fps" };
             static const char* vsync               { "performance.vsync" };
             static const char* font_oversample     { "performance.font_oversample.v2" };
+            static const char* show_skybox         { "performance.show_skybox" };
+            static const char* occlusion_invalidation { "performance.occlusion_invalidation" };
         }
         namespace ply
         {
@@ -216,7 +216,6 @@ namespace rs2
         static const textual_icon camera                   { u8"\uf030" };
         static const textual_icon video_camera             { u8"\uf03d" };
         static const textual_icon edit                     { u8"\uf044" };
-        static const textual_icon check_square_o           { u8"\uf046" };
         static const textual_icon step_backward            { u8"\uf048" };
         static const textual_icon play                     { u8"\uf04b" };
         static const textual_icon pause                    { u8"\uf04c" };
@@ -239,6 +238,7 @@ namespace rs2
         static const textual_icon caret_down               { u8"\uf0d7" };
         static const textual_icon repeat                   { u8"\uf0e2" };
         static const textual_icon circle                   { u8"\uf111" };
+        static const textual_icon check_square_o           { u8"\uf14a" };
         static const textual_icon cubes                    { u8"\uf1b3" };
         static const textual_icon toggle_off               { u8"\uf204" };
         static const textual_icon toggle_on                { u8"\uf205" };
@@ -256,24 +256,14 @@ namespace rs2
         static const textual_icon metadata                 { u8"\uF0AE" };
         static const textual_icon check                    { u8"\uF00C" };
         static const textual_icon mail                     { u8"\uF01C" };
+        static const textual_icon cube                     { u8"\uf1b2" };
+        static const textual_icon measure                  { u8"\uf545" };
     }
 
     class subdevice_model;
     struct notifications_model;
 
-    void imgui_easy_theming(ImFont*& font_14, ImFont*& font_18);
-
-    // avoid display the following options
-    bool static skip_option(rs2_option opt)
-    {
-        if (opt == RS2_OPTION_STREAM_FILTER ||
-            opt == RS2_OPTION_STREAM_FORMAT_FILTER ||
-            opt == RS2_OPTION_STREAM_INDEX_FILTER ||
-            opt == RS2_OPTION_FRAMES_QUEUE_SIZE ||
-            opt == RS2_OPTION_SENSOR_MODE)
-            return true;
-        return false;
-    }
+    void imgui_easy_theming(ImFont*& font_14, ImFont*& font_18, ImFont*& monofont);
 
     template<class T>
     void sort_together(std::vector<T>& vec, std::vector<std::string>& names)
@@ -319,7 +309,7 @@ namespace rs2
         void update_supported(std::string& error_message);
         void update_read_only_status(std::string& error_message);
         void update_all_fields(std::string& error_message, notifications_model& model);
-
+        void set_option(rs2_option opt, float value, std::string &error_message);
         bool draw_option(bool update_read_only_options, bool is_streaming,
             std::string& error_message, notifications_model& model);
 
@@ -340,6 +330,7 @@ namespace rs2
         bool is_all_integers() const;
         bool is_enum() const;
         bool is_checkbox() const;
+        bool allow_change(float val, std::string& error_message) const; 
     };
 
     class frame_queues
@@ -378,47 +369,6 @@ namespace rs2
 
     void save_processing_block_to_config_file(const char* name, 
         std::shared_ptr<rs2::processing_block> pb, bool enable = true);
-
-    class processing_block_model
-    {
-    public:
-        processing_block_model(subdevice_model* owner,
-            const std::string& name,
-            std::shared_ptr<rs2::filter> block,
-            std::function<rs2::frame(rs2::frame)> invoker,
-            std::string& error_message,
-            bool enabled = true);
-
-        const std::string& get_name() const { return _name; }
-
-        option_model& get_option(rs2_option opt);
-
-        rs2::frame invoke(rs2::frame f) const { return _invoker(f); }
-
-        void save_to_config_file();
-
-        std::vector<rs2_option> get_option_list()
-        {
-            return _block->get_supported_options();
-        }
-
-        void populate_options(const std::string& opt_base_label,
-            subdevice_model* model,
-            bool* options_invalidated,
-            std::string& error_message);
-
-        std::shared_ptr<rs2::filter> get_block() { return _block; }
-
-        bool enabled = true;
-        bool visible = true;
-    private:
-        std::shared_ptr<rs2::filter> _block;
-        std::map<int, option_model> options_metadata;
-        std::string _name;
-        std::string _full_name;
-        std::function<rs2::frame(rs2::frame)> _invoker;
-        subdevice_model* _owner;
-    };
 
     class syncer_model
     {
@@ -527,6 +477,9 @@ namespace rs2
         std::string icon[2];
     };
 
+    bool yes_no_dialog(const std::string& title, const std::string& message_text, bool& approved, ux_window& window, const std::string& error_message, bool disabled = false, const std::string& disabled_reason = "");
+    bool status_dialog(const std::string& title, const std::string& process_topic_text, const std::string& process_status_text, bool enable_close, ux_window& window);
+
     class tm2_model
     {
     public:
@@ -544,7 +497,6 @@ namespace rs2
         const float len_x = 0.1f;
         const float len_y = 0.03f;
         const float len_z = 0.01f;
-        const float lens_radius = 0.005f;
         /*
         4--------------------------3
         /|                         /|
@@ -578,8 +530,6 @@ namespace rs2
             } };
 
         colored_cube camera_box{ { { f1,colors[0] },{ f2,colors[1] },{ f3,colors[2] },{ f4,colors[3] },{ f5,colors[4] },{ f6,colors[5] } } };
-        float3 center_left{ v5.x + len_x / 3, v6.y - len_y / 3, v5.z };
-        float3 center_right{ v6.x - len_x / 3, v6.y - len_y / 3, v5.z };
 
         std::vector<tracked_point> trajectory;
         std::vector<float2> boundary;
@@ -597,12 +547,12 @@ namespace rs2
             bool* options_invalidated,
             std::string& error_message);
 
-        subdevice_model(device& dev, std::shared_ptr<sensor> s, std::string& error_message, viewer_model& viewer);
+        subdevice_model(device& dev, std::shared_ptr<sensor> s, std::shared_ptr< atomic_objects_in_frame > objects, std::string& error_message, viewer_model& viewer);
         ~subdevice_model();
 
         bool is_there_common_fps() ;
         bool supports_on_chip_calib();
-        bool draw_stream_selection();
+        bool draw_stream_selection(std::string& error_message);
         bool is_selected_combination_supported();
         std::vector<stream_profile> get_selected_profiles();
         std::vector<stream_profile> get_supported_profiles();
@@ -665,6 +615,7 @@ namespace rs2
         std::shared_ptr<sensor> s;
         device dev;
         tm2_model tm2;
+        std::shared_ptr< atomic_objects_in_frame > detected_objects;
 
         std::map<int, option_model> options_metadata;
         std::vector<std::string> resolutions;
@@ -709,6 +660,7 @@ namespace rs2
 
         region_of_interest algo_roi;
         bool show_algo_roi = false;
+        float roi_percentage;
 
         std::shared_ptr<rs2::colorizer> depth_colorizer;
         std::shared_ptr<rs2::yuy_decoder> yuy2rgb;
@@ -725,6 +677,7 @@ namespace rs2
     void outline_rect(const rect& r);
     void draw_rect(const rect& r, int line_width = 1);
 
+
     class stream_model
     {
     public:
@@ -736,8 +689,7 @@ namespace rs2
         rect get_normalized_zoom(const rect& stream_rect, const mouse_info& g, bool is_middle_clicked, float zoom_val);
 
         bool is_stream_alive();
-
-        void show_stream_footer(ImFont* font, const rect& stream_rect,const mouse_info& mouse, viewer_model& viewer);
+        void show_stream_footer(ImFont* font, const rect &stream_rect, const mouse_info& mouse, const std::map<int, stream_model> &streams, viewer_model& viewer);
         void show_stream_header(ImFont* font, const rect& stream_rect, viewer_model& viewer);
         void show_stream_imu(ImFont* font, const rect& stream_rect, const rs2_vector& axis, const mouse_info& mouse);
         void show_stream_pose(ImFont* font, const rect& stream_rect, const rs2_pose& pose_data, 
@@ -745,7 +697,8 @@ namespace rs2
 
         void snapshot_frame(const char* filename,viewer_model& viewer) const;
 
-        void begin_stream(std::shared_ptr<subdevice_model> d, rs2::stream_profile p);
+        void begin_stream(std::shared_ptr<subdevice_model> d, rs2::stream_profile p, const viewer_model& viewer);
+        bool draw_reflectivity(int x, int y, rs2::depth_sensor ds, const std::map<int, stream_model> &streams, std::stringstream &ss, bool same_line = false);
         rect layout;
         std::shared_ptr<texture_buffer> texture;
         float2 size;
@@ -761,6 +714,7 @@ namespace rs2
         fps_calc            fps, view_fps;
         int                 count = 0;
         rect                roi_display_rect{};
+        float               roi_percentage = 0.4f;
         frame_metadata      frame_md;
         bool                capturing_roi       = false;    // active modification of roi
         std::shared_ptr<subdevice_model> dev;
@@ -778,6 +732,10 @@ namespace rs2
         bool show_metadata = false;
 
         animated<float> _info_height{ 0.f };
+
+    private:
+        std::unique_ptr< reflectivity > _reflectivity; 
+
     };
 
     std::pair<std::string, std::string> get_device_name(const device& dev);
@@ -790,7 +748,7 @@ namespace rs2
         typedef std::function<void(std::function<void()> load)> json_loading_func;
 
         void reset();
-        explicit device_model(device& dev, std::string& error_message, viewer_model& viewer);
+        explicit device_model(device& dev, std::string& error_message, viewer_model& viewer, bool allow_remove=true);
         ~device_model();
         void start_recording(const std::string& path, std::string& error_message);
         void stop_recording(viewer_model& viewer);
@@ -814,6 +772,11 @@ namespace rs2
         void begin_update(std::vector<uint8_t> data,
             viewer_model& viewer, std::string& error_message);
         void begin_update_unsigned(viewer_model& viewer, std::string& error_message);
+        void check_for_device_updates(rs2::context& ctx, std::shared_ptr<updates_model> updates);
+
+
+        std::shared_ptr< atomic_objects_in_frame > get_detected_objects() const { return _detected_objects; }
+        bool is_cah_model_enabled() const { return _accuracy_health_model ? true : false; }
 
         std::vector<std::shared_ptr<subdevice_model>> subdevices;
         std::shared_ptr<syncer_model> syncer;
@@ -829,7 +792,7 @@ namespace rs2
         bool _playback_repeat = true;
         bool _should_replay = false;
         bool show_device_info = false;
-        bool allow_remove = true;
+        bool _allow_remove = true;
         bool show_depth_only = false;
         bool show_stream_selection = true;
         std::vector<std::pair<std::string, std::string>> infos;
@@ -839,7 +802,17 @@ namespace rs2
 
         std::vector<std::shared_ptr<notification_model>> related_notifications;
 
+        bool show_trigger_camera_accuracy_health_popup = false;
+        bool show_reset_camera_accuracy_health_popup = false;
+
     private:
+        // This class is in charge of camera accuracy health window parameters,
+        // Needed as a member for reseting the window memory on device disconnection.
+       
+
+        std::unique_ptr< cah_model > _accuracy_health_model;  // If this device does not support CAH feature,
+                                                              // the pointer will point to nullptr
+
         void draw_info_icon(ux_window& window, ImFont* font, const ImVec2& size);
         int draw_seek_bar();
         int draw_playback_controls(ux_window& window, ImFont* font, viewer_model& view);
@@ -860,14 +833,21 @@ namespace rs2
         bool prompt_toggle_advanced_mode(bool enable_advanced_mode, const std::string& message_text,
             std::vector<std::string>& restarting_device_info,
             viewer_model& view,
-            ux_window& window);
+            ux_window& window,
+            const std::string& error_message);
+
         void load_viewer_configurations(const std::string& json_str);
         void save_viewer_configurations(std::ofstream& outfile, nlohmann::json& j);
 
+
         std::shared_ptr<recorder> _recorder;
         std::vector<std::shared_ptr<subdevice_model>> live_subdevices;
-        periodic_timer      _update_readonly_options_timer;
+        utilities::time::periodic_timer      _update_readonly_options_timer;
         bool pause_required = false;
+        std::shared_ptr< atomic_objects_in_frame > _detected_objects;
+        std::shared_ptr<updates_model> _updates;
+        std::shared_ptr<sw_update::dev_updates_profile::update_profile >_updates_profile;
+        calibration_model _calib_model;
     };
 
     class viewer_model;
@@ -962,10 +942,6 @@ namespace rs2
         std::atomic<bool> render_thread_active; // True when render post processing filter rendering thread is active, False otherwise
         std::shared_ptr<std::thread> render_thread;              // Post processing filter rendering Thread running render_loop()
         void render_loop();                     // Post processing filter rendering function
-
-        int last_frame_number = 0;
-        double last_timestamp = 0;
-        int last_stream_id = 0;
 
         std::shared_ptr<gl::uploader> uploader; // GL element that helps pre-emptively copy frames to the GPU
     };

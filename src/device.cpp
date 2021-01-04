@@ -8,21 +8,21 @@
 
 using namespace librealsense;
 
-std::shared_ptr<matcher> matcher_factory::create(rs2_matchers matcher, std::vector<stream_interface*> profiles, rs2_syncer_mode syncer_mode)
+std::shared_ptr<matcher> matcher_factory::create(rs2_matchers matcher, std::vector<stream_interface*> profiles)
 {
     switch (matcher)
     {
     case RS2_MATCHER_DI:
-        return create_DI_matcher(profiles, syncer_mode);
+        return create_DI_matcher(profiles);
     case RS2_MATCHER_DI_C:
-        return create_DI_C_matcher(profiles, syncer_mode);
+        return create_DI_C_matcher(profiles);
     case RS2_MATCHER_DLR_C:
-        return create_DLR_C_matcher(profiles, syncer_mode);
+        return create_DLR_C_matcher(profiles);
     case RS2_MATCHER_DLR:
-        return create_DLR_matcher(profiles, syncer_mode);
+        return create_DLR_matcher(profiles);
     case RS2_MATCHER_DEFAULT:default:
         LOG_DEBUG("Created default matcher");
-        return create_timestamp_matcher(profiles, syncer_mode);
+        return create_timestamp_matcher(profiles);
         break;
     }
 }
@@ -39,33 +39,33 @@ stream_interface* librealsense::find_profile(rs2_stream stream, int index, std::
         return nullptr;
 }
 
-std::shared_ptr<matcher> matcher_factory::create_DLR_C_matcher(std::vector<stream_interface*> profiles, rs2_syncer_mode syncer_mode)
+std::shared_ptr<matcher> matcher_factory::create_DLR_C_matcher(std::vector<stream_interface*> profiles)
 {
     auto color  = find_profile(RS2_STREAM_COLOR, 0, profiles);
     if (!color)
     {
         LOG_DEBUG("Created default matcher");
-        return create_timestamp_matcher(profiles, syncer_mode);
+        return create_timestamp_matcher(profiles);
     }
 
     return create_timestamp_composite_matcher({ create_DLR_matcher(profiles),
-        create_identity_matcher(color) }, syncer_mode);
+        create_identity_matcher(color) });
 }
 
-std::shared_ptr<matcher> matcher_factory::create_DI_C_matcher(std::vector<stream_interface*> profiles, rs2_syncer_mode syncer_mode)
+std::shared_ptr<matcher> matcher_factory::create_DI_C_matcher(std::vector<stream_interface*> profiles)
 {
     auto color = find_profile(RS2_STREAM_COLOR, 0, profiles);
     if (!color)
     {
         LOG_DEBUG("Created default matcher");
-        return create_timestamp_matcher(profiles, syncer_mode);
+        return create_timestamp_matcher(profiles);
     }
 
     return create_timestamp_composite_matcher({ create_DI_matcher(profiles),
-        create_identity_matcher(profiles[2]) }, syncer_mode);
+        create_identity_matcher(profiles[2]) });
 }
 
-std::shared_ptr<matcher> matcher_factory::create_DLR_matcher(std::vector<stream_interface*> profiles, rs2_syncer_mode syncer_mode)
+std::shared_ptr<matcher> matcher_factory::create_DLR_matcher(std::vector<stream_interface*> profiles)
 {
     auto depth = find_profile(RS2_STREAM_DEPTH, 0, profiles);
     auto left = find_profile(RS2_STREAM_INFRARED, 1, profiles);
@@ -74,12 +74,12 @@ std::shared_ptr<matcher> matcher_factory::create_DLR_matcher(std::vector<stream_
     if (!depth || !left || !right)
     {
         LOG_DEBUG("Created default matcher");
-        return create_timestamp_matcher(profiles, syncer_mode);
+        return create_timestamp_matcher(profiles);
     }
     return create_frame_number_matcher({ depth , left , right });
 }
 
-std::shared_ptr<matcher> matcher_factory::create_DI_matcher(std::vector<stream_interface*> profiles, rs2_syncer_mode syncer_mode)
+std::shared_ptr<matcher> matcher_factory::create_DI_matcher(std::vector<stream_interface*> profiles)
 {
     auto depth = find_profile(RS2_STREAM_DEPTH, 0, profiles);
     auto ir = find_profile(RS2_STREAM_INFRARED, 1, profiles);
@@ -87,7 +87,7 @@ std::shared_ptr<matcher> matcher_factory::create_DI_matcher(std::vector<stream_i
     if (!depth || !ir)
     {
         LOG_DEBUG("Created default matcher");
-        return create_timestamp_matcher(profiles, syncer_mode);
+        return create_timestamp_matcher(profiles);
     }
     return create_frame_number_matcher({ depth , ir });
 }
@@ -100,13 +100,13 @@ std::shared_ptr<matcher> matcher_factory::create_frame_number_matcher(std::vecto
 
     return create_frame_number_composite_matcher(matchers);
 }
-std::shared_ptr<matcher> matcher_factory::create_timestamp_matcher(std::vector<stream_interface*> profiles, rs2_syncer_mode syncer_mode)
+std::shared_ptr<matcher> matcher_factory::create_timestamp_matcher(std::vector<stream_interface*> profiles)
 {
     std::vector<std::shared_ptr<matcher>> matchers;
     for (auto& p : profiles)
         matchers.push_back(std::make_shared<identity_matcher>(p->get_unique_id(), p->get_stream_type()));
 
-    return create_timestamp_composite_matcher(matchers, syncer_mode);
+    return create_timestamp_composite_matcher(matchers);
 }
 
 std::shared_ptr<matcher> matcher_factory::create_identity_matcher(stream_interface *profile)
@@ -118,9 +118,9 @@ std::shared_ptr<matcher> matcher_factory::create_frame_number_composite_matcher(
 {
     return std::make_shared<frame_number_composite_matcher>(matchers);
 }
-std::shared_ptr<matcher> matcher_factory::create_timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers, rs2_syncer_mode syncer_mode)
+std::shared_ptr<matcher> matcher_factory::create_timestamp_composite_matcher(std::vector<std::shared_ptr<matcher>> matchers)
 {
-    return std::make_shared<timestamp_composite_matcher>(matchers, syncer_mode);
+    return std::make_shared<timestamp_composite_matcher>(matchers);
 }
 
 device::device(std::shared_ptr<context> ctx,
@@ -224,13 +224,13 @@ void device::hardware_reset()
     throw not_implemented_exception(to_string() << __FUNCTION__ << " is not implemented for this device!");
 }
 
-std::shared_ptr<matcher> librealsense::device::create_matcher(const frame_holder& frame) const
+std::shared_ptr<matcher> device::create_matcher(const frame_holder& frame) const
 {
 
     return std::make_shared<identity_matcher>( frame.frame->get_stream()->get_unique_id(), frame.frame->get_stream()->get_stream_type());
 }
 
-std::pair<uint32_t, rs2_extrinsics> librealsense::device::get_extrinsics(const stream_interface& stream) const
+std::pair<uint32_t, rs2_extrinsics> device::get_extrinsics(const stream_interface& stream) const
 {
     auto stream_index = stream.get_unique_id();
     auto pair = _extrinsics.at(stream_index);
@@ -243,7 +243,7 @@ std::pair<uint32_t, rs2_extrinsics> librealsense::device::get_extrinsics(const s
     return std::make_pair(pair.first, ext);
 }
 
-void librealsense::device::register_stream_to_extrinsic_group(const stream_interface& stream, uint32_t group_index)
+void device::register_stream_to_extrinsic_group(const stream_interface& stream, uint32_t group_index)
 {
     auto iter = std::find_if(_extrinsics.begin(),
                            _extrinsics.end(),
@@ -260,7 +260,7 @@ void librealsense::device::register_stream_to_extrinsic_group(const stream_inter
     }
 }
 
-std::vector<rs2_format> librealsense::device::map_supported_color_formats(rs2_format source_format)
+std::vector<rs2_format> device::map_supported_color_formats(rs2_format source_format)
 {
     // Mapping from source color format to all of the compatible target color formats.
 
@@ -280,7 +280,7 @@ std::vector<rs2_format> librealsense::device::map_supported_color_formats(rs2_fo
     return target_formats;
 }
 
-void librealsense::device::tag_profiles(stream_profiles profiles) const
+void device::tag_profiles(stream_profiles profiles) const
 {
     for (auto profile : profiles)
     {
@@ -309,7 +309,7 @@ void librealsense::device::tag_profiles(stream_profiles profiles) const
     }
 }
 
-bool librealsense::device::contradicts(const stream_profile_interface* a, const std::vector<stream_profile>& others) const 
+bool device::contradicts(const stream_profile_interface* a, const std::vector<stream_profile>& others) const
 {
     if (auto vid_a = dynamic_cast<const video_stream_profile_interface*>(a))
     {
@@ -324,4 +324,49 @@ bool librealsense::device::contradicts(const stream_profile_interface* a, const 
         }
     }
     return false;
+}
+
+void device::stop_activity() const
+{
+    for (auto& sensor : _sensors)
+    {
+        auto snr_name = (sensor->supports_info(RS2_CAMERA_INFO_NAME)) ? sensor->get_info(RS2_CAMERA_INFO_NAME) : "";
+
+        // Disable asynchronous services
+        for (auto& opt : sensor->get_supported_options())
+        {
+            if (val_in_range(opt, { RS2_OPTION_GLOBAL_TIME_ENABLED, RS2_OPTION_ERROR_POLLING_ENABLED }))
+            {
+                try
+                {
+                    // enumerated options use zero or positive values
+                    if (sensor->get_option(opt).query() > 0.f)
+                        sensor->get_option(opt).set(false);
+                }
+                catch (...)
+                {
+                    LOG_ERROR("Failed to toggle off " << opt << " [" << snr_name << "]");
+                }
+            }
+        }
+
+        // Stop UVC/HID streaming
+        try
+        {
+            if (sensor->is_streaming())
+            {
+                sensor->stop();
+                sensor->close();
+            }
+        }
+        catch (const wrong_api_call_sequence_exception& exc)
+        {
+            LOG_WARNING("Out of order stop/close invocation for " << snr_name << ": " << exc.what());
+        }
+        catch (...)
+        {
+            auto snr_name = (sensor->supports_info(RS2_CAMERA_INFO_NAME)) ? sensor->get_info(RS2_CAMERA_INFO_NAME) : "";
+            LOG_ERROR("Failed to deactivate " << snr_name);
+        }
+    }
 }

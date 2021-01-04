@@ -64,8 +64,34 @@ typedef struct rs2_intrinsics
     float         fx;        /**< Focal length of the image plane, as a multiple of pixel width */
     float         fy;        /**< Focal length of the image plane, as a multiple of pixel height */
     rs2_distortion model;    /**< Distortion model of the image */
-    float         coeffs[5]; /**< Distortion coefficients */
+    float         coeffs[5]; /**< Distortion coefficients. Order for Brown-Conrady: [k1, k2, p1, p2, k3]. Order for F-Theta Fish-eye: [k1, k2, k3, k4, 0]. Other models are subject to their own interpretations */
 } rs2_intrinsics;
+
+/** \brief Video DSM (Digital Sync Module) parameters for calibration (same layout as in FW ac_depth_params)
+    This is the block in MC that converts angles to dimensionless integers reported to MA (using "DSM coefficients").
+*/
+typedef struct rs2_dsm_params
+{
+    unsigned long long timestamp;   /**< system_clock::time_point::time_since_epoch().count() */
+    unsigned short version;         /**< MAJOR<<12 | MINOR<<4 | PATCH */
+    unsigned char model;            /**< rs2_dsm_correction_model */
+    unsigned char flags[5];         /**< TBD, now 0s */
+    float         h_scale;          /**< the scale factor to horizontal DSM scale thermal results */
+    float         v_scale;          /**< the scale factor to vertical DSM scale thermal results */
+    float         h_offset;         /**< the offset to horizontal DSM offset thermal results */
+    float         v_offset;         /**< the offset to vertical DSM offset thermal results */
+    float         rtd_offset;       /**< the offset to the Round-Trip-Distance delay thermal results */
+    unsigned char temp_x2;          /**< the temperature recorded times 2 (ldd for depth; hum for rgb) */
+    unsigned char reserved[11];
+} rs2_dsm_params;
+
+typedef enum rs2_dsm_correction_model
+{
+    RS2_DSM_CORRECTION_NONE,        /**< hFactor and hOffset are not used, and no artificial error is induced */
+    RS2_DSM_CORRECTION_AOT,         /**< Aging-over-thermal (default); aging-induced error is uniform across temperature */
+    RS2_DSM_CORRECTION_TOA,         /**< Thermal-over-aging; aging-induced error changes alongside temperature */
+    RS2_DSM_CORRECTION_COUNT
+} rs2_dsm_correction_model;
 
 /** \brief Motion device intrinsics: scale, bias, and variances. */
 typedef struct rs2_motion_device_intrinsic
@@ -180,6 +206,13 @@ typedef enum rs2_extension
     RS2_EXTENSION_FISHEYE_SENSOR,
     RS2_EXTENSION_DEPTH_HUFFMAN_DECODER,
     RS2_EXTENSION_SERIALIZABLE,
+    RS2_EXTENSION_FW_LOGGER,
+    RS2_EXTENSION_AUTO_CALIBRATION_FILTER,
+    RS2_EXTENSION_DEVICE_CALIBRATION,
+    RS2_EXTENSION_CALIBRATED_SENSOR,
+    RS2_EXTENSION_HDR_MERGE,
+    RS2_EXTENSION_SEQUENCE_ID_FILTER,
+    RS2_EXTENSION_MAX_USABLE_RANGE_SENSOR,
     RS2_EXTENSION_COUNT
 } rs2_extension;
 const char* rs2_extension_type_to_string(rs2_extension type);
@@ -212,63 +245,59 @@ typedef enum rs2_matchers
    RS2_MATCHER_COUNT
 }rs2_matchers;
 
-/** \brief Specifies types of syncer configurations */
-typedef enum rs2_syncer_mode
-{
-    RS2_SYNCER_MODE_DEFAULT,           //default syncer configuration
-    RS2_SYNCER_MODE_WAIT_FRAMESET,     //syncer waits for full frameset (otherwise returns timeout)
-    RS2_SYNCER_MODE_COUNT
-}rs2_syncer_mode;
-const char* rs2_syncer_mode_to_string(rs2_syncer_mode syncer_mode);
+typedef struct rs2_device_info rs2_device_info;
+typedef struct rs2_device rs2_device;
+typedef struct rs2_error rs2_error;
+typedef struct rs2_log_message rs2_log_message;
+typedef struct rs2_raw_data_buffer rs2_raw_data_buffer;
+typedef struct rs2_frame rs2_frame;
+typedef struct rs2_frame_queue rs2_frame_queue;
+typedef struct rs2_pipeline rs2_pipeline;
+typedef struct rs2_pipeline_profile rs2_pipeline_profile;
+typedef struct rs2_config rs2_config;
+typedef struct rs2_device_list rs2_device_list;
+typedef struct rs2_stream_profile_list rs2_stream_profile_list;
+typedef struct rs2_processing_block_list rs2_processing_block_list;
+typedef struct rs2_stream_profile rs2_stream_profile;
+typedef struct rs2_frame_callback rs2_frame_callback;
+typedef struct rs2_log_callback rs2_log_callback;
+typedef struct rs2_syncer rs2_syncer;
+typedef struct rs2_device_serializer rs2_device_serializer;
+typedef struct rs2_source rs2_source;
+typedef struct rs2_processing_block rs2_processing_block;
+typedef struct rs2_frame_processor_callback rs2_frame_processor_callback;
+typedef struct rs2_playback_status_changed_callback rs2_playback_status_changed_callback;
+typedef struct rs2_update_progress_callback rs2_update_progress_callback;
+typedef struct rs2_context rs2_context;
+typedef struct rs2_device_hub rs2_device_hub;
+typedef struct rs2_sensor_list rs2_sensor_list;
+typedef struct rs2_sensor rs2_sensor;
+typedef struct rs2_options rs2_options;
+typedef struct rs2_options_list rs2_options_list;
+typedef struct rs2_devices_changed_callback rs2_devices_changed_callback;
+typedef struct rs2_notification rs2_notification;
+typedef struct rs2_notifications_callback rs2_notifications_callback;
+typedef struct rs2_firmware_log_message rs2_firmware_log_message;
+typedef struct rs2_firmware_log_parsed_message rs2_firmware_log_parsed_message;
+typedef struct rs2_firmware_log_parser rs2_firmware_log_parser;
+typedef struct rs2_terminal_parser rs2_terminal_parser;
+typedef void (*rs2_log_callback_ptr)(rs2_log_severity, rs2_log_message const *, void * arg);
+typedef void (*rs2_notification_callback_ptr)(rs2_notification*, void*);
+typedef void(*rs2_software_device_destruction_callback_ptr)(void*);
+typedef void (*rs2_devices_changed_callback_ptr)(rs2_device_list*, rs2_device_list*, void*);
+typedef void (*rs2_frame_callback_ptr)(rs2_frame*, void*);
+typedef void (*rs2_frame_processor_callback_ptr)(rs2_frame*, rs2_source*, void*);
+typedef void(*rs2_update_progress_callback_ptr)(const float, void*);
 
-    typedef struct rs2_device_info rs2_device_info;
-    typedef struct rs2_device rs2_device;
-    typedef struct rs2_error rs2_error;
-    typedef struct rs2_log_message rs2_log_message;
-    typedef struct rs2_raw_data_buffer rs2_raw_data_buffer;
-    typedef struct rs2_frame rs2_frame;
-    typedef struct rs2_frame_queue rs2_frame_queue;
-    typedef struct rs2_pipeline rs2_pipeline;
-    typedef struct rs2_pipeline_profile rs2_pipeline_profile;
-    typedef struct rs2_config rs2_config;
-    typedef struct rs2_device_list rs2_device_list;
-    typedef struct rs2_stream_profile_list rs2_stream_profile_list;
-    typedef struct rs2_processing_block_list rs2_processing_block_list;
-    typedef struct rs2_stream_profile rs2_stream_profile;
-    typedef struct rs2_frame_callback rs2_frame_callback;
-    typedef struct rs2_log_callback rs2_log_callback;
-    typedef struct rs2_syncer rs2_syncer;
-    typedef struct rs2_device_serializer rs2_device_serializer;
-    typedef struct rs2_source rs2_source;
-    typedef struct rs2_processing_block rs2_processing_block;
-    typedef struct rs2_frame_processor_callback rs2_frame_processor_callback;
-    typedef struct rs2_playback_status_changed_callback rs2_playback_status_changed_callback;
-    typedef struct rs2_update_progress_callback rs2_update_progress_callback;
-    typedef struct rs2_context rs2_context;
-    typedef struct rs2_device_hub rs2_device_hub;
-    typedef struct rs2_sensor_list rs2_sensor_list;
-    typedef struct rs2_sensor rs2_sensor;
-    typedef struct rs2_options rs2_options;
-    typedef struct rs2_options_list rs2_options_list;
-    typedef struct rs2_devices_changed_callback rs2_devices_changed_callback;
-    typedef struct rs2_notification rs2_notification;
-    typedef struct rs2_notifications_callback rs2_notifications_callback;
-    typedef void (*rs2_log_callback_ptr)(rs2_log_severity, rs2_log_message const*, void* arg);
-    typedef void (*rs2_notification_callback_ptr)(rs2_notification*, void*);
-    typedef void (*rs2_devices_changed_callback_ptr)(rs2_device_list*, rs2_device_list*, void*);
-    typedef void (*rs2_frame_callback_ptr)(rs2_frame*, void*);
-    typedef void (*rs2_frame_processor_callback_ptr)(rs2_frame*, rs2_source*, void*);
-    typedef void(*rs2_update_progress_callback_ptr)(const float, void*);
+typedef double      rs2_time_t;     /**< Timestamp format. units are milliseconds */
+typedef long long   rs2_metadata_type; /**< Metadata attribute type is defined as 64 bit signed integer*/
 
-    typedef double      rs2_time_t;     /**< Timestamp format. units are milliseconds */
-    typedef long long   rs2_metadata_type; /**< Metadata attribute type is defined as 64 bit signed integer*/
-
-    rs2_error* rs2_create_error(const char* what, const char* name, const char* args, rs2_exception_type type);
-    rs2_exception_type rs2_get_librealsense_exception_type(const rs2_error* error);
-    const char* rs2_get_failed_function(const rs2_error* error);
-    const char* rs2_get_failed_args(const rs2_error* error);
-    const char* rs2_get_error_message(const rs2_error* error);
-    void        rs2_free_error(rs2_error* error);
+rs2_error * rs2_create_error(const char* what, const char* name, const char* args, rs2_exception_type type);
+rs2_exception_type rs2_get_librealsense_exception_type(const rs2_error* error);
+const char* rs2_get_failed_function            (const rs2_error* error);
+const char* rs2_get_failed_args                (const rs2_error* error);
+const char* rs2_get_error_message              (const rs2_error* error);
+void        rs2_free_error                     (rs2_error* error);
 
 #ifdef __cplusplus
 }

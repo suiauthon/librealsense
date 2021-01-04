@@ -15,6 +15,7 @@
 #
 
 import sys, os, subprocess, locale, re
+from glob import glob
 
 if len(sys.argv) != 3:
     ourname = os.path.basename(sys.argv[0])
@@ -51,11 +52,14 @@ def find( dir, mask ):
         if pattern.search( leaf ):
             debug(leaf)
             yield leaf
+
+
 def remove_newlines (lines):
     for line in lines:
         if line[-1] == '\n':
             line = line[:-1]    # excluding the endline
         yield line
+
 def grep_( pattern, lines, context ):
     index = 0
     matches = 0
@@ -73,6 +77,7 @@ def grep_( pattern, lines, context ):
         del context['line']
         del context['match']
     # UnicodeDecodeError can be thrown in binary files
+
 def grep( expr, *args ):
     #debug( f"grep {expr} {args}" )
     pattern = re.compile( expr )
@@ -106,6 +111,28 @@ set_target_properties( ''' + testname + ''' PROPERTIES FOLDER "Unit-Tests/''' + 
 
 ''' )
     handle.close()
+
+# Recursively searches a .cpp file for #include directives and returns
+# a set of all of them.
+#
+# Only directives that are relative to the current path (#include "<path>")
+# are looked for!
+#
+def find_includes( filepath ):
+    filelist = set()
+    filedir = os.path.dirname(filepath)
+    for context in grep( '^\s*#\s*include\s+"(.*)"\s*$', filepath ):
+        m = context['match']
+        index = context['index']
+        include = m.group(1)
+        if not os.path.isabs( include ):
+            include = os.path.normpath( filedir + '/' + include )
+        include = include.replace( '\\', '/' )
+        if os.path.exists( include ):
+            filelist.add( include )
+            filelist |= find_includes( include )
+    return filelist
+
 def process_cpp( dir, builddir ):
     found = []
     shareds = []
@@ -120,6 +147,8 @@ def process_cpp( dir, builddir ):
         # Build the list of files we want in the project:
         # At a minimum, we have the original file, plus any common files
         filelist = [ dir + '/' + f, '${ELPP_FILES}', '${CATCH_FILES}' ]
+        # Add any "" includes specified in the .cpp that we can find
+        includes = find_includes( dir + '/' + f )
         # Add any files explicitly listed in the .cpp itself, like this:
         #         //#cmake:add-file <filename>
         # Any files listed are relative to $dir
@@ -131,15 +160,22 @@ def process_cpp( dir, builddir ):
             cmd, *rest = context['line'][m.end():].split()
             if cmd == 'add-file':
                 for additional_file in rest:
-                    abs_file = additional_file
+                    files = additional_file
                     if not os.path.isabs( additional_file ):
-                        abs_file = os.path.normpath( dir + '/' + testparent + '/' + additional_file )
-                    abs_file = abs_file.replace( '\\', '/' )
-                    if not os.path.exists( abs_file ):
-                        error( f + '+' + str(index) + ': file not found "' + additional_file + '"' )
-                    else:
+                        files = dir + '/' + testparent + '/' + additional_file
+                    files = glob( files )
+                    if not files:
+                        error( f + '+' + str(index) + ': no files match "' + additional_file + '"' )
+                    for abs_file in files:
+                        abs_file = os.path.normpath( abs_file )
+                        abs_file = abs_file.replace( '\\', '/' )
+                        if not os.path.exists( abs_file ):
+                            error( f + '+' + str(index) + ': file not found "' + additional_file + '"' )
                         debug( '   add file:', abs_file )
                         filelist.append( abs_file )
+                        if( os.path.splitext( abs_file )[0] == 'cpp' ):
+                            # Add any "" includes specified in the .cpp that we can find
+                            includes |= find_includes( abs_file )
             elif cmd == 'static!':
                 if len(rest):
                     error( f + '+' + str(index) + ': unexpected arguments past \'' + cmd + '\'' )
@@ -156,6 +192,8 @@ def process_cpp( dir, builddir ):
                     shared = True
             else:
                 error( f + '+' + str(index) + ': unknown cmd \'' + cmd + '\' (should be \'add-file\', \'static!\', or \'shared!\')' )
+        for include in includes:
+            filelist.append( include )
         generate_cmake( builddir, testdir, testname, filelist )
         if static:
             statics.append( testdir )
@@ -188,7 +226,7 @@ handle = open( cmakefile, 'w' );
 handle.write( '''
 
 # We make use of ELPP (EasyLogging++):
-include_directories( ../../third-party/easyloggingpp/src )
+include_directories( ''' + dir +  '''/../third-party/easyloggingpp/src )
 set( ELPP_FILES
     ''' + dir + '''/../third-party/easyloggingpp/src/easylogging++.cc
     ''' + dir + '''/../third-party/easyloggingpp/src/easylogging++.h
@@ -206,7 +244,7 @@ for sdir in normal_tests:
     n_tests += 1
 if len(shared_tests):
     handle.write( 'if(NOT ${BUILD_SHARED_LIBS})\n' )
-    handle.write( '    message( WARNING "' + str(len(shared_tests)) + ' shared unit-tests will NOT run! Check BUILD_SHARED_LIBS to run them..." )\n' )
+    handle.write( '    message( INFO "' + str(len(shared_tests)) + ' shared lib unit-tests will be skipped. Check BUILD_SHARED_LIBS to run them..." )\n' )
     handle.write( 'else()\n' )
     for test in shared_tests:
         handle.write( '    add_subdirectory( ' + test + ' )\n' )
@@ -215,7 +253,7 @@ if len(shared_tests):
     handle.write( 'endif()\n' )
 if len(static_tests):
     handle.write( 'if(${BUILD_SHARED_LIBS})\n' )
-    handle.write( '    message( WARNING "' + str(len(static_tests)) + ' static unit-tests will NOT run! Uncheck BUILD_SHARED_LIBS to run them..." )\n' )
+    handle.write( '    message( INFO "' + str(len(static_tests)) + ' static lib unit-tests will be skipped. Uncheck BUILD_SHARED_LIBS to run them..." )\n' )
     handle.write( 'else()\n' )
     for test in static_tests:
         handle.write( '    add_subdirectory( ' + test + ' )\n' )

@@ -20,11 +20,12 @@ namespace librealsense
 
         pipeline::~pipeline()
         {
-            try
-            {
-                unsafe_stop();
+            if (_active_profile) {
+                try {
+                    unsafe_stop();
+                }
+                catch (...) {}
             }
-            catch (...) {}
         }
 
         std::shared_ptr<profile> pipeline::start(std::shared_ptr<config> conf, frame_callback_ptr callback)
@@ -83,7 +84,6 @@ namespace librealsense
             assert(profile);
             assert(profile->_multistream.get_profiles().size() > 0);
 
-            _syncer_mode = conf->get_syncer_mode();
             auto synced_streams_ids = on_start(profile);
 
             frame_callback_ptr callbacks = get_callback(synced_streams_ids);
@@ -145,10 +145,13 @@ namespace librealsense
                 catch (...)
                 {
                 } // Stop will throw if device was disconnected. TODO - refactoring anticipated
+
+                // shared pointers initialized when pipeline running with _active_profile
+                // should be reset with _active_profile too
+                _active_profile.reset();
+                _prev_conf.reset();
+                _streams_callback.reset();
             }
-            _active_profile.reset();
-            _prev_conf.reset();
-            _streams_callback.reset();
         }
 
         std::shared_ptr<device_interface> pipeline::wait_for_device(const std::chrono::milliseconds& timeout, const std::string& serial)
@@ -165,7 +168,6 @@ namespace librealsense
         std::vector<int> pipeline::on_start(std::shared_ptr<profile> profile)
         {
             std::vector<int> _streams_to_aggregate_ids;
-            std::map<int, rs2_stream> _streams_to_sync;
             std::vector<int> _streams_to_sync_ids;
             bool sync_any = false;
             if (std::find(_synced_streams.begin(), _synced_streams.end(), RS2_STREAM_ANY) != _synced_streams.end())
@@ -177,27 +179,12 @@ namespace librealsense
                 bool sync_current = sync_any;
                 if (!sync_any && std::find(_synced_streams.begin(), _synced_streams.end(), s->get_stream_type()) != _synced_streams.end())
                     sync_current = true;
-                if (sync_current) {
+                if(sync_current)
                     _streams_to_sync_ids.push_back(s->get_unique_id());
-                    _streams_to_sync[s->get_unique_id()] = s->get_stream_type();
-                }
             }
 
-            std::vector<std::shared_ptr<matcher>> matchers;
-            for (auto s = _streams_to_sync.begin(); s != _streams_to_sync.end(); s++) {
-                matchers.push_back(std::make_shared<identity_matcher>(s->first, _streams_to_sync[s->first]));
-            }
-
-            if (_syncer_mode == RS2_SYNCER_MODE_WAIT_FRAMESET)
-            {
-                _syncer = std::unique_ptr<syncer_process_unit>(new syncer_process_unit({}, _syncer_mode, matchers));
-                _aggregator = std::unique_ptr<aggregator>(new aggregator(_streams_to_aggregate_ids, _streams_to_sync_ids, _syncer_mode));
-            }
-            else
-            {
-                _syncer = std::unique_ptr<syncer_process_unit>(new syncer_process_unit());
-                _aggregator = std::unique_ptr<aggregator>(new aggregator(_streams_to_aggregate_ids, _streams_to_sync_ids));
-            }
+            _syncer = std::unique_ptr<syncer_process_unit>(new syncer_process_unit());
+            _aggregator = std::unique_ptr<aggregator>(new aggregator(_streams_to_aggregate_ids, _streams_to_sync_ids));
 
             if (_streams_callback)
                 _aggregator->set_output_callback(_streams_callback);

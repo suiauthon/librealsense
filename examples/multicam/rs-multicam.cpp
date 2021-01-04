@@ -1,6 +1,5 @@
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2015-2017 Intel Corporation. All Rights Reserved.
-// Partly modified by Framos GmbH.
 
 #include <librealsense2/rs.hpp>     // Include RealSense Cross Platform API
 #include "example.hpp"              // Include short list of convenience functions for rendering
@@ -11,11 +10,7 @@
 #include <librealsense2/hpp/rs_frame.hpp>
 #include <librealsense2/hpp/rs_d400e.hpp>
 
-
-
 float get_optimal_inter_packet_delay(int num_parallel_streams, int packetSize);
-
-
 
 int main(int argc, char * argv[]) try
 {
@@ -28,13 +23,17 @@ int main(int argc, char * argv[]) try
 
     std::vector<rs2::pipeline>            pipelines;
 
+    // Capture serial numbers before opening streaming
+    std::vector<std::string>              serials;
     for (auto&& dev : ctx.query_devices()) {
+        serials.push_back(dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
         std::string name = dev.get_info(RS2_CAMERA_INFO_NAME);
         std::regex d400e_regex("FRAMOS D4[0-9][0-9]e");
+
         if (std::regex_search(name, d400e_regex)) {
             for (auto&& sensor : dev.query_sensors()) {
                 // adjust InterPacketDelay option on D400e camera based on PacketSize, number of cameras and number of streams
-                // assumptions: 
+                // assumptions:
                 //  - Two D400e cameras are streaming to single NIC on PC
                 //  - only depth and color streams are enabled on all cameras
                 //  - PacketSize is the same on all cameras
@@ -52,7 +51,7 @@ int main(int argc, char * argv[]) try
     }
 
     // Start a streaming pipe per each connected device
-    for (auto&& dev : ctx.query_devices())
+    for (auto&& serial : serials)
     {
         rs2::pipeline pipe(ctx);
         rs2::config cfg;
@@ -61,12 +60,11 @@ int main(int argc, char * argv[]) try
         cfg.enable_stream(RS2_STREAM_DEPTH, -1, 640, 480, RS2_FORMAT_Z16, 30);
         cfg.enable_stream(RS2_STREAM_COLOR, -1, 640, 480, RS2_FORMAT_RGB8, 30);
 
-        cfg.enable_device(dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
-
+        cfg.enable_device(serial);
         pipe.start(cfg);
         pipelines.emplace_back(pipe);
         // Map from each device's serial number to a different colorizer
-        colorizers[dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER)] = rs2::colorizer();
+        colorizers[serial] = rs2::colorizer();
     }
 
     // We'll keep track of the last frame of each stream available to make the presentation persistent
@@ -112,8 +110,6 @@ catch (const std::exception & e)
     std::cerr << e.what() << std::endl;
     return EXIT_FAILURE;
 }
-
-
 
 // calculate optimal InterPacketDelay for D400e camera based on PacketSize and number of parallel streams
 float get_optimal_inter_packet_delay(int num_parallel_streams, int packetSize)

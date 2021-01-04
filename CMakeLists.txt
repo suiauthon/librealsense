@@ -17,7 +17,7 @@ if(BUILD_WITH_TM2 AND NOT INTERNET_CONNECTION)
     set(BUILD_WITH_TM2 OFF)
 endif()
 
-# Checking Internet connection, as TM2 needs to download the FW from amazon cloud
+# Checking Internet connection, as DEPTH CAM needs to download the FW from amazon cloud
 if(IMPORT_DEPTH_CAM_FW AND NOT INTERNET_CONNECTION)
     message(WARNING "No internet connection, disabling IMPORT_DEPTH_CAM_FW")
     set(IMPORT_DEPTH_CAM_FW OFF)
@@ -65,6 +65,7 @@ set_target_properties(${LRS_TARGET} PROPERTIES VERSION ${REALSENSE_VERSION_STRIN
 include(include/CMakeLists.txt)
 include(src/CMakeLists.txt)
 include(third-party/CMakeLists.txt)
+include(common/utilities/CMakeLists.txt)
 
 # configure the project according to OS specific requirments
 # macro definition located at "CMake/<OS>_config.cmake"
@@ -86,8 +87,7 @@ if (BUILD_EXAMPLES AND BUILD_GLSL_EXTENSIONS)
     find_package(glfw3 3.3 QUIET)
     if(NOT TARGET glfw)
         message(STATUS "GLFW 3.3 not found; using internal version")
-        #this forces installation of glfw3 headers, conflicting with libglfw3-dev package
-        #set(GLFW_INSTALL ON CACHE BOOL "" FORCE)
+        set(GLFW_INSTALL ON CACHE BOOL "" FORCE)
         add_subdirectory(third-party/glfw)
     endif()
     add_subdirectory(src/gl)
@@ -100,6 +100,11 @@ endif()
 
 if(BUILD_UNIT_TESTS)
     add_subdirectory(unit-tests)
+endif()
+
+if(BUILD_NETWORK_DEVICE)
+    add_subdirectory(src/ethernet)
+    add_subdirectory(src/compression)
 endif()
 
 if(BUILD_WITH_TM2)

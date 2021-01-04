@@ -2,8 +2,9 @@ package com.intel.realsense.librealsense;
 
 public class Pipeline extends LrsClass{
     public Pipeline(){
-        RsContext ctx = new RsContext();
-        mHandle = nCreate(ctx.getHandle());
+        try(RsContext ctx = new RsContext()) {
+            mHandle = nCreate(ctx.getHandle());
+        }
     }
 
     public Pipeline(RsContext ctx){
@@ -23,7 +24,7 @@ public class Pipeline extends LrsClass{
     }
 
     public FrameSet waitForFrames() throws Exception {
-        return waitForFrames(5000);
+        return waitForFrames(5000); //defining default timeout
     }
 
     public FrameSet waitForFrames (int timeoutMilliseconds) throws Exception{
