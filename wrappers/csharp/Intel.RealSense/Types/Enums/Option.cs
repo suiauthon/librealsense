@@ -139,7 +139,7 @@ namespace Intel.RealSense
 
         /// <summary>Impose Inter-camera HW synchronization mode. Applicable for D400/Rolling Shutter SKUs</summary>
         InterCamSyncMode = 42,
-        
+
         /// <summary>Select a stream to process</summary>
         StreamFilter = 43,
 
@@ -167,28 +167,107 @@ namespace Intel.RealSense
         /// <summary>MA temperature</summary>
         MATemperature = 51,
 
+        /// <summary>Hardware stream configuration</summary>
+        HardwarePreset = 52,
+
+        /// <summary>Disable global time</summary>
+        GlobalTimeEnabled = 53,
+
         /// <summary>APD temperature</summary>
         APDTemperature = 54,
 
-        /// <summary>Inter-packet delay for eth cameras</summary>
-        InterPacketDelay = 71,
+        /// <summary>Enable an internal map</summary>
+        EnableMapping = 55,
 
-        /// <summary>Packet size for eth cameras</summary>
-        PacketSize = 72,
-        
-        /// <summary>Set user output level</summary>
-        UserOutputLevel = 73,
-        
-        /// <summary>Select external trigger type for eth cameras</summary>
-        ExtTriggerSource = 74,
+        /// <summary>Enable appearance based relocalization</summary>
+        EnableRelocalization = 56,
 
-        /// <summary>Execute software trigger for eth cameras</summary>
-        SoftwareTrigger = 75,
+        /// <summary>Enable position jumping</summary>
+        EnablePoseJumping = 57,
 
-        /// <summary>Execute software trigger for eth cameras</summary>
-        SoftwareTriggerAllSensors = 76,
+        /// <summary>Enable dynamic calibration</summary>
+        EnableDynamicCalibration = 58,
 
-        /// <summary>Line debouncer time (microseconds) for eth cameras</summary>
-        LineDebouncerTime = 77
+        /// <summary>Offset from sensor to depth origin in millimetrers</summary>
+        DepthOffset = 59,
+
+        /// <summary>Power of the LED (light emitting diode), with 0 meaning LED off</summary>
+        LedPower = 60,
+
+        /// <summary>Toggle Zero-Order mode</summary>
+        ZeroOrderEnabled = 61,
+
+        /// <summary>Preserve previous map when starting</summary>
+        EnableMapPreservation = 62,
+
+        /// <summary>Enable/disable sensor shutdown when a free-fall is detected (on by default)</summary>
+        FreeFallDetectionEnabled = 63,
+
+        /// <summary>Changes the exposure time of Avalanche Photo Diode in the receiver</summary>
+        APDExposureTime = 64,
+
+        /// <summary>Changes the amount of sharpening in the post-processed image</summary>
+        PostProcessingSharpening = 65,
+
+        /// <summary>Changes the amount of sharpening in the pre-processed image</summary>
+        PreProcessingSharpening = 66,
+
+        /// <summary>Control edges and background noise</summary>
+        NoiseFilterLevel = 67,
+
+        /// <summary>Enable\disable pixel invalidation</summary>
+        InvalidationBypass = 68,
+
+        /// <summary>Deprecated - Use digital gain option, Change the depth ambient light see rs2_ambient_light for values</summary>
+        AmbientLightEnvLevel = 69,
+
+        /// <summary>Change the depth digital gain see rs2_digital_gain for values</summary>
+        DigitalGain = 69,
+
+        /// <summary>The resolution mode: see rs2_sensor_mode for values</summary>
+        SensorMode = 70,
+
+        /// <summary>Enable Laser On constantly (GS SKU Only)</summary>
+        EmitterAlwaysOn = 71,
+
+        /// <summary>Depth Thermal Compensation for selected D400 SKUs</summary>
+        ThermalCompensation = 72,
+
+        /// <summary>Camera Accuracy Health</summary>
+        TriggerCameraAccuracyHealth = 73,
+
+        /// <summary>Reset Camera Accuracy Health</summary>
+        ResetCameraAccuracyHealth = 74,
+
+        /// <summary>Host Performance</summary>
+        HostPerformance = 75,
+
+        /// <summary>HDR Enabled (ON = 1, OFF = 0) - for D400 SKUs</summary>
+        HdrEnabled = 76,
+
+        /// <summary>Subpreset sequence Name - for D400 SKUs</summary>
+        SequenceName = 77,
+
+        /// <summary>Subpreset sequence size - for D400 SKUs</summary>
+        SequenceSize = 78,
+
+        /// <summary>Subpreset sequence id - for D400 SKUs</summary>
+        SequenceId = 79,
+
+        /// <summary>Humidity temperature [Deg Celsius]</summary>
+        HumidityTemperature = 80,
+
+        /// <summary>Turn on/off the maximum usable range who calculates the maximum range of the camera given the amount of ambient light in the scene </summary>
+         EnableMaxUsableRange = 81,
+
+        /// <summary>Turn on/off the alternate IR, When enabling alternate IR, the IR image is holding the amplitude of the depth correlation. </summary>
+        AlternateIR = 82,
+
+        /// <summary>Noise estimation on the IR image</summary>
+        NoiseEstimation = 83,
+
+        /// <summary>Enables data collection for calculating IR pixel reflectivity</summary>
+        EnableIrReflectivity = 84
+
     }
 }
