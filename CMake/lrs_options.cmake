@@ -33,4 +33,3 @@ option(FORCE_LIBUVC "Explicitly turn-on libuvc backend - deprecated, use FORCE_R
 option(FORCE_WINUSB_UVC "Explicitly turn-on winusb_uvc (for win7) backend - deprecated, use FORCE_RSUSB_BACKEND instead" OFF)
 option(ANDROID_USB_HOST_UVC "Build UVC backend for Android - deprecated, use FORCE_RSUSB_BACKEND instead" OFF)
 option(CHECK_FOR_UPDATES "Checks for versions updates" OFF)
-option(ENABLE_NEON "Enable NEON instructions. Linux ARM 32 only" OFF)
